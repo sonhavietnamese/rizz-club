@@ -1,11 +1,14 @@
-// wepinInstances.ts
+'use client'
+
+import { env } from '@/env'
 import { WepinLogin } from '@wepin/login-js'
 import { WepinProvider } from '@wepin/provider-js'
 import { WepinSDK } from '@wepin/sdk-js'
+import { WepinContext, WepinSDKContext } from './context'
+import { useEvmProvider, useWepin } from './hook'
 
-// Replace with your actual app ID and key
-const wepinAppID = 'ac0ad640e9a45fdcf8558dcc06dabab1'
-const wepinAppWebKey = 'ak_live_g5HOltL8OsrEVNj52wGpG5G4aiAxp8t0FtCkgBcCDlS'
+const wepinAppID = env.NEXT_PUBLIC_WEPIN_APP_ID
+const wepinAppWebKey = env.NEXT_PUBLIC_WEPIN_API_KEY
 
 export const wepinSdkInstance = new WepinSDK({
   appId: wepinAppID,
@@ -21,3 +24,5 @@ export const wepinProviderInstance = new WepinProvider({
   appId: wepinAppID,
   appKey: wepinAppWebKey,
 })
+
+export { useEvmProvider, useWepin, WepinContext, WepinSDKContext }

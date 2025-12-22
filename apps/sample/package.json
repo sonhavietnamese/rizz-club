@@ -1,0 +1,33 @@
+{
+  "name": "sample",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@t3-oss/env-nextjs": "^0.13.10",
+    "@tanstack/react-query": "^5.90.12",
+    "@wepin/login-js": "^0.0.35",
+    "@wepin/provider-js": "^0.0.35",
+    "@wepin/sdk-js": "^0.0.35",
+    "@wepin/wagmi-connector": "^2.0.0",
+    "next": "15.5.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "viem": "^2.43.1",
+    "wagmi": "^3.1.0",
+    "zod": "^4.2.1",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4"
+  }
+}
