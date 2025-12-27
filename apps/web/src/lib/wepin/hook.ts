@@ -1,9 +1,8 @@
-'use client'
-
-import { getNetworkInfoByName, BaseProvider } from '@wepin/provider-js'
+import { getNetworkInfoByName, type BaseProvider } from '@wepin/provider-js'
 import type { Account } from '@wepin/sdk-js'
-import { useState, useCallback, useEffect, useContext } from 'react'
-import { WepinContext, wepinProviderInstance } from './index'
+import { useCallback, useContext, useEffect, useState } from 'react'
+import { WepinContext } from './context'
+import { wepinProviderInstance } from './index'
 
 export function useEvmProvider(accountDetails: Account[] | undefined) {
   const [blockchainProvider, setBlockchainProvider] = useState<BaseProvider>()

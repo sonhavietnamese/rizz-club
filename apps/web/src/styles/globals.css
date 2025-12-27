@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Blur';
+  src: url('../assets/blur.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ProximaSoft';
+  src: url('../assets/ProximaSoft-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ProximaSoft';
+  src: url('../assets/ProximaSoft-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-background: #e3e3e3;
+  --font-blur: 'Blur', sans-serif;
+  --font-proxima: 'ProximaSoft', sans-serif;
+}
+
+body {
+  @apply bg-background;
+}
+
+.squircle {
+  corner-shape: squircle;
+}
+
+button:hover {
+  @apply cursor-pointer;
+}
