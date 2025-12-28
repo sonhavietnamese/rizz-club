@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+.squircle {
+  corner-shape: squircle;
+}
+
+.squircle-rounded-4xl {
+  corner-shape: superellipse(2);
+}
