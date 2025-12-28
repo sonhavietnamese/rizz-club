@@ -3,7 +3,7 @@
 // import Step3 from '@/components/step-3'
 import Step4 from '@/components/step-4'
 
-export default function App() {
+export default function Kols() {
   return (
     <main className="w-screen h-screen flex items-center justify-center p-6">
       <Step4 />
