@@ -8,6 +8,6 @@ interface UserTypeStore {
 }
 
 export const useUserTypeStore = create<UserTypeStore>((set) => ({
-  userType: 'fans',
+  userType: 'kols',
   setUserType: (userType: UserType) => set({ userType }),
 }))

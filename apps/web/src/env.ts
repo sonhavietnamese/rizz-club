@@ -7,6 +7,7 @@ export const env = createEnv({
   client: {
     VITE_WEPIN_APP_ID: z.string().min(1),
     VITE_WEPIN_API_KEY: z.string().min(1),
+    VITE_API_URL: z.string().min(1),
   },
 
   runtimeEnv: import.meta.env,

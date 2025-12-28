@@ -12,6 +12,7 @@
   "dependencies": {
     "@t3-oss/env-core": "^0.13.10",
     "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-query": "^5.90.14",
     "@wepin/login-js": "^0.0.35",
     "@wepin/provider-js": "^0.0.35",
     "@wepin/sdk-js": "^0.0.35",
