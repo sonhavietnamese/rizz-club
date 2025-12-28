@@ -1,7 +1,24 @@
 import texture02 from '@/assets/texture-02.png'
 import video from '@/assets/1228.mp4'
+import { cn } from '@/lib/utils'
+import { useUserTypeStore } from '@/stores/user-type'
+
+const CONTENTS = {
+  fans: {
+    title: 'Be more than a follower. Join, play, and belong.',
+    description: 'Turn followers into an active community',
+    button: 'Start as Fans',
+  },
+  kols: {
+    title: 'Turn followers into an active community',
+    description: 'Turn followers into an active community',
+    button: 'Start as KOLs',
+  },
+}
 
 export default function Landing() {
+  const { userType, setUserType } = useUserTypeStore()
+
   return (
     <main className="w-screen h-screen flex items-center justify-center bg-[#1E1E1E]">
       <section className="w-[500px] h-[440px] squircle rounded-[120px] p-6 bg-[#ffffff] relative overflow-hidden z-1">
@@ -63,22 +80,52 @@ export default function Landing() {
         </div>
 
         <p className="text-3xl font-bold font-proxima px-4 mt-6 z-10 opacity-80">
-          Turn followers into an active community
+          {CONTENTS[userType].title}
         </p>
 
         <div className="flex w-full absolute bottom-8 right-0 px-9 justify-end z-10">
-          <button className="rounded-full w-fit px-5 py-3.5 bg-[#CE89EC] text-white font-proxima text-[24px] leading-none font-bold">
-            Start as KOL
+          <button className="rounded-full w-fit px-5 py-3.5 bg-[#F480ED] text-white font-proxima text-[24px] leading-none font-bold">
+            {CONTENTS[userType].button}
           </button>
         </div>
 
         <div className="absolute top-8 right-8">
-          <button>KOLs</button>
-          <button>FANs</button>
+          <button className="text-white text-[16px] font-proxima leading-none">
+            KOLs
+          </button>
+          <button className="text-white text-[16px] font-proxima leading-none">
+            FANs
+          </button>
+        </div>
+
+        <div className="p-1 rounded-full bg-[#EFEFEF] z-10 absolute top-8 right-8 leading-none font-proxima text-[18px]">
+          <button
+            className={cn(
+              'px-3 py-2 rounded-full pt-2.5',
+              userType === 'fans'
+                ? 'bg-[#EF8992] text-white'
+                : 'bg-[#] text-black/50'
+            )}
+            onClick={() => setUserType('fans')}
+          >
+            Fans
+          </button>
+          <button
+            className={cn(
+              'px-3 py-2 rounded-full pt-2.5',
+              userType === 'kols'
+                ? 'bg-[#EF8992] text-white'
+                : 'bg-[#] text-black/50'
+            )}
+            onClick={() => setUserType('kols')}
+          >
+            KOLs
+          </button>
         </div>
 
         <figure className="w-full h-full absolute top-0 left-0 z-0">
           <img
+            draggable={false}
             src={texture02}
             alt="texture-02"
             className="w-full h-full object-cover bg-blend-lighten opacity-20"
@@ -86,6 +133,7 @@ export default function Landing() {
         </figure>
       </section>
       <video
+        draggable={false}
         src={video}
         className="w-full h-full object-cover absolute top-0 left-0 z-0"
         autoPlay
