@@ -14,7 +14,20 @@ export const createUser = async (user: UserInsert) => {
       })
       .returning()
 
-    return newUser[0]
+    const userData = newUser[0]
+
+    // Convert Date objects to ISO strings for JSON serialization
+    return {
+      ...userData,
+      createdAt:
+        userData.createdAt instanceof Date
+          ? userData.createdAt.toISOString()
+          : userData.createdAt,
+      updatedAt:
+        userData.updatedAt instanceof Date
+          ? userData.updatedAt.toISOString()
+          : userData.updatedAt,
+    }
   } catch (error) {
     console.error(error)
     throw error
@@ -27,9 +40,26 @@ export const getUserByAddress = async (address: string) => {
       .select()
       .from(users)
       .where(eq(users.address, address.toLowerCase()))
-    return user[0]
+
+    if (!user[0]) {
+      return null
+    }
+
+    // Convert Date objects to ISO strings for JSON serialization
+    const userData = user[0]
+    return {
+      ...userData,
+      createdAt:
+        userData.createdAt instanceof Date
+          ? userData.createdAt.toISOString()
+          : userData.createdAt,
+      updatedAt:
+        userData.updatedAt instanceof Date
+          ? userData.updatedAt.toISOString()
+          : userData.updatedAt,
+    }
   } catch (error) {
     console.error(error)
-    return error
+    throw error
   }
 }
