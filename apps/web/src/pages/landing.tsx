@@ -1,5 +1,5 @@
-import texture02 from '@/assets/texture-02.png'
 import video from '@/assets/1228.mp4'
+import texture02 from '@/assets/texture-02.png'
 import { cn } from '@/lib/utils'
 import { useUserTypeStore } from '@/stores/user-type'
 
