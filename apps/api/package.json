@@ -17,7 +17,7 @@
     "@toolwind/corner-shape": "^0.0.8-3",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
-    "next": "15.5.2",
+    "next": "^16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
