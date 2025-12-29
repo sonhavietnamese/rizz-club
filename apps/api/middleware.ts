@@ -2,13 +2,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Handle CORS
   const origin = request.headers.get('origin')
   const allowedOrigins = [
     'http://localhost:5173', // Vite default port
-    'http://localhost:3000',
-    'http://localhost:5174',
-    // Add your production domain here
+    'https://rizz-club-web.vercel.app',
   ]
 
   const response = NextResponse.next()
