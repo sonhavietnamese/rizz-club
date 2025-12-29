@@ -1,18 +1,13 @@
 import BackgroundVideo from '@/components/background-video'
-import LandingPanel from '@/components/panel-landing'
-import PanelKolRegister from '@/components/panel-kol-register'
+import LandingPanel from '@/screens/landing'
+import PanelKolRegister from '@/screens/kol-register'
 import { useCreateUser, useUserQuery } from '@/hooks/use-users'
 import { useWepin } from '@/lib/wepin'
 import { useUserTypeStore } from '@/stores/user-type'
+import { useStageStore, type Stages } from '@/stores/stage'
 import { AnimatePresence, motion } from 'motion/react'
+import Fans from '@/screens/fans'
 import { useEffect } from 'react'
-
-type Stages =
-  | 'prepare' // ready to login to wepin
-  | 'logged-in' // logged in to wepin
-  | 'checked-user' // after logged in, checked user exists
-  | 'register' // after checked user exists, register user
-  | 'completed' // after register user, completed
 
 const CONFIGS: Record<
   Stages,
@@ -44,7 +39,8 @@ const CONFIGS: Record<
 
 export default function Landing() {
   const { userType } = useUserTypeStore()
-  const { appStatus, accountDetails, userDetails } = useWepin()
+  const { appStatus, accountDetails } = useWepin()
+  const { stage, calculateStage } = useStageStore()
 
   // Get address from accountDetails
   const address = accountDetails?.[0]?.address
@@ -61,41 +57,25 @@ export default function Landing() {
   // Mutation to create user
   const createUserMutation = useCreateUser()
 
-  // Determine stage based on appStatus and query results
-  const stage: Stages = (() => {
-    if (!isLoggedIn) return 'prepare'
-    if (isCheckingUser) return 'logged-in'
-    if (user) return 'checked-user'
-    if (userError instanceof Error && userError.message === 'USER_NOT_FOUND') {
-      if (createUserMutation.isPending) return 'register'
-      if (createUserMutation.isSuccess) return 'completed'
-      return 'register'
-    }
-    return 'logged-in'
-  })()
-
-  // Auto-create user when in register stage
+  // Calculate stage based on appStatus and query results
   useEffect(() => {
-    if (
-      stage === 'register' &&
-      address &&
-      !createUserMutation.isPending &&
-      !createUserMutation.isSuccess
-    ) {
-      const username =
-        userDetails?.username ||
-        userDetails?.email ||
-        `user_${address.slice(0, 8)}`
-
-      const userToCreate = {
-        address,
-        username,
-        type: userType,
-      }
-
-      console.log('User needs to be created:', userToCreate)
-    }
-  }, [stage, address, userDetails, userType, createUserMutation])
+    calculateStage({
+      isLoggedIn,
+      isCheckingUser,
+      user,
+      userError,
+      createUserMutationPending: createUserMutation.isPending,
+      createUserMutationSuccess: createUserMutation.isSuccess,
+    })
+  }, [
+    isLoggedIn,
+    isCheckingUser,
+    user,
+    userError,
+    createUserMutation.isPending,
+    createUserMutation.isSuccess,
+    calculateStage,
+  ])
 
   return (
     <motion.main className="w-screen h-screen flex items-center justify-center bg-[#E3E3E3] p-6">
@@ -118,6 +98,7 @@ export default function Landing() {
           )}
 
           {stage === 'register' && userType === 'kols' && <PanelKolRegister />}
+          {stage === 'completed' && userType === 'fans' && <Fans />}
         </AnimatePresence>
       </motion.section>
       <BackgroundVideo

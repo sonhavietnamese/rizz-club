@@ -1,6 +1,15 @@
 import sampleAva from '@/assets/sample-avatar.png'
+import { useRegisterStore } from '@/stores/register'
 
-export default function Step1() {
+export default function Step4() {
+  const { username } = useRegisterStore()
+  const onCopyLinkClick = () => {
+    // get current url + username
+    const currentUrl = window.location.href
+    const link = `${currentUrl}${username}`
+    navigator.clipboard.writeText(link)
+  }
+
   return (
     <>
       <div className="w-full h-full z-10 flex flex-col relative">
@@ -23,7 +32,10 @@ export default function Step1() {
           </div>
 
           <div className="w-full p-5 absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-2 items-center justify-center">
-            <button className="bg-[#212121] rounded-[16px] outline-none text-[#ffffff]/60 text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">
+            <button
+              onClick={onCopyLinkClick}
+              className="bg-[#212121] rounded-[16px] outline-none text-[#ffffff]/60 text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold"
+            >
               Copy link
             </button>
             <button className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">

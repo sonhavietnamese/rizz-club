@@ -3,7 +3,7 @@ import { useRegisterStore } from '@/stores/register'
 import { useEffect } from 'react'
 
 export default function Step1() {
-  const { userDetails } = useWepin()
+  const { userDetails, logout } = useWepin()
   const { username, setUsername, setStep } = useRegisterStore()
 
   useEffect(() => {
@@ -19,6 +19,10 @@ export default function Step1() {
 
   const onNextClick = () => {
     setStep(2)
+  }
+
+  const onSignOutClick = () => {
+    logout()
   }
 
   return (
@@ -112,9 +116,12 @@ export default function Step1() {
 
           <div className="grid grid-cols-2 gap-4 items-center w-full justify-between select-none">
             <div className="flex items-center justify-start">
-              {/* <button className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">
-                Next
-              </button> */}
+              <button
+                onClick={onSignOutClick}
+                className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold"
+              >
+                Sign out
+              </button>
             </div>
             <div className="flex items-center justify-end">
               <button

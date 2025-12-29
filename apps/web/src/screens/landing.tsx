@@ -3,18 +3,27 @@ import { CONTENTS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useWepin } from '@/lib/wepin'
 import { useUserTypeStore } from '@/stores/user-type'
+import { useStageStore } from '@/stores/stage'
 import { motion } from 'motion/react'
 import { useState } from 'react'
 
 export default function LandingPanel() {
   const { userType, setUserType } = useUserTypeStore()
+  const { setStage } = useStageStore()
   const [isLoading, setIsLoading] = useState(false)
   const { loginWithUI } = useWepin()
 
   const handleOpenWidget = async () => {
+    // If userType is 'fans', set stage to 'completed' immediately to render Fans component
+
     setIsLoading(true)
     try {
       await loginWithUI()
+
+      if (userType === 'fans') {
+        setStage('completed')
+        return
+      }
     } catch (error) {
       console.error(error)
     } finally {
