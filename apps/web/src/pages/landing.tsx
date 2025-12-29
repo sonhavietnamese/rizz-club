@@ -123,7 +123,7 @@ export default function Landing() {
           height: CONFIGS[stage].height || 440,
           background: CONFIGS[stage].background || '#ffffff',
         }}
-        className="squircle rounded-[120px] p-6 relative overflow-hidden z-1"
+        className="squircle rounded-[100px] p-6 relative overflow-hidden z-1"
       >
         <motion.div
           animate={{
