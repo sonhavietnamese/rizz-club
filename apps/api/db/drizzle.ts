@@ -7,13 +7,32 @@ import { neon } from '@neondatabase/serverless'
 config({ path: '.env.local' })
 config({ path: '.env' })
 
-const databaseUrl = process.env.DATABASE_URL
+let _db: ReturnType<typeof drizzle> | null = null
 
-if (!databaseUrl) {
-  throw new Error(
-    'DATABASE_URL environment variable is not set. Please set it in your .env.local file or Vercel environment variables.'
-  )
+function getDatabase() {
+  if (!_db) {
+    const databaseUrl = process.env.DATABASE_URL
+
+    if (!databaseUrl) {
+      throw new Error(
+        'DATABASE_URL environment variable is not set. Please set it in your .env.local file or Vercel environment variables.'
+      )
+    }
+
+    const sql = neon(databaseUrl)
+    _db = drizzle(sql)
+  }
+
+  return _db
 }
 
-const sql = neon(databaseUrl)
-export const db = drizzle(sql)
+// Lazy initialization: only create the database connection when it's actually used
+// This prevents errors during build time when environment variables might not be available
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop) {
+    const dbInstance = getDatabase()
+    const value = dbInstance[prop as keyof typeof dbInstance]
+    // Bind methods to maintain 'this' context
+    return typeof value === 'function' ? value.bind(dbInstance) : value
+  },
+})
