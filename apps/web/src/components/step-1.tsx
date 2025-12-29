@@ -1,7 +1,29 @@
+import { useWepin } from '@/lib/wepin'
+import { useRegisterStore } from '@/stores/register'
+import { useEffect } from 'react'
+
 export default function Step1() {
+  const { userDetails } = useWepin()
+  const { username, setUsername, setStep } = useRegisterStore()
+
+  useEffect(() => {
+    if (userDetails) {
+      const username = userDetails.userInfo.email.split('@')[0]
+      setUsername(username)
+    }
+  }, [userDetails])
+
+  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUsername(e.target.value)
+  }
+
+  const onNextClick = () => {
+    setStep(2)
+  }
+
   return (
-    <section className="relative overflow-hidden w-auto h-full aspect-525/1018 bg-[#141414] squircle rounded-[80px] ">
-      <figure className="w-full h-full absolute top-0 left-0 z-0 select-none">
+    <>
+      <figure className="w-full h-full absolute top-0 left-0 z-0 select-none pointer-events-none">
         <svg
           className="w-full h-full"
           width="525"
@@ -70,34 +92,41 @@ export default function Step1() {
       </figure>
 
       <div className="w-full h-full z-10 flex flex-col justify-between relative">
-        <div className="select-none -rotate-3 flex flex-col p-8 items-center justify-center text-white text-[50px] font-blur leading-none">
+        <div className="select-none -rotate-3 flex flex-col p-8 items-center justify-center text-white text-[70px] font-blur leading-none">
           <span>HELLO</span>
           <span>PARTNER</span>
         </div>
 
-        <div className="flex flex-col justify-between p-8 gap-5">
+        <div className="flex flex-col justify-between p-5 gap-5">
           <div className="flex flex-col mt-20 items-center justify-center text-white text-[50px] font-blur leading-none">
             <span className="-rotate-2 select-none">YOU ARE</span>
 
             <div className="flex items-center justify-center w-full">
-              <input className="h-14 bg-[#212121]/90 mt-5 squircle rounded-[80px] outline-none text-white text-[24px] font-bold leading-none p-4 margin-auto text-center w-full font-proxima" />
+              <input
+                value={username}
+                onChange={onInputChange}
+                className="h-14 bg-[#212121]/90 mt-5 squircle rounded-[80px] outline-none text-white text-[24px] font-bold leading-none p-4 margin-auto text-center w-full font-proxima"
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 items-center w-full justify-between select-none">
             <div className="flex items-center justify-start">
-              <button className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">
+              {/* <button className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">
                 Next
-              </button>
+              </button> */}
             </div>
             <div className="flex items-center justify-end">
-              <button className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold">
+              <button
+                onClick={onNextClick}
+                className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold"
+              >
                 Next
               </button>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </>
   )
 }

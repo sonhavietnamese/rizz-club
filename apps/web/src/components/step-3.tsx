@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'motion/react'
+import { useRegisterStore } from '@/stores/register'
 
 interface Item {
   id: number
@@ -10,26 +11,27 @@ interface Item {
   description: string
 }
 
-export default function Step1() {
+export default function Step3() {
+  const { setStep } = useRegisterStore()
   const [items, setItems] = useState<Item[]>([
     {
       id: 1,
       name: 'Chat',
-      selected: false,
+      selected: true,
       description: 'Chat with your audience',
     },
 
     {
       id: 2,
       name: 'Prediction',
-      selected: false,
+      selected: true,
       description: 'Predict the outcome of a event',
     },
 
     {
       id: 3,
       name: 'Lixi',
-      selected: false,
+      selected: true,
       description: 'Lixi with your audience',
     },
   ])
@@ -42,10 +44,18 @@ export default function Step1() {
     )
   }
 
+  const onBackClick = () => {
+    setStep(2)
+  }
+
+  const onNextClick = () => {
+    setStep(4)
+  }
+
   return (
-    <section className="relative overflow-hidden w-auto h-full aspect-525/1018 bg-[#141414] squircle rounded-[150px]">
+    <>
       <div className="w-full h-full z-10 flex flex-col relative">
-        <div className="select-none -rotate-2 flex flex-col p-12 pb-0 items-center justify-center text-white text-[50px] font-blur leading-none">
+        <div className="select-none -rotate-2 flex flex-col p-12 pb-0 items-center justify-center text-white text-[60px] font-blur leading-none">
           <span>PICK YOUR</span>
           <span>ENGAGEMENT</span>
           <span>SET</span>
@@ -85,7 +95,26 @@ export default function Step1() {
             ))}
           </ul>
         </div>
+
+        <div className="grid grid-cols-2 gap-4 items-center w-full justify-between select-none p-5 absolute bottom-0 left-0 right-0">
+          <div className="flex items-center justify-start">
+            <button
+              onClick={onBackClick}
+              className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold"
+            >
+              Back
+            </button>
+          </div>
+          <div className="flex items-center justify-end">
+            <button
+              onClick={onNextClick}
+              className="bg-[#ffffff] rounded-[16px] outline-none text-black text-[20px] font-proxima leading-none p-3.5 py-2.5 margin-auto text-center font-bold"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
-    </section>
+    </>
   )
 }
