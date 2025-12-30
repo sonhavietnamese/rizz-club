@@ -30,6 +30,43 @@ const SOCIALS = [
   },
 ]
 
+const CHATS = [
+  {
+    id: 1,
+    username: 'birdy',
+    message: 'ggs',
+  },
+  {
+    id: 2,
+    username: 'coping_bozo',
+    message:
+      'briefly for like 5mins, when they saw birdy wins they was nah *** this not him',
+  },
+  {
+    id: 3,
+    username: 'decimal',
+    message: 'thanks for the motivation i g',
+  },
+]
+
+const PRODUCTS = [
+  {
+    id: 1,
+    name: 'Epione Chair',
+    image: '/products/01.png',
+  },
+  {
+    id: 2,
+    name: 'Epione Chair',
+    image: '/products/02.png',
+  },
+  {
+    id: 3,
+    name: 'Epione Chair',
+    image: '/products/03.png',
+  },
+]
+
 export default function Kols() {
   return (
     <main className="w-screen h-screen flex items-center justify-center bg-[#E3E3E3] p-6">
@@ -121,13 +158,19 @@ export default function Kols() {
           </div>
           <div className="w-full mt-5">
             <div className="flex gap-5 overflow-x-auto disabled-scroll pb-2">
-              {Array.from({ length: 10 }).map((_, index) => (
+              {PRODUCTS.map((product, index) => (
                 <div
                   key={index}
                   className="min-w-[300px] rotate-2 hover:rotate-0 transition-all duration-300 max-w-[320px] w-[80vw] rounded-[42px] bg-[#212121] p-4 flex flex-col gap-3 last:mb-0 flex-shrink-0"
                 >
                   <div className="flex flex-col gap-3">
-                    <figure className="w-full aspect-square rounded-[30px] overflow-hidden bg-[#D9D9D9]"></figure>
+                    <figure className="w-full aspect-square rounded-[30px] overflow-hidden bg-[#D9D9D9]">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </figure>
                   </div>
 
                   <div className="flex items-center justify-between px-3">
@@ -213,20 +256,15 @@ export default function Kols() {
           </div>
           <div className="w-full rounded-[30px] bg-[#212121] mt-5 p-6 h-[400px] overflow-y-auto relative">
             <div className="h-full w-full overflow-y-auto disabled-scroll space-y-4">
-              {Array.from({ length: 10 }).map((_, index) => (
+              {CHATS.map((chat, index) => (
                 <div
                   key={index}
                   className="flex gap-1.5 flex-col font-proxima text-[18px] leading-none last:mb-20"
                 >
                   <span className="text-white/50 text-[18px]">
-                    @sonhavietnamese
+                    @{chat.username}
                   </span>
-                  <span className="text-white text-[18px]">
-                    Lorem ipsum dolor sit, amet consectetur adipisicing elit.
-                    Voluptate sequi saepe iure hic ipsa porro suscipit esse
-                    deserunt? Ex cumque voluptate saepe nemo aut distinctio
-                    facere explicabo doloribus atque ipsam?
-                  </span>
+                  <span className="text-white text-[18px]">{chat.message}</span>
                 </div>
               ))}
             </div>
@@ -247,14 +285,17 @@ export default function Kols() {
             </span>
           </div>
           <div className="w-full mt-5">
-            <div className="w-full h-[200px] bg-[#212121] rounded-[30px]">
+            <div className="w-full bg-[#212121] rounded-[30px]">
               <div className="p-7 font-proxima text-[20px] leading-none text-white flex flex-col gap-6">
+                <span className="text-[24px] font-bold text-white font-proxima">
+                  Does Epione Chair will drop new model in Jan 2026?
+                </span>
                 <div className="flex flex-col gap-3 w-full">
-                  <span className="text-[24px] font-bold">Option 1</span>
+                  <span className="text-[24px] font-bold">Yes</span>
                   <div className="grid grid-cols-[1fr_80px] w-full gap-2">
                     <div
                       id="progress"
-                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[37%] self-center overflow-hidden"
+                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[80%] self-center overflow-hidden"
                     >
                       <img
                         src={texture03}
@@ -263,16 +304,16 @@ export default function Kols() {
                       />
                     </div>
                     <span className="text-right font-proxima text-[24px] opacity-50">
-                      37%
+                      80%
                     </span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 w-full">
-                  <span className="text-[24px] font-bold">Option 2</span>
+                  <span className="text-[24px] font-bold">No</span>
                   <div className="grid grid-cols-[1fr_80px] w-full gap-2">
                     <div
                       id="progress"
-                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[63%] self-center overflow-hidden"
+                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[20%] self-center overflow-hidden"
                     >
                       <img
                         src={texture04}
@@ -281,7 +322,7 @@ export default function Kols() {
                       />
                     </div>
                     <span className="text-right font-proxima text-[24px] opacity-50">
-                      63%
+                      20%
                     </span>
                   </div>
                 </div>
@@ -304,7 +345,7 @@ export default function Kols() {
 
               <div className="w-full h-full z-10 relative p-6 leading-none">
                 <span className="font-blur text-[40px] text-white">
-                  300 $VERY
+                  1000 $VERY
                 </span>
 
                 <button className="absolute bottom-5 right-5 bg-[#141414] text-white font-proxima text-[24px] leading-none font-bold px-6 py-3 rounded-[20px]">
