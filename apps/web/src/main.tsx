@@ -1,4 +1,5 @@
 import { Providers } from '@/components/providers'
+import Kols from '@/pages/kols'
 import Landing from '@/pages/landing'
 import '@/styles/globals.css'
 import { createRoot } from 'react-dom/client'
@@ -9,6 +10,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/kols/:id" element={<Kols />} />
       </Routes>
     </BrowserRouter>
   </Providers>
