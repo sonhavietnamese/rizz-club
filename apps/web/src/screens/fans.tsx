@@ -1,5 +1,49 @@
 import texture01 from '@/assets/texture-01.png'
+import texture03 from '@/assets/texture-03.png'
+import texture04 from '@/assets/texture-04.png'
+import { useWepin } from '@/lib/wepin'
+
+const POSTS = [
+  {
+    id: 1,
+    avatar: '/kols/10.png',
+    image: '/posts/01.png',
+    title: 'Grab a cake for afternoon break :)!',
+    kol: 'not.phwgahnn',
+    likes: 52,
+    comments: 20,
+  },
+  {
+    id: 2,
+    avatar: '/kols/11.png',
+    image: '/posts/02.png',
+    title: 'Dawg, Uniqlo released a small chip chip cute as shiettt =)))))',
+    kol: '_vhoangtr98',
+    likes: 35,
+    comments: 12,
+  },
+  {
+    id: 3,
+    avatar: '/kols/12.png',
+    image: '/posts/03.png',
+    title: 'Deadly lamp lol, grab it below!',
+    kol: 'tcues.billiard',
+    likes: 27,
+    comments: 7,
+  },
+  {
+    id: 4,
+    avatar: '/kols/07.png',
+    image: '/posts/04.png',
+    title: 'If you are free, come grab this piece',
+    kol: 'b_0_u_0',
+    likes: 72,
+    comments: 30,
+  },
+]
+
 export default function Fans() {
+  const { openWidget } = useWepin()
   return (
     <>
       <div className="flex items-center justify-between p-6 absolute top-0 left-0 w-full bg-transparent">
@@ -205,11 +249,17 @@ export default function Fans() {
         <div className="w-full">
           <div className="w-full overflow-x-auto disabled-scroll">
             <ul className="flex flex-row gap-2 py-2 w-full">
-              {Array.from({ length: 10 }).map((_, index) => (
+              {Array.from({ length: 9 }).map((_, index) => (
                 <li
                   key={index}
-                  className="w-20 min-w-20 aspect-square rounded-3xl bg-[#807A7E] shrink-0"
-                ></li>
+                  className="w-20 min-w-20 aspect-square rounded-3xl bg-[#807A7E] shrink-0 overflow-hidden"
+                >
+                  <img
+                    src={`/kols/0${index + 1}.png`}
+                    alt="logo-very"
+                    className="w-full h-full object-cover"
+                  />
+                </li>
               ))}
             </ul>
           </div>
@@ -217,29 +267,37 @@ export default function Fans() {
 
         <div className="w-full mt-3 flex flex-col gap-3 flex-1 h-0">
           <div className="flex-1 h-0  flex flex-col gap-3">
-            {Array.from({ length: 10 }).map((_, index) => (
+            {POSTS.slice(0, 2).map((post, index) => (
               <div
                 key={index}
                 className="w-full rounded-[30px] bg-[#212121] p-4 flex flex-col gap-3 last:mb-20"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 aspect-square rounded-full bg-[#807A7E]"></div>
+                  <div className="w-14 h-14 aspect-square rounded-full overflow-hidden">
+                    <img
+                      src={post.avatar}
+                      alt={post.kol}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="flex flex-col leading-none text-white font-proxima gap-1">
-                    <span className="text-[18px] font-bold">ngochuyen</span>
+                    <span className="text-[18px] font-bold">{post.kol}</span>
                     <span className="text-white/50">2s ago</span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3">
                   <div className="leading-none text-white/90 font-proxima text-[15px] px-1">
-                    <span>
-                      Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                      Iste eos itaque explicabo corrupti esse hic error ex
-                      option.
-                    </span>
+                    <span>{post.title}</span>
                   </div>
 
-                  <figure className="w-full aspect-video rounded-[30px] overflow-hidden bg-[#D9D9D9]"></figure>
+                  <figure className="w-full rounded-[30px] overflow-hidden ">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </figure>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -273,7 +331,9 @@ export default function Fans() {
                         </svg>
                       </div>
 
-                      <span className="text-white text-[15px]">3</span>
+                      <span className="text-white text-[15px]">
+                        {post.likes}
+                      </span>
                     </button>
                     <button className="flex gap-1 items-center justify-center">
                       <div className="w-5 aspect-square">
@@ -311,7 +371,214 @@ export default function Fans() {
                         </svg>
                       </div>
 
-                      <span className="text-white text-[15px]">3</span>
+                      <span className="text-white text-[15px]">
+                        {post.comments}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button className="w-5 aspect-square">
+                      <svg
+                        className="w-full h-full"
+                        width="32"
+                        height="32"
+                        viewBox="0 0 32 32"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M21.2525 16.0177H21.2645"
+                          stroke="white"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M15.9077 16.0177H15.9197"
+                          stroke="white"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M10.562 16.0177H10.574"
+                          stroke="white"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <section className="">
+              <div className="w-full mt-5">
+                <div className="w-full bg-[#212121] rounded-[30px]">
+                  <div className="flex items-center gap-3 p-6 pb-0">
+                    <div className="w-14 h-14 aspect-square rounded-full overflow-hidden">
+                      <img
+                        src={'/kols/09.png'}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col leading-none text-white font-proxima gap-1">
+                      <span className="text-[18px] font-bold">n.boni</span>
+                      <span className="text-white/50">2s ago</span>
+                    </div>
+                  </div>
+
+                  <div className="p-7 font-proxima text-[20px] leading-none text-white flex flex-col gap-6">
+                    <div className="flex flex-col gap-3 w-full">
+                      <span className="text-[24px] font-bold">Option 1</span>
+                      <div className="grid grid-cols-[1fr_80px] w-full gap-2">
+                        <div
+                          id="progress"
+                          className="h-[16px] bg-[#807A7E] rounded-[30px] w-[37%] self-center overflow-hidden"
+                        >
+                          <img
+                            src={texture03}
+                            alt="texture-03"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-right font-proxima text-[24px] opacity-50">
+                          37%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3 w-full">
+                      <span className="text-[24px] font-bold">Option 2</span>
+                      <div className="grid grid-cols-[1fr_80px] w-full gap-2">
+                        <div
+                          id="progress"
+                          className="h-[16px] bg-[#807A7E] rounded-[30px] w-[63%] self-center overflow-hidden"
+                        >
+                          <img
+                            src={texture04}
+                            alt="texture-03"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-right font-proxima text-[24px] opacity-50">
+                          63%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            {POSTS.slice(2, 4).map((post, index) => (
+              <div
+                key={index}
+                className="w-full rounded-[30px] bg-[#212121] p-4 flex flex-col gap-3 last:mb-20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 aspect-square rounded-full overflow-hidden">
+                    <img
+                      src={post.avatar}
+                      alt={post.kol}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col leading-none text-white font-proxima gap-1">
+                    <span className="text-[18px] font-bold">{post.kol}</span>
+                    <span className="text-white/50">2s ago</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="leading-none text-white/90 font-proxima text-[15px] px-1">
+                    <span>{post.title}</span>
+                  </div>
+
+                  <figure className="w-full rounded-[30px] overflow-hidden ">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </figure>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <button className="flex gap-1 items-center justify-center">
+                      <div className="w-5 aspect-square">
+                        <svg
+                          className="w-full h-full"
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M3.82883 15.4644C2.39816 10.9978 4.07016 5.89243 8.75949 4.38176C11.2262 3.58576 13.9488 4.0551 15.9995 5.59776C17.9395 4.09776 20.7622 3.5911 23.2262 4.38176C27.9155 5.89243 29.5982 10.9978 28.1688 15.4644C25.9422 22.5444 15.9995 27.9978 15.9995 27.9978C15.9995 27.9978 6.13016 22.6271 3.82883 15.4644Z"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M21.333 8.93311C22.7597 9.39444 23.7677 10.6678 23.889 12.1624"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+
+                      <span className="text-white text-[15px]">
+                        {post.likes}
+                      </span>
+                    </button>
+                    <button className="flex gap-1 items-center justify-center">
+                      <div className="w-5 aspect-square">
+                        <svg
+                          className="w-full h-full"
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M15.323 3.71826H10.3377C6.23766 3.71826 3.66699 6.62093 3.66699 10.7303V21.8156C3.66699 25.9249 6.22566 28.8276 10.3377 28.8276H22.103C26.2163 28.8276 28.775 25.9249 28.775 21.8156V16.4449"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M11.7699 14.561L21.7338 4.59699C22.9752 3.35699 24.9872 3.35699 26.2285 4.59699L27.8512 6.21966C29.0925 7.46099 29.0925 9.47432 27.8512 10.7143L17.8392 20.7263C17.2965 21.269 16.5605 21.5743 15.7925 21.5743H10.7979L10.9232 16.5343C10.9419 15.793 11.2445 15.0863 11.7699 14.561Z"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M20.2197 6.13623L26.3077 12.2242"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+
+                      <span className="text-white text-[15px]">
+                        {post.comments}
+                      </span>
                     </button>
                   </div>
 
@@ -434,7 +701,10 @@ export default function Fans() {
           </svg>
         </figure>
 
-        <button className="p-3 bg-[#807A7E] rounded-full w-fit z-10">
+        <button
+          className="p-3 bg-[#807A7E] rounded-full w-fit z-10"
+          onClick={openWidget}
+        >
           <svg
             width="31"
             height="31"

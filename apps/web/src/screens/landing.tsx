@@ -15,15 +15,14 @@ export default function LandingPanel() {
 
   const handleOpenWidget = async () => {
     // If userType is 'fans', set stage to 'completed' immediately to render Fans component
+    if (userType === 'fans') {
+      setStage('completed')
+      return
+    }
 
     setIsLoading(true)
     try {
       await loginWithUI()
-
-      if (userType === 'fans') {
-        setStage('completed')
-        return
-      }
     } catch (error) {
       console.error(error)
     } finally {
