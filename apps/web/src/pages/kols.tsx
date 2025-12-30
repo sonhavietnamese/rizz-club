@@ -1,7 +1,8 @@
-import texture01 from '@/assets/texture-01.png'
 import avatar from '@/assets/sample-avatar.png'
 import badge01 from '@/assets/badge-01.png'
 import cover01 from '@/assets/cover-01.png'
+import texture03 from '@/assets/texture-03.png'
+import texture04 from '@/assets/texture-04.png'
 
 export default function Kols() {
   return (
@@ -51,36 +52,12 @@ export default function Kols() {
           </div>
         </div>
 
-        <section className="px-6">
+        <section className="px-6 mt-5">
           <div className="px-2">
-            <span className="text-white font-blur text-[24px]">Chat</span>
+            <span className="text-white font-blur text-[24px]">Attention!</span>
           </div>
-          <div className="w-full rounded-[30px] bg-[#212121] mt-2 p-6 h-[400px] overflow-y-auto  relative">
-            <div className="h-full w-full overflow-y-auto disabled-scroll space-y-4">
-              {Array.from({ length: 10 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="flex gap-1.5 flex-col font-proxima text-[18px] leading-none last:mb-20"
-                >
-                  <span className="text-white/50 text-[18px]">
-                    @sonhavietnamese
-                  </span>
-                  <span className="text-white text-[18px]">
-                    Lorem ipsum dolor sit, amet consectetur adipisicing elit.
-                    Voluptate sequi saepe iure hic ipsa porro suscipit esse
-                    deserunt? Ex cumque voluptate saepe nemo aut distinctio
-                    facere explicabo doloribus atque ipsam?
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="absolute bottom-0 left-0 w-full p-5 z-10 bg-[#212121]">
-              <input
-                placeholder="Drop your message"
-                className="h-14 bg-[#171717]/90  squircle rounded-[80px] outline-none text-white text-[20px] leading-none p-4 px-6 w-full font-proxima"
-              />
-            </div>
+          <div className="w-full rounded-[30px] bg-[#212121] mt-5 p-6 h-[200px] overflow-y-auto relative">
+            <div className="h-full w-full overflow-y-auto disabled-scroll space-y-4"></div>
           </div>
         </section>
 
@@ -88,7 +65,7 @@ export default function Kols() {
           <div className="px-2">
             <span className="text-white font-blur text-[24px]">Products</span>
           </div>
-          <div className="w-full mt-3">
+          <div className="w-full mt-5">
             <div className="flex gap-5 overflow-x-auto disabled-scroll pb-2">
               {Array.from({ length: 10 }).map((_, index) => (
                 <div
@@ -176,7 +153,90 @@ export default function Kols() {
           </div>
         </section>
 
-        <div className="w-full h-[20px]"></div>
+        <section className="px-6 mt-10">
+          <div className="px-2">
+            <span className="text-white font-blur text-[24px]">Chat</span>
+          </div>
+          <div className="w-full rounded-[30px] bg-[#212121] mt-5 p-6 h-[400px] overflow-y-auto relative">
+            <div className="h-full w-full overflow-y-auto disabled-scroll space-y-4">
+              {Array.from({ length: 10 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex gap-1.5 flex-col font-proxima text-[18px] leading-none last:mb-20"
+                >
+                  <span className="text-white/50 text-[18px]">
+                    @sonhavietnamese
+                  </span>
+                  <span className="text-white text-[18px]">
+                    Lorem ipsum dolor sit, amet consectetur adipisicing elit.
+                    Voluptate sequi saepe iure hic ipsa porro suscipit esse
+                    deserunt? Ex cumque voluptate saepe nemo aut distinctio
+                    facere explicabo doloribus atque ipsam?
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute bottom-0 left-0 w-full p-5 z-10 bg-[#212121]">
+              <input
+                placeholder="Drop your message"
+                className="h-14 bg-[#171717]/90  squircle rounded-[80px] outline-none text-white text-[20px] leading-none p-4 px-6 w-full font-proxima"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="px-6 mt-10">
+          <div className="px-2">
+            <span className="text-white font-blur text-[24px]">
+              Will it be?
+            </span>
+          </div>
+          <div className="w-full mt-5">
+            <div className="w-full h-[200px] bg-[#212121] rounded-[30px]">
+              <div className="p-7 font-proxima text-[20px] leading-none text-white flex flex-col gap-6">
+                <div className="flex flex-col gap-3 w-full">
+                  <span className="text-[24px] font-bold">Option 1</span>
+                  <div className="grid grid-cols-[1fr_80px] w-full gap-2">
+                    <div
+                      id="progress"
+                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[37%] self-center overflow-hidden"
+                    >
+                      <img
+                        src={texture03}
+                        alt="texture-03"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <span className="text-right font-proxima text-[24px] opacity-50">
+                      37%
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 w-full">
+                  <span className="text-[24px] font-bold">Option 2</span>
+                  <div className="grid grid-cols-[1fr_80px] w-full gap-2">
+                    <div
+                      id="progress"
+                      className="h-[16px] bg-[#807A7E] rounded-[30px] w-[63%] self-center overflow-hidden"
+                    >
+                      <img
+                        src={texture04}
+                        alt="texture-03"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <span className="text-right font-proxima text-[24px] opacity-50">
+                      63%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="w-full h-[24px]"></div>
 
         {/* <aside className="flex items-center justify-between p-6 absolute bottom-0 right-0 w-full">
           <div className="p-3 w-fit px-4 relative overflow-hidden rounded-full z-10">
