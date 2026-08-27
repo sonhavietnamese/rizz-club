@@ -1,10 +1,23 @@
 'use client'
 
-import { useLogin } from '@privy-io/react-auth'
+import { env } from '@/env'
+import { useLogin, useSigners } from '@privy-io/react-auth'
 import { useState } from 'react'
 
 export default function CtaBtnGroup() {
-  const { login } = useLogin()
+  const { addSigners } = useSigners()
+  const { login } = useLogin({
+    onComplete: async (params) => {
+      if (!params.user.wallet?.address) {
+        return
+      }
+
+      await addSigners({
+        address: params.user.wallet.address,
+        signers: [{ signerId: env.NEXT_PUBLIC_AUTHORIZATION_ID }],
+      })
+    },
+  })
 
   const [isRegistering, setIsRegistering] = useState(false)
 

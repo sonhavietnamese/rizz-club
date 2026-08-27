@@ -2,7 +2,6 @@
 
 import {
   usePrivy,
-  useSessionSigners,
   useSigners,
   useUser,
   type LinkedAccountWithMetadata,
