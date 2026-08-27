@@ -21,7 +21,6 @@ export async function POST(request: Request) {
     .ethereum()
     .sendTransaction(wallet_id, {
       caip2,
-
       params: {
         transaction: {
           to: '0x06f662De250608D954b3bf0Dcf8D15dd74a6E1b3',

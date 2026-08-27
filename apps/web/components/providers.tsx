@@ -2,11 +2,55 @@
 
 import { env } from '@/env'
 import { config as wagmiConfig } from '@/lib/wagmi'
-import { PrivyProvider } from '@privy-io/react-auth'
+import {
+  PrivyProvider,
+  usePrivy,
+  useSessionSigners,
+  useUser,
+  type LinkedAccountWithMetadata,
+  type WalletWithMetadata,
+} from '@privy-io/react-auth'
 import { WagmiProvider } from '@privy-io/wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 
 const queryClient = new QueryClient()
+
+function isServerSignableWallet(account: LinkedAccountWithMetadata): account is WalletWithMetadata {
+  return (
+    account.type === 'wallet' &&
+    account.chainType === 'ethereum' &&
+    (account.walletClientType === 'privy' || account.walletClientType === 'privy-v2')
+  )
+}
+
+function WalletSessionSignerManager() {
+  const { ready, authenticated, user } = usePrivy()
+  const { refreshUser } = useUser()
+  const { addSessionSigners } = useSessionSigners()
+  const attemptedWallets = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (!ready || !authenticated || !user) return
+
+    const wallet = user.linkedAccounts.find(isServerSignableWallet)
+
+    if (!wallet || wallet.id || attemptedWallets.current.has(wallet.address)) return
+
+    attemptedWallets.current.add(wallet.address)
+
+    addSessionSigners({
+      address: wallet.address,
+      signers: [{ signerId: env.NEXT_PUBLIC_AUTHORIZATION_ID }],
+    })
+      .then(() => refreshUser())
+      .catch((error) => {
+        console.error('Failed to provision server signer for embedded wallet:', error)
+      })
+  }, [addSessionSigners, authenticated, ready, refreshUser, user])
+
+  return null
+}
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +65,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
+      <WalletSessionSignerManager />
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>{children}</WagmiProvider>
       </QueryClientProvider>
