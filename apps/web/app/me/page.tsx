@@ -11,6 +11,9 @@ import {
 import { env } from '@/env'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import type { Address } from 'viem'
+import { formatUnits, isAddress } from 'viem'
+import { useBalance } from 'wagmi'
 
 type SignTestResult = {
   walletId: string
@@ -21,6 +24,16 @@ type SignTestResult = {
   serverSignEnabled: boolean
   error?: string
   details?: string
+}
+
+type FaucetResult = {
+  hash?: string
+  requester?: string
+  amount?: string
+  symbol?: string
+  status?: string
+  error?: string
+  details?: string | string[]
 }
 
 function valueFrom(account: LinkedAccountWithMetadata, key: string) {
@@ -40,6 +53,27 @@ function formatDate(value: User['createdAt']) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function formatTokenAmount(value?: string) {
+  if (!value) return '0'
+
+  const [whole, fraction = ''] = value.split('.')
+  const trimmedFraction = fraction.slice(0, 4).replace(/0+$/, '')
+
+  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole
+}
+
+function faucetErrorMessage(result: FaucetResult) {
+  if (Array.isArray(result.details) && result.details.length > 0) {
+    return result.details.join(', ')
+  }
+
+  if (typeof result.details === 'string') {
+    return result.details
+  }
+
+  return result.error ?? 'Faucet request failed'
 }
 
 function getDisplayName(user: User) {
@@ -93,10 +127,25 @@ export default function MePage() {
   const { ready, authenticated, user, logout } = usePrivy()
   const { refreshUser } = useUser()
   const { addSigners } = useSigners()
+  const primaryWalletAddress =
+    user?.wallet?.address && isAddress(user.wallet.address) ? (user.wallet.address as Address) : undefined
+  const {
+    data: balance,
+    isLoading: isBalanceLoading,
+    isFetching: isBalanceFetching,
+    refetch: refetchBalance,
+  } = useBalance({
+    address: primaryWalletAddress,
+    query: {
+      enabled: Boolean(primaryWalletAddress),
+    },
+  })
   const [isSigning, setIsSigning] = useState(false)
   const [signResult, setSignResult] = useState<SignTestResult | null>(null)
   const [signError, setSignError] = useState<string | null>(null)
-  const [isDelegating, setIsDelegating] = useState(false)
+  const [isClaimingFaucet, setIsClaimingFaucet] = useState(false)
+  const [faucetResult, setFaucetResult] = useState<FaucetResult | null>(null)
+  const [faucetError, setFaucetError] = useState<string | null>(null)
   const [delegateMessage, setDelegateMessage] = useState<string | null>(null)
   const [delegateError, setDelegateError] = useState<string | null>(null)
 
@@ -124,6 +173,13 @@ export default function MePage() {
   const serverWalletId = user.wallet?.id ?? null
   const embeddedWallet = linkedAccounts.find(isServerSignableWallet)
   const hasServerSigner = Boolean(serverWalletId)
+  const balanceLabel = primaryWalletAddress
+    ? balance
+      ? `${formatTokenAmount(formatUnits(balance.value, balance.decimals))} ${balance.symbol}`
+      : isBalanceLoading
+        ? 'Loading...'
+        : 'Unavailable'
+    : 'No wallet'
 
   async function handleDelegateWallet() {
     if (!embeddedWallet) {
@@ -133,7 +189,6 @@ export default function MePage() {
     }
 
     try {
-      setIsDelegating(true)
       setDelegateError(null)
       setDelegateMessage(null)
 
@@ -148,8 +203,42 @@ export default function MePage() {
       setDelegateMessage('Server signer provisioned successfully. Server signing is ready to test.')
     } catch (error) {
       setDelegateError(error instanceof Error ? error.message : 'Failed to provision server signer.')
+    }
+  }
+
+  async function handleFaucetClaim() {
+    if (!primaryWalletAddress) {
+      setFaucetResult(null)
+      setFaucetError('No valid wallet address found.')
+      return
+    }
+
+    try {
+      setIsClaimingFaucet(true)
+      setFaucetError(null)
+      setFaucetResult(null)
+
+      const response = await fetch('/api/faucet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: primaryWalletAddress,
+        }),
+      })
+      const result = (await response.json().catch(() => ({}))) as FaucetResult
+
+      if (!response.ok) {
+        throw new Error(faucetErrorMessage(result))
+      }
+
+      setFaucetResult(result)
+      await refetchBalance()
+    } catch (error) {
+      setFaucetError(error instanceof Error ? error.message : 'Faucet request failed')
     } finally {
-      setIsDelegating(false)
+      setIsClaimingFaucet(false)
     }
   }
 
@@ -213,9 +302,10 @@ export default function MePage() {
           </button>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-4">
           <DetailRow label="Privy ID" value={user.id} />
           <DetailRow label="Primary Wallet" value={formatAddress(primaryWallet)} />
+          <DetailRow label="Balance" value={balanceLabel} />
           <DetailRow label="Joined" value={formatDate(user.createdAt)} />
         </section>
 
@@ -233,9 +323,22 @@ export default function MePage() {
                 Server signer status:{' '}
                 {embeddedWallet ? (hasServerSigner ? 'Provisioned' : 'Not provisioned') : 'No embedded wallet'}
               </p>
+              <p className="mt-1 max-w-2xl text-sm font-semibold opacity-75">
+                STT balance: {balanceLabel}
+                {isBalanceFetching && !isBalanceLoading ? ' (refreshing...)' : ''}
+              </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void handleFaucetClaim()}
+                disabled={!primaryWalletAddress || isClaimingFaucet}
+                className="h-11 rounded-md bg-[#D9903D] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#9B5A21] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {isClaimingFaucet ? 'Claiming...' : 'Faucet'}
+              </button>
+
               <button
                 type="button"
                 onClick={() => void handleDelegateWallet()}
@@ -265,6 +368,23 @@ export default function MePage() {
             <p className="mt-4 rounded-md bg-[#F7E0B8] px-4 py-3 text-sm font-semibold text-[#8A2D25]">
               {delegateError}
             </p>
+          )}
+
+          {faucetError && (
+            <p className="mt-4 rounded-md bg-[#F7E0B8] px-4 py-3 text-sm font-semibold text-[#8A2D25]">
+              {faucetError}
+            </p>
+          )}
+
+          {faucetResult?.hash && (
+            <div className="mt-4 grid gap-3 rounded-md bg-[#F7E0B8] p-4 text-sm">
+              <DetailRow
+                label="Faucet"
+                value={`Sent ${faucetResult.amount ?? '1'} ${faucetResult.symbol ?? 'STT'}`}
+              />
+              <DetailRow label="Transaction" value={faucetResult.hash} />
+              <DetailRow label="Status" value={faucetResult.status ?? 'Submitted'} />
+            </div>
           )}
 
           {signError && (
