@@ -14,8 +14,6 @@ export const dreamDexConfig = {
   priceFeed: SOMNIA_TESTNET_PRICE_FEED,
 } satisfies SomniaMarketsConfig
 
-export const dreamDexPublicWsUrl = 'wss://stg.api.dreamdex.io/v0/ws/public'
-
 export function createDreamDexExchange(config: Partial<SomniaMarketsConfig> = {}) {
   return new SomniaMarkets({
     ...dreamDexConfig,

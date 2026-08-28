@@ -1,13 +1,13 @@
 import privy, { authorizationContext } from '@/lib/privy'
+import { createDreamDexExchange } from '@/lib/dreamdex'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
-import { verifyMessage } from 'viem'
+import { createViemAccount } from '@privy-io/node/viem'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
 
-const signMessageBodySchema = z.object({
+const balanceBodySchema = z.object({
   wallet_id: z.string().min(1),
-  message: z.string().min(1).max(2_000).optional(),
 })
 
 function errorMessage(error: unknown) {
@@ -16,7 +16,7 @@ function errorMessage(error: unknown) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
-  const parseResult = signMessageBodySchema.safeParse(body)
+  const parseResult = balanceBodySchema.safeParse(body)
 
   if (!parseResult.success) {
     return Response.json(
@@ -29,42 +29,33 @@ export async function POST(request: Request) {
   }
 
   const { wallet_id: walletId } = parseResult.data
-  const message =
-    parseResult.data.message ?? `Rizz Club server-sign test at ${new Date().toISOString()}`
+  let exchange: ReturnType<typeof createDreamDexExchange> | null = null
 
   try {
     const { wallet } = await requirePrivyEthereumWallet(request, walletId)
 
-    const signedMessage = await privy.wallets().ethereum().signMessage(walletId, {
-      message,
-      authorization_context: authorizationContext,
+    const account = createViemAccount(privy, {
+      walletId,
+      address: wallet.address as `0x${string}`,
+      authorizationContext,
     })
 
-    const verified = await verifyMessage({
-      address: wallet.address as `0x${string}`,
-      message,
-      signature: signedMessage.signature as `0x${string}`,
-    })
+    exchange = createDreamDexExchange({ account })
+    const balances = await exchange.fetchBalance()
 
     return Response.json({
       walletId,
       address: wallet.address,
-      message,
-      signature: signedMessage.signature,
-      encoding: signedMessage.encoding,
-      verified,
-      serverSignEnabled: verified,
+      balances,
     })
   } catch (error) {
-    console.error('Server sign message failed:', error)
+    console.error('Load DreamDex balances failed:', error)
 
     if (error instanceof TradingApiError) {
       return Response.json(
         {
           error: error.message,
           ...error.context,
-          walletId,
-          serverSignEnabled: false,
         },
         { status: error.status }
       )
@@ -72,12 +63,13 @@ export async function POST(request: Request) {
 
     return Response.json(
       {
-        error: 'Server sign message failed',
+        error: 'Load DreamDex balances failed',
         details: errorMessage(error),
         walletId,
-        serverSignEnabled: false,
       },
       { status: 500 }
     )
+  } finally {
+    await exchange?.close()
   }
 }

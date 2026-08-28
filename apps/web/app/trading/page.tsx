@@ -5,40 +5,153 @@ import {
   MarketList,
   OrderBookPanel,
   PositionSummary,
+  RewardClaimPanel,
   SelectedMarketHeader,
   StatusPanel,
   TradeTicket,
   TradingHeader,
   formatNumber,
   ohlcvToCandle,
+  type Candle,
   type Outcome,
+  type RewardClaimResult,
+  type Timeframe,
   type TradingStatus,
 } from './components'
 import { createDreamDexExchange } from '@/lib/dreamdex'
-import { type Candle, type Timeframe } from '@/lib/dreamdex-feed'
 import {
   isBinaryMarket,
   type UnifiedBalances,
   type UnifiedMarket,
-  type UnifiedOrder,
   type UnifiedOrderBook,
 } from '@somnia-chain/markets-sdk'
 import { usePrivy } from '@privy-io/react-auth'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
-import type { Hex } from 'viem'
-import { useWalletClient } from 'wagmi'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const chartRefreshMs = 15_000
+
+type PlacePositionApiResponse = {
+  order: {
+    status: string
+    filled: number
+    amount: number
+    txHash?: string
+  }
+  balances?: UnifiedBalances
+  debug?: TradePositionDebugSummary
+}
+
+type BalancesApiResponse = {
+  balances: UnifiedBalances
+}
+
+type ClaimRewardsApiResponse = RewardClaimResult & {
+  balances: UnifiedBalances | null
+}
+
+type ApiErrorResponse = {
+  error?: string
+  details?: unknown
+  debug?: TradePositionDebugSummary
+}
+
+type TradePositionDebugSummary = {
+  id: string
+  elapsedMs: number
+  steps: { step: number; label: string; durationMs: number; elapsedMs: number }[]
+}
+
+type AsyncDebugTimer = {
+  wait<T>(label: string, promise: Promise<T>): Promise<T>
+  summary(): TradePositionDebugSummary
+}
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error'
 }
 
+function apiErrorMessage(result: unknown, fallback: string) {
+  if (!result || typeof result !== 'object') return fallback
+
+  const response = result as ApiErrorResponse
+  if (typeof response.details === 'string') return response.details
+  return response.error ?? fallback
+}
+
+function createClientPositionDebugTimer({
+  marketSymbol,
+  outcome,
+  amount,
+  slippagePercent,
+}: {
+  marketSymbol: string
+  outcome: Outcome
+  amount: number
+  slippagePercent: number
+}): AsyncDebugTimer {
+  const id = Math.random().toString(36).slice(2, 10)
+  const startedAt = performance.now()
+  const steps: TradePositionDebugSummary['steps'] = []
+  let step = 0
+
+  async function wait<T>(label: string, promise: Promise<T>) {
+    const currentStep = ++step
+    const stepStartedAt = performance.now()
+    const elapsedMs = stepStartedAt - startedAt
+
+    console.info(`[trade-position-client:${id}] #${currentStep} ${label} start`, {
+      marketSymbol,
+      outcome,
+      amount,
+      slippagePercent,
+      elapsedMs: Math.round(elapsedMs),
+    })
+
+    try {
+      const value = await promise
+      const durationMs = performance.now() - stepStartedAt
+      const totalElapsedMs = performance.now() - startedAt
+
+      steps.push({
+        step: currentStep,
+        label,
+        durationMs: Math.round(durationMs),
+        elapsedMs: Math.round(totalElapsedMs),
+      })
+      console.info(`[trade-position-client:${id}] #${currentStep} ${label} done`, {
+        durationMs: Math.round(durationMs),
+        elapsedMs: Math.round(totalElapsedMs),
+      })
+
+      return value
+    } catch (error) {
+      const durationMs = performance.now() - stepStartedAt
+      const totalElapsedMs = performance.now() - startedAt
+
+      console.error(`[trade-position-client:${id}] #${currentStep} ${label} failed`, {
+        durationMs: Math.round(durationMs),
+        elapsedMs: Math.round(totalElapsedMs),
+        error: errorMessage(error),
+      })
+      throw error
+    }
+  }
+
+  function summary() {
+    return {
+      id,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      steps,
+    }
+  }
+
+  return { wait, summary }
+}
+
 export default function TradingPage() {
   const router = useRouter()
-  const { ready, authenticated, user } = usePrivy()
-  const { data: walletClient } = useWalletClient()
+  const { ready, authenticated, user, getAccessToken } = usePrivy()
   const exchange = useMemo(() => createDreamDexExchange(), [])
   const [markets, setMarkets] = useState<UnifiedMarket[]>([])
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
@@ -58,15 +171,19 @@ export default function TradingPage() {
   const [isLoadingCandles, setIsLoadingCandles] = useState(false)
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
   const [isTrading, setIsTrading] = useState(false)
+  const [isClaimingRewards, setIsClaimingRewards] = useState(false)
+  const [rewardClaimResult, setRewardClaimResult] = useState<RewardClaimResult | null>(null)
   const [status, setStatus] = useState<TradingStatus>({
     tone: 'neutral',
-    message: 'Load an event market, then buy YES or NO with your connected wallet.',
+    message: 'Load an event market, then buy YES or NO with your Privy server signer.',
   })
   const selectedMarket = markets.find((market) => market.symbol === selectedSymbol) ?? null
   const selectedTradable = selectedMarket?.outcomes?.find((outcome) => outcome.label === selectedOutcome)?.symbol
   const selectedChartSymbol = selectedTradable ?? selectedMarket?.symbol
+  const selectedMarketId = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info.marketId : null
   const bestAsk = orderBook?.asks[0]?.[0]
-  const activeBalances = walletClient ? balances : null
+  const serverWalletId = user?.wallet?.id ?? null
+  const activeBalances = serverWalletId ? balances : null
   const selectedPosition = selectedTradable ? (activeBalances?.[selectedTradable]?.total ?? 0) : 0
   const outcomePositions =
     selectedMarket?.outcomes?.map((outcome) => ({
@@ -75,7 +192,27 @@ export default function TradingPage() {
       total: activeBalances?.[outcome.symbol]?.total ?? 0,
     })) ?? []
   const collateralBalance = selectedMarket ? activeBalances?.[selectedMarket.quote]?.total : undefined
-  const walletAddress = walletClient?.account?.address ?? user?.wallet?.address
+  const walletAddress = user?.wallet?.address
+
+  const tradingApiFetch = useCallback(async (url: string, body: unknown, timer?: AsyncDebugTimer) => {
+    const accessToken = timer
+      ? await timer.wait(`getAccessToken ${url}`, getAccessToken())
+      : await getAccessToken()
+    if (!accessToken) {
+      throw new Error('Privy session expired. Please sign in again.')
+    }
+
+    const request = fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    return timer ? timer.wait(`fetch ${url}`, request) : request
+  }, [getAccessToken])
 
   useEffect(() => {
     if (ready && !authenticated) {
@@ -208,15 +345,7 @@ export default function TradingPage() {
   }, [exchange, selectedTradable])
 
   useEffect(() => {
-    if (walletClient) {
-      exchange.setSigner({ walletClient })
-    } else {
-      exchange.setSigner({})
-    }
-  }, [exchange, walletClient])
-
-  useEffect(() => {
-    if (!walletClient) {
+    if (!serverWalletId) {
       return
     }
 
@@ -225,14 +354,20 @@ export default function TradingPage() {
     async function loadBalances() {
       try {
         setIsLoadingBalances(true)
-        exchange.setSigner({ walletClient })
-        const nextBalances = await exchange.fetchBalance()
+        const response = await tradingApiFetch('/api/trading/balances', { wallet_id: serverWalletId })
+        const result = (await response.json().catch(() => null)) as BalancesApiResponse | ApiErrorResponse | null
+
+        if (!response.ok) {
+          throw new Error(apiErrorMessage(result, 'Failed to load positions'))
+        }
+
         if (canceled) return
 
-        setBalances(nextBalances)
-      } catch {
+        setBalances((result as BalancesApiResponse).balances)
+      } catch (error) {
         if (!canceled) {
           setBalances(null)
+          setStatus({ tone: 'error', message: `Could not load positions: ${errorMessage(error)}` })
         }
       } finally {
         if (!canceled) {
@@ -246,19 +381,24 @@ export default function TradingPage() {
     return () => {
       canceled = true
     }
-  }, [exchange, walletClient])
+  }, [serverWalletId, tradingApiFetch])
 
   async function refreshBalances({ silent = false }: { silent?: boolean } = {}) {
-    if (!walletClient) {
+    if (!serverWalletId) {
       setBalances(null)
       return
     }
 
     try {
       setIsLoadingBalances(true)
-      exchange.setSigner({ walletClient })
-      const nextBalances = await exchange.fetchBalance()
-      setBalances(nextBalances)
+      const response = await tradingApiFetch('/api/trading/balances', { wallet_id: serverWalletId })
+      const result = (await response.json().catch(() => null)) as BalancesApiResponse | ApiErrorResponse | null
+
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(result, 'Failed to load positions'))
+      }
+
+      setBalances((result as BalancesApiResponse).balances)
       if (!silent) {
         setStatus({ tone: 'neutral', message: 'Position balances refreshed.' })
       }
@@ -272,12 +412,14 @@ export default function TradingPage() {
     }
   }
 
-  async function refreshBook({ silent = false }: { silent?: boolean } = {}) {
+  async function refreshBook({ silent = false, timer }: { silent?: boolean; timer?: AsyncDebugTimer } = {}) {
     if (!selectedTradable) return
 
     try {
       setIsLoadingBook(true)
-      const book = await exchange.fetchOrderBook(selectedTradable, 5)
+      const book = timer
+        ? await timer.wait('exchange.fetchOrderBook refresh', exchange.fetchOrderBook(selectedTradable, 5))
+        : await exchange.fetchOrderBook(selectedTradable, 5)
       setOrderBook(book)
       setLastBookUpdate(book.timestamp)
       if (!silent) {
@@ -293,8 +435,8 @@ export default function TradingPage() {
   }
 
   async function placePosition() {
-    if (!walletClient) {
-      setStatus({ tone: 'error', message: 'Connect a wallet before trading.' })
+    if (!serverWalletId) {
+      setStatus({ tone: 'error', message: 'No Privy server-signing wallet is available.' })
       return
     }
 
@@ -321,40 +463,115 @@ export default function TradingPage() {
       return
     }
 
+    const timer = createClientPositionDebugTimer({
+      marketSymbol: selectedMarket.symbol,
+      outcome: selectedOutcome,
+      amount: numericAmount,
+      slippagePercent: numericSlippagePercent,
+    })
+
     try {
       setIsTrading(true)
-      setStatus({ tone: 'neutral', message: 'Checking live market status...' })
+      setStatus({ tone: 'neutral', message: `Taking ${selectedOutcome} position with server signer...` })
+      const response = await tradingApiFetch(
+        '/api/trading/position',
+        {
+          wallet_id: serverWalletId,
+          market_id: selectedMarket.info.marketId,
+          market_symbol: selectedMarket.symbol,
+          tradable: selectedTradable,
+          outcome: selectedOutcome,
+          amount: numericAmount,
+          slippage_percent: numericSlippagePercent,
+        },
+        timer
+      )
+      const result = (await timer.wait('response.json /api/trading/position', response.json().catch(() => null))) as
+        | PlacePositionApiResponse
+        | ApiErrorResponse
+        | null
 
-      const onchain = await exchange.client.getMarketOnchain(selectedMarket.info.marketId as Hex)
-      if (onchain.status !== 1) {
-        setStatus({ tone: 'error', message: 'This market is not trading on-chain anymore.' })
-        return
+      if (result?.debug) {
+        console.info(`[trade-position-client:${timer.summary().id}] server timing`, result.debug)
       }
 
-      setStatus({ tone: 'neutral', message: `Taking ${selectedOutcome} position...` })
-      const slippage = numericSlippagePercent / 100
-      const order: UnifiedOrder = await exchange.createOrder(
-        selectedTradable,
-        'market',
-        'buy',
-        numericAmount,
-        undefined,
-        { slippage }
-      )
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(result, 'Failed to place position'))
+      }
 
-      const hash = order.txHash
+      const { order, balances: nextBalances } = result as PlacePositionApiResponse
+      if (nextBalances) {
+        setBalances(nextBalances)
+      }
       setStatus({
         tone: 'success',
         message: `${selectedOutcome} position ${order.status}. Filled ${formatNumber(order.filled)} of ${formatNumber(
           order.amount
         )}.`,
-        hash,
+        hash: order.txHash,
       })
-      await Promise.all([refreshBook({ silent: true }), refreshBalances({ silent: true })])
+      void refreshBook({ silent: true, timer })
+      void refreshBalances({ silent: true })
+      console.info(`[trade-position-client:${timer.summary().id}] complete`, timer.summary())
     } catch (error) {
+      console.error(`[trade-position-client:${timer.summary().id}] failed`, timer.summary())
       setStatus({ tone: 'error', message: `Position failed: ${errorMessage(error)}` })
     } finally {
       setIsTrading(false)
+    }
+  }
+
+  async function claimClosedRewards() {
+    if (!serverWalletId) {
+      setStatus({ tone: 'error', message: 'No Privy server-signing wallet is available.' })
+      return
+    }
+
+    if (!selectedMarketId) {
+      setStatus({ tone: 'error', message: 'Select an event market before claiming rewards.' })
+      return
+    }
+
+    try {
+      setIsClaimingRewards(true)
+      setStatus({ tone: 'neutral', message: 'Checking the selected market for claimable rewards...' })
+      const response = await tradingApiFetch('/api/trading/rewards', {
+        wallet_id: serverWalletId,
+        market_ids: [selectedMarketId],
+      })
+      const result = (await response.json().catch(() => null)) as
+        | ClaimRewardsApiResponse
+        | ApiErrorResponse
+        | null
+
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(result, 'Failed to claim rewards'))
+      }
+
+      const claimResult = result as ClaimRewardsApiResponse
+      setRewardClaimResult({
+        scanned: claimResult.scanned,
+        claimed: claimResult.claimed,
+        skipped: claimResult.skipped,
+      })
+
+      if (claimResult.balances) {
+        setBalances(claimResult.balances)
+      }
+
+      const firstHash = claimResult.claimed[0]?.hash
+      setStatus({
+        tone: 'success',
+        message:
+          claimResult.claimed.length > 0
+            ? `Claimed ${claimResult.claimed.length} closed-market reward(s).`
+            : 'No settled rewards found to claim yet.',
+        hash: firstHash,
+      })
+    } catch (error) {
+      setStatus({ tone: 'error', message: `Claim rewards failed: ${errorMessage(error)}` })
+    } finally {
+      setIsClaimingRewards(false)
     }
   }
 
@@ -405,14 +622,20 @@ export default function TradingPage() {
               collateralSymbol={selectedMarket?.quote ?? 'Collateral'}
               collateralBalance={collateralBalance}
             />
+            <RewardClaimPanel
+              canClaim={Boolean(serverWalletId && selectedMarketId)}
+              isClaimingRewards={isClaimingRewards}
+              result={rewardClaimResult}
+              onClaimRewards={() => void claimClosedRewards()}
+            />
             <TradeTicket
               selectedOutcome={selectedOutcome}
               amount={amount}
               slippagePercent={slippagePercent}
               bestAsk={bestAsk}
-              canTrade={Boolean(walletClient && selectedTradable)}
+              canTrade={Boolean(serverWalletId && selectedTradable)}
               canRefreshBook={Boolean(selectedTradable)}
-              canRefreshBalances={Boolean(walletClient)}
+              canRefreshBalances={Boolean(serverWalletId)}
               isTrading={isTrading}
               isLoadingBook={isLoadingBook}
               isLoadingBalances={isLoadingBalances}

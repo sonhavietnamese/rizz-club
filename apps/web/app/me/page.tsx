@@ -9,11 +9,14 @@ import {
   type WalletWithMetadata,
 } from '@privy-io/react-auth'
 import { env } from '@/env'
+import { SOMNIA_TESTNET_ADDRESSES } from '@somnia-chain/markets-sdk'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { Address } from 'viem'
-import { formatUnits, isAddress } from 'viem'
-import { useBalance } from 'wagmi'
+import { formatUnits, isAddress, parseAbi, zeroAddress } from 'viem'
+import { useBalance, useReadContract } from 'wagmi'
+
+type FaucetAsset = 'STT' | 'tUSDC'
 
 type SignTestResult = {
   walletId: string
@@ -28,7 +31,9 @@ type SignTestResult = {
 
 type FaucetResult = {
   hash?: string
+  mintHash?: string
   requester?: string
+  token?: string
   amount?: string
   symbol?: string
   status?: string
@@ -75,6 +80,9 @@ function faucetErrorMessage(result: FaucetResult) {
 
   return result.error ?? 'Faucet request failed'
 }
+
+const testUsdcAddress = SOMNIA_TESTNET_ADDRESSES.testUsdc as Address
+const erc20BalanceAbi = parseAbi(['function balanceOf(address account) view returns (uint256)'])
 
 function getDisplayName(user: User) {
   return (
@@ -124,7 +132,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export default function MePage() {
   const router = useRouter()
-  const { ready, authenticated, user, logout } = usePrivy()
+  const { ready, authenticated, user, logout, getAccessToken } = usePrivy()
   const { refreshUser } = useUser()
   const { addSigners } = useSigners()
   const primaryWalletAddress =
@@ -140,10 +148,24 @@ export default function MePage() {
       enabled: Boolean(primaryWalletAddress),
     },
   })
+  const {
+    data: tusdcBalance,
+    isLoading: isTusdcBalanceLoading,
+    isFetching: isTusdcBalanceFetching,
+    refetch: refetchTusdcBalance,
+  } = useReadContract({
+    address: testUsdcAddress,
+    abi: erc20BalanceAbi,
+    functionName: 'balanceOf',
+    args: [primaryWalletAddress ?? zeroAddress],
+    query: {
+      enabled: Boolean(primaryWalletAddress),
+    },
+  })
   const [isSigning, setIsSigning] = useState(false)
   const [signResult, setSignResult] = useState<SignTestResult | null>(null)
   const [signError, setSignError] = useState<string | null>(null)
-  const [isClaimingFaucet, setIsClaimingFaucet] = useState(false)
+  const [claimingFaucetAsset, setClaimingFaucetAsset] = useState<FaucetAsset | null>(null)
   const [faucetResult, setFaucetResult] = useState<FaucetResult | null>(null)
   const [faucetError, setFaucetError] = useState<string | null>(null)
   const [delegateMessage, setDelegateMessage] = useState<string | null>(null)
@@ -180,6 +202,13 @@ export default function MePage() {
         ? 'Loading...'
         : 'Unavailable'
     : 'No wallet'
+  const tusdcBalanceLabel = primaryWalletAddress
+    ? typeof tusdcBalance === 'bigint'
+      ? `${formatTokenAmount(formatUnits(tusdcBalance, 6))} tUSDC`
+      : isTusdcBalanceLoading
+        ? 'Loading...'
+        : 'Unavailable'
+    : 'No wallet'
 
   async function handleDelegateWallet() {
     if (!embeddedWallet) {
@@ -206,7 +235,7 @@ export default function MePage() {
     }
   }
 
-  async function handleFaucetClaim() {
+  async function handleFaucetClaim(asset: FaucetAsset) {
     if (!primaryWalletAddress) {
       setFaucetResult(null)
       setFaucetError('No valid wallet address found.')
@@ -214,7 +243,7 @@ export default function MePage() {
     }
 
     try {
-      setIsClaimingFaucet(true)
+      setClaimingFaucetAsset(asset)
       setFaucetError(null)
       setFaucetResult(null)
 
@@ -225,6 +254,7 @@ export default function MePage() {
         },
         body: JSON.stringify({
           address: primaryWalletAddress,
+          asset,
         }),
       })
       const result = (await response.json().catch(() => ({}))) as FaucetResult
@@ -234,11 +264,15 @@ export default function MePage() {
       }
 
       setFaucetResult(result)
-      await refetchBalance()
+      if (asset === 'STT') {
+        await refetchBalance()
+      } else {
+        await refetchTusdcBalance()
+      }
     } catch (error) {
       setFaucetError(error instanceof Error ? error.message : 'Faucet request failed')
     } finally {
-      setIsClaimingFaucet(false)
+      setClaimingFaucetAsset(null)
     }
   }
 
@@ -253,10 +287,16 @@ export default function MePage() {
       setIsSigning(true)
       setSignError(null)
       setSignResult(null)
+      const accessToken = await getAccessToken()
+
+      if (!accessToken) {
+        throw new Error('Privy session expired. Please sign in again.')
+      }
 
       const response = await fetch('/api/wallet/sign', {
         method: 'POST',
         headers: {
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -311,10 +351,11 @@ export default function MePage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-5">
           <DetailRow label="Privy ID" value={user.id} />
           <DetailRow label="Primary Wallet" value={formatAddress(primaryWallet)} />
-          <DetailRow label="Balance" value={balanceLabel} />
+          <DetailRow label="STT Balance" value={balanceLabel} />
+          <DetailRow label="tUSDC Balance" value={tusdcBalanceLabel} />
           <DetailRow label="Joined" value={formatDate(user.createdAt)} />
         </section>
 
@@ -336,16 +377,29 @@ export default function MePage() {
                 STT balance: {balanceLabel}
                 {isBalanceFetching && !isBalanceLoading ? ' (refreshing...)' : ''}
               </p>
+              <p className="mt-1 max-w-2xl text-sm font-semibold opacity-75">
+                tUSDC balance: {tusdcBalanceLabel}
+                {isTusdcBalanceFetching && !isTusdcBalanceLoading ? ' (refreshing...)' : ''}
+              </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={() => void handleFaucetClaim()}
-                disabled={!primaryWalletAddress || isClaimingFaucet}
+                onClick={() => void handleFaucetClaim('STT')}
+                disabled={!primaryWalletAddress || Boolean(claimingFaucetAsset)}
                 className="h-11 rounded-md bg-[#D9903D] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#9B5A21] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
               >
-                {isClaimingFaucet ? 'Claiming...' : 'Faucet'}
+                {claimingFaucetAsset === 'STT' ? 'Claiming...' : 'Faucet STT'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleFaucetClaim('tUSDC')}
+                disabled={!primaryWalletAddress || Boolean(claimingFaucetAsset)}
+                className="h-11 rounded-md bg-[#D9903D] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#9B5A21] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {claimingFaucetAsset === 'tUSDC' ? 'Claiming...' : 'Faucet tUSDC'}
               </button>
 
               <button
@@ -392,6 +446,7 @@ export default function MePage() {
                 value={`Sent ${faucetResult.amount ?? '1'} ${faucetResult.symbol ?? 'STT'}`}
               />
               <DetailRow label="Transaction" value={faucetResult.hash} />
+              {faucetResult.mintHash && <DetailRow label="Mint Transaction" value={faucetResult.mintHash} />}
               <DetailRow label="Status" value={faucetResult.status ?? 'Submitted'} />
             </div>
           )}

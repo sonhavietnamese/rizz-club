@@ -1,13 +1,24 @@
 'use client'
 
 import { formatNumber, formatPrice, formatUpdateTime } from './formatters'
-import { type Candle, type Timeframe } from '@/lib/dreamdex-feed'
-import { type UnifiedOHLCV } from '@somnia-chain/markets-sdk'
+import { TIMEFRAMES, type UnifiedOHLCV } from '@somnia-chain/markets-sdk'
 
 const chartWidth = 720
 const chartHeight = 220
 const chartPadding = 18
-const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1d']
+const tradingTimeframes = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
+const timeframes = tradingTimeframes.filter((timeframe) => timeframe in TIMEFRAMES)
+
+export type Timeframe = (typeof tradingTimeframes)[number]
+
+export type Candle = {
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
 
 export function ohlcvToCandle([timestamp, open, high, low, close, volume]: UnifiedOHLCV): Candle {
   return {
