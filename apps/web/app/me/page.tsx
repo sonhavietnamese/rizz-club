@@ -293,13 +293,22 @@ export default function MePage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="h-11 rounded-md bg-[#D6503C] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#8A2D25] transition active:translate-y-1 active:shadow-none"
-          >
-            Logout
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => router.push('/trading')}
+              className="h-11 rounded-md bg-[#389591] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#236461] transition active:translate-y-1 active:shadow-none"
+            >
+              Trading
+            </button>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="h-11 rounded-md bg-[#D6503C] px-5 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#8A2D25] transition active:translate-y-1 active:shadow-none"
+            >
+              Logout
+            </button>
+          </div>
         </header>
 
         <section className="grid gap-4 md:grid-cols-4">

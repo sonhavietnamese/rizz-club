@@ -1,8 +1,8 @@
 import { env } from '@/env'
 import { publicClient } from '@/lib/viem'
+import { somniaShannon } from '@somnia-chain/markets-sdk/chains'
 import { createWalletClient, http, isAddress, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { somniaTestnet } from 'viem/chains'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const admin = privateKeyToAccount(env.SOMNIA_PRIVATE_KEY as `0x${string}`)
   const walletClient = createWalletClient({
     account: admin,
-    chain: somniaTestnet,
+    chain: somniaShannon,
     transport: http(),
   })
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       requester,
       amount: '1',
       symbol: 'STT',
-      chainId: somniaTestnet.id,
+      chainId: somniaShannon.id,
       status: receipt.status,
     })
   } catch (error) {

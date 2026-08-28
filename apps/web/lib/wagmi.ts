@@ -1,10 +1,10 @@
 import { createConfig } from '@privy-io/wagmi'
-import { somniaTestnet } from 'viem/chains'
+import { somniaShannon } from '@somnia-chain/markets-sdk/chains'
 import { http } from 'wagmi'
 
 export const config = createConfig({
-  chains: [somniaTestnet],
+  chains: [somniaShannon],
   transports: {
-    [somniaTestnet.id]: http(),
+    [somniaShannon.id]: http(),
   },
 })
