@@ -164,7 +164,7 @@ export default function TradingPage() {
   const [lastBookUpdate, setLastBookUpdate] = useState<number | undefined>()
   const [balances, setBalances] = useState<UnifiedBalances | null>(null)
   const [amount, setAmount] = useState('5')
-  const [slippagePercent, setSlippagePercent] = useState('2')
+  const [slippagePercent, setSlippagePercent] = useState('5')
   const [marketReloadKey, setMarketReloadKey] = useState(0)
   const [isLoadingMarkets, setIsLoadingMarkets] = useState(true)
   const [isLoadingBook, setIsLoadingBook] = useState(false)
@@ -343,6 +343,49 @@ export default function TradingPage() {
       canceled = true
     }
   }, [exchange, selectedTradable])
+
+  useEffect(() => {
+    if (!selectedMarketId) return
+
+    const controller = new AbortController()
+
+    async function prefetchSelectedMarket() {
+      try {
+        const response = await fetch('/api/trading/market-prefetch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ market_id: selectedMarketId }),
+          signal: controller.signal,
+        })
+        const result = (await response.json().catch(() => null)) as { cached?: boolean; status?: number } | null
+
+        if (!response.ok) {
+          throw new Error(apiErrorMessage(result, 'Failed to prefetch market'))
+        }
+
+        console.info('[trade-position-client] selected market prefetched', {
+          marketId: selectedMarketId,
+          cached: result?.cached,
+          status: result?.status,
+        })
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.info('[trade-position-client] selected market prefetch skipped', {
+            marketId: selectedMarketId,
+            error: errorMessage(error),
+          })
+        }
+      }
+    }
+
+    void prefetchSelectedMarket()
+
+    return () => {
+      controller.abort()
+    }
+  }, [selectedMarketId])
 
   useEffect(() => {
     if (!serverWalletId) {

@@ -1,12 +1,29 @@
 import privy, { authorizationContext } from '@/lib/privy'
 import { createDreamDexExchange } from '@/lib/dreamdex'
+import {
+  getCachedBinaryBookParams,
+  getCachedMarketOnchain,
+  setCachedBinaryBookParams,
+  setCachedMarketOnchain,
+} from '@/lib/dreamdex-market-cache'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
 import { createViemAccount } from '@privy-io/node/viem'
-import { ORDER_TYPE, quoteBinaryStakeOverBook, type BinaryBuySide, type PlaceOrderResult } from '@somnia-chain/markets-sdk'
+import {
+  ORDER_TYPE,
+  quoteBinaryStakeOverBook,
+  type BinaryBookParams,
+  type BinaryBuySide,
+  type BinaryOrderBook,
+  type BinaryStakeQuote,
+  type MarketOnchain,
+  type PlaceOrderResult,
+} from '@somnia-chain/markets-sdk'
 import { formatUnits, parseUnits, type Hex } from 'viem'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
+
+const maxRetrySlippageBps = BigInt(1500)
 
 const placePositionBodySchema = z.object({
   wallet_id: z.string().min(1),
@@ -73,12 +90,66 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error'
 }
 
+function isImmediateOrCancelNoFill(error: unknown) {
+  return errorMessage(error).includes('ImmediateOrCancelNoFill')
+}
+
+function widenedRetrySlippageBps(baseSlippageBps: bigint) {
+  if (baseSlippageBps >= maxRetrySlippageBps) return null
+
+  const doubled = baseSlippageBps * BigInt(2)
+  const bumped = baseSlippageBps + BigInt(300)
+  const widened = doubled > bumped ? doubled : bumped
+
+  return widened > maxRetrySlippageBps ? maxRetrySlippageBps : widened
+}
+
 function binarySideForOutcome(outcome: 'YES' | 'NO'): BinaryBuySide {
   return outcome === 'YES' ? 'BUY_YES' : 'BUY_NO'
 }
 
 function humanAmount(raw: bigint, decimals: number) {
   return Number(formatUnits(raw, decimals))
+}
+
+async function cachedMarketOnchain({
+  exchange,
+  marketId,
+}: {
+  exchange: ReturnType<typeof createDreamDexExchange>
+  marketId: string
+}): Promise<MarketOnchain> {
+  const cached = getCachedMarketOnchain(marketId)
+  if (cached) {
+    console.info('[dreamdex-market-cache] market onchain cache hit', { marketId })
+    return cached
+  }
+
+  console.info('[dreamdex-market-cache] market onchain cache miss', { marketId })
+  const onchain = await exchange.client.getMarketOnchain(marketId as Hex)
+  setCachedMarketOnchain(marketId, onchain)
+
+  return onchain
+}
+
+async function cachedBinaryBookParams({
+  exchange,
+  pool,
+}: {
+  exchange: ReturnType<typeof createDreamDexExchange>
+  pool: `0x${string}`
+}): Promise<BinaryBookParams> {
+  const cached = getCachedBinaryBookParams(pool)
+  if (cached) {
+    console.info('[dreamdex-market-cache] binary book params cache hit', { pool })
+    return cached
+  }
+
+  console.info('[dreamdex-market-cache] binary book params cache miss', { pool })
+  const params = await exchange.client.getBinaryBookParams(pool)
+  setCachedBinaryBookParams(pool, params)
+
+  return params
 }
 
 function orderResponse(order: PlaceOrderResult, quantity: bigint, decimals: number, symbol: string, price: number) {
@@ -135,10 +206,7 @@ export async function POST(request: Request) {
   try {
     exchange = createDreamDexExchange()
     const authPromise = timer.wait('requirePrivyEthereumWallet', requirePrivyEthereumWallet(request, walletId))
-    const onchainPromise = timer.wait(
-      'exchange.client.getMarketOnchain',
-      exchange.client.getMarketOnchain(marketId as Hex)
-    )
+    const onchainPromise = timer.wait('marketOnchain cachedOrFetch', cachedMarketOnchain({ exchange, marketId }))
     const [{ wallet }, onchain] = await Promise.all([authPromise, onchainPromise])
 
     const account = createViemAccount(privy, {
@@ -168,59 +236,90 @@ export async function POST(request: Request) {
       )
     }
 
-    const bookPromise = timer.wait(
-      'exchange.client.getBinaryOrderBook',
-      exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals })
+    const bookParams = await timer.wait(
+      'binaryBookParams cachedOrFetch',
+      cachedBinaryBookParams({ exchange, pool: onchain.pool })
     )
-    const bookParamsPromise = timer.wait(
-      'exchange.client.getBinaryBookParams',
-      exchange.client.getBinaryBookParams(onchain.pool)
-    )
-    const [book, bookParams] = await Promise.all([bookPromise, bookParamsPromise])
-
     const binarySide = binarySideForOutcome(outcome)
     const stake = parseUnits(String(amount), onchain.decimals)
     const slippageBps = BigInt(Math.round(slippagePercent * 100))
     const oneCollateral = BigInt(10) ** BigInt(onchain.decimals)
-    const quote = quoteBinaryStakeOverBook(book, binarySide, stake, oneCollateral, {
-      ...bookParams,
-      slippageBps,
-    })
+    const retrySlippageBps = widenedRetrySlippageBps(slippageBps)
+    const slippagePlan = retrySlippageBps ? [slippageBps, retrySlippageBps] : [slippageBps]
 
-    if (!quote) {
-      console.info(`[trade-position-api:${timer.summary().id}] no fillable quote`, {
-        marketId,
-        marketSymbol,
-        outcome,
-        ...timer.summary(),
+    let book: BinaryOrderBook | null = null
+    let quote: BinaryStakeQuote | null = null
+    let order: PlaceOrderResult | null = null
+    let usedSlippageBps = slippageBps
+
+    for (const [index, nextSlippageBps] of slippagePlan.entries()) {
+      const attempt = index + 1
+      book = await timer.wait(
+        `attempt ${attempt} exchange.client.getBinaryOrderBook`,
+        exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals })
+      )
+      quote = quoteBinaryStakeOverBook(book, binarySide, stake, oneCollateral, {
+        ...bookParams,
+        slippageBps: nextSlippageBps,
       })
-      return Response.json(
-        {
-          error: `No fillable ${outcome} ask liquidity is available for this amount`,
+
+      if (!quote) {
+        console.info(`[trade-position-api:${timer.summary().id}] no fillable quote`, {
+          attempt,
           marketId,
           marketSymbol,
-          tradable,
-          debug: timer.summary(),
-        },
-        { status: 400 }
-      )
+          outcome,
+          ...timer.summary(),
+        })
+        return Response.json(
+          {
+            error: `No fillable ${outcome} ask liquidity is available for this amount`,
+            marketId,
+            marketSymbol,
+            tradable,
+            debug: timer.summary(),
+          },
+          { status: 400 }
+        )
+      }
+
+      usedSlippageBps = nextSlippageBps
+
+      try {
+        order = await timer.wait(
+          `attempt ${attempt} exchange.trader.placeOrder`,
+          exchange.trader.placeOrder({
+            pool: onchain.pool,
+            side: quote.side,
+            price: quote.yesPrice,
+            quantity: quote.quantity,
+            outcomeToken: onchain.outcomeToken,
+            yesId: onchain.yesId,
+            noId: onchain.noId,
+            collateral: onchain.collateral,
+            expireTimestampNs: onchain.expiry * BigInt(1_000_000_000),
+            orderType: ORDER_TYPE.MARKET,
+          })
+        )
+        break
+      } catch (error) {
+        if (!isImmediateOrCancelNoFill(error) || attempt === slippagePlan.length) {
+          throw error
+        }
+
+        console.info(`[trade-position-api:${timer.summary().id}] IOC no-fill; retrying with wider slippage`, {
+          marketId,
+          marketSymbol,
+          outcome,
+          attempt,
+          nextSlippagePercent: Number(retrySlippageBps) / 100,
+        })
+      }
     }
 
-    const order = await timer.wait(
-      'exchange.trader.placeOrder',
-      exchange.trader.placeOrder({
-        pool: onchain.pool,
-        side: quote.side,
-        price: quote.yesPrice,
-        quantity: quote.quantity,
-        outcomeToken: onchain.outcomeToken,
-        yesId: onchain.yesId,
-        noId: onchain.noId,
-        collateral: onchain.collateral,
-        expireTimestampNs: onchain.expiry * BigInt(1_000_000_000),
-        orderType: ORDER_TYPE.MARKET,
-      })
-    )
+    if (!book || !quote || !order) {
+      throw new Error('Position order did not complete')
+    }
 
     console.info(`[trade-position-api:${timer.summary().id}] complete`, timer.summary())
 
@@ -232,7 +331,12 @@ export async function POST(request: Request) {
       outcome,
       tradable,
       bestAsk: humanAmount(outcome === 'YES' ? (book.yesAsks[0]?.price ?? BigInt(0)) : (book.noAsks[0]?.price ?? BigInt(0)), onchain.decimals),
-      slippage: slippagePercent / 100,
+      slippage: Number(usedSlippageBps) / 10_000,
+      retry: {
+        used: usedSlippageBps !== slippageBps,
+        initialSlippagePercent: Number(slippageBps) / 100,
+        usedSlippagePercent: Number(usedSlippageBps) / 100,
+      },
       quote: {
         limitPrice: formatUnits(quote.limitPrice, onchain.decimals),
         quantity: formatUnits(quote.quantity, onchain.decimals),
