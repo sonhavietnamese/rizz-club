@@ -2,6 +2,7 @@
 
 import {
   ChartPanel,
+  FilledOrdersPanel,
   MarketList,
   OrderBookPanel,
   PositionSummary,
@@ -11,11 +12,8 @@ import {
   TradeTicket,
   TradingHeader,
   formatNumber,
-  ohlcvToCandle,
-  type Candle,
   type Outcome,
   type RewardClaimResult,
-  type Timeframe,
   type TradingStatus,
 } from './components'
 import { createDreamDexExchange } from '@/lib/dreamdex'
@@ -25,11 +23,13 @@ import {
   type UnifiedMarket,
   type UnifiedOrderBook,
 } from '@somnia-chain/markets-sdk'
+import { SomniaMarketsProvider } from '@somnia-chain/markets-sdk/react'
 import { usePrivy } from '@privy-io/react-auth'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-const chartRefreshMs = 15_000
+const liveMarketRefreshMs = 15_000
+const targetMarketIntervalSeconds = 15 * 60
 
 type PlacePositionApiResponse = {
   order: {
@@ -77,6 +77,41 @@ function apiErrorMessage(result: unknown, fallback: string) {
   const response = result as ApiErrorResponse
   if (typeof response.details === 'string') return response.details
   return response.error ?? fallback
+}
+
+function binaryMarketIntervalSeconds(market: UnifiedMarket) {
+  if (!isBinaryMarket(market.info)) return null
+
+  const intervalSeconds = market.info.intervalSec ? Number(market.info.intervalSec) : Number.NaN
+  if (Number.isFinite(intervalSeconds) && intervalSeconds > 0) return intervalSeconds
+
+  const tradingStart = Number(market.info.tradingStart)
+  const expiry = Number(market.info.expiry)
+  if (!Number.isFinite(tradingStart) || !Number.isFinite(expiry)) return null
+
+  return expiry - tradingStart
+}
+
+function isLiveTargetMarket(market: UnifiedMarket, nowSeconds: number) {
+  if (!market.active || !isBinaryMarket(market.info) || !market.outcomes?.length) return false
+  if (binaryMarketIntervalSeconds(market) !== targetMarketIntervalSeconds) return false
+
+  const tradingStart = Number(market.info.tradingStart)
+  const expiry = Number(market.info.expiry)
+
+  return Number.isFinite(tradingStart) && Number.isFinite(expiry) && tradingStart <= nowSeconds && nowSeconds < expiry
+}
+
+function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
+  if (!isBinaryMarket(left.info) || !isBinaryMarket(right.info)) return 0
+
+  const expiryDelta = Number(left.info.expiry) - Number(right.info.expiry)
+  if (expiryDelta !== 0) return expiryDelta
+
+  const startDelta = Number(right.info.tradingStart) - Number(left.info.tradingStart)
+  if (startDelta !== 0) return startDelta
+
+  return left.symbol.localeCompare(right.symbol)
 }
 
 function createClientPositionDebugTimer({
@@ -156,11 +191,7 @@ export default function TradingPage() {
   const [markets, setMarkets] = useState<UnifiedMarket[]>([])
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome>('YES')
-  const [timeframe, setTimeframe] = useState<Timeframe>('1m')
   const [orderBook, setOrderBook] = useState<UnifiedOrderBook | null>(null)
-  const [candles, setCandles] = useState<Candle[]>([])
-  const [chartError, setChartError] = useState<string | null>(null)
-  const [lastChartUpdate, setLastChartUpdate] = useState<number | undefined>()
   const [lastBookUpdate, setLastBookUpdate] = useState<number | undefined>()
   const [balances, setBalances] = useState<UnifiedBalances | null>(null)
   const [amount, setAmount] = useState('5')
@@ -168,7 +199,6 @@ export default function TradingPage() {
   const [marketReloadKey, setMarketReloadKey] = useState(0)
   const [isLoadingMarkets, setIsLoadingMarkets] = useState(true)
   const [isLoadingBook, setIsLoadingBook] = useState(false)
-  const [isLoadingCandles, setIsLoadingCandles] = useState(false)
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
   const [isTrading, setIsTrading] = useState(false)
   const [isClaimingRewards, setIsClaimingRewards] = useState(false)
@@ -179,7 +209,6 @@ export default function TradingPage() {
   })
   const selectedMarket = markets.find((market) => market.symbol === selectedSymbol) ?? null
   const selectedTradable = selectedMarket?.outcomes?.find((outcome) => outcome.label === selectedOutcome)?.symbol
-  const selectedChartSymbol = selectedTradable ?? selectedMarket?.symbol
   const selectedMarketId = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info.marketId : null
   const bestAsk = orderBook?.asks[0]?.[0]
   const serverWalletId = user?.wallet?.id ?? null
@@ -228,38 +257,49 @@ export default function TradingPage() {
 
   useEffect(() => {
     let canceled = false
+    let loading = false
+    let hasLoadedOnce = false
 
     async function loadMarkets() {
-      try {
-        setIsLoadingMarkets(true)
-        setStatus({ tone: 'neutral', message: 'Loading DreamDex event markets...' })
-        const registry = await exchange.loadMarkets(true)
-        const binaryMarkets = Object.values(registry)
-          .filter((market) => market.active && isBinaryMarket(market.info) && market.outcomes?.length)
-          .sort((left, right) => {
-            const leftInfo = left.info
-            const rightInfo = right.info
-            if (!isBinaryMarket(leftInfo) || !isBinaryMarket(rightInfo)) return 0
+      if (loading) return
+      loading = true
 
-            return Number(leftInfo.expiry) - Number(rightInfo.expiry)
-          })
+      try {
+        if (!hasLoadedOnce) {
+          setIsLoadingMarkets(true)
+          setStatus({ tone: 'neutral', message: 'Loading DreamDex 15m live markets...' })
+        }
+
+        const registry = await exchange.loadMarkets(true)
+        const nowSeconds = Math.floor(Date.now() / 1000)
+        const binaryMarkets = Object.values(registry)
+          .filter((market) => isLiveTargetMarket(market, nowSeconds))
+          .sort(compareLiveMarkets)
 
         if (canceled) return
 
         setMarkets(binaryMarkets)
-        setSelectedSymbol((current) => current ?? binaryMarkets[0]?.symbol ?? null)
-        setStatus({
-          tone: 'neutral',
-          message:
-            binaryMarkets.length > 0
-              ? 'Pick a market and buy the touch with IOC.'
-              : 'No active DreamDex event markets were returned.',
+        setSelectedSymbol((current) => {
+          if (current && binaryMarkets.some((market) => market.symbol === current)) return current
+
+          return binaryMarkets[0]?.symbol ?? null
         })
+        if (!hasLoadedOnce || binaryMarkets.length === 0) {
+          setStatus({
+            tone: 'neutral',
+            message:
+              binaryMarkets.length > 0
+                ? 'Auto-selected the live 15m DreamDex market.'
+                : 'No live 15m DreamDex event markets were returned.',
+          })
+        }
+        hasLoadedOnce = true
       } catch (error) {
         if (!canceled) {
           setStatus({ tone: 'error', message: `Could not load markets: ${errorMessage(error)}` })
         }
       } finally {
+        loading = false
         if (!canceled) {
           setIsLoadingMarkets(false)
         }
@@ -267,48 +307,13 @@ export default function TradingPage() {
     }
 
     void loadMarkets()
-
-    return () => {
-      canceled = true
-    }
-  }, [exchange, marketReloadKey])
-
-  useEffect(() => {
-    if (!selectedTradable) return
-
-    let canceled = false
-    const tradable = selectedTradable
-    const selectedTimeframe = timeframe
-
-    async function loadCandles() {
-      try {
-        setIsLoadingCandles(true)
-        setChartError(null)
-        const rows = await exchange.fetchOHLCV(tradable, selectedTimeframe, undefined, 80)
-        if (canceled) return
-
-        setCandles(rows.map(ohlcvToCandle))
-        setLastChartUpdate(rows.at(-1)?.[0])
-      } catch (error) {
-        if (!canceled) {
-          setCandles([])
-          setChartError(`Could not load candles: ${errorMessage(error)}`)
-        }
-      } finally {
-        if (!canceled) {
-          setIsLoadingCandles(false)
-        }
-      }
-    }
-
-    void loadCandles()
-    const refreshTimer = window.setInterval(loadCandles, chartRefreshMs)
+    const refreshTimer = window.setInterval(loadMarkets, liveMarketRefreshMs)
 
     return () => {
       canceled = true
       window.clearInterval(refreshTimer)
     }
-  }, [exchange, selectedTradable, timeframe])
+  }, [exchange, marketReloadKey])
 
   useEffect(() => {
     if (!selectedTradable) return
@@ -629,69 +634,65 @@ export default function TradingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#87B9D6] px-5 py-8 text-[#3C1F11]">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <TradingHeader walletAddress={walletAddress} onProfileClick={() => router.push('/me')} />
+    <SomniaMarketsProvider client={exchange.client}>
+      <main className="min-h-screen bg-[#87B9D6] px-5 py-8 text-[#3C1F11]">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          <TradingHeader walletAddress={walletAddress} onProfileClick={() => router.push('/me')} />
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(260px,360px)_1fr]">
-          <MarketList
-            markets={markets}
-            selectedSymbol={selectedSymbol}
-            isLoadingMarkets={isLoadingMarkets}
-            onReload={() => setMarketReloadKey((current) => current + 1)}
-            onSelectMarket={setSelectedSymbol}
-          />
+          <div className="grid gap-6 lg:grid-cols-[minmax(260px,360px)_1fr] xl:grid-cols-[minmax(250px,320px)_minmax(0,1fr)_minmax(300px,360px)]">
+            <MarketList
+              markets={markets}
+              selectedSymbol={selectedSymbol}
+              isLoadingMarkets={isLoadingMarkets}
+              onReload={() => setMarketReloadKey((current) => current + 1)}
+              onSelectMarket={setSelectedSymbol}
+            />
 
-          <section className="rounded-md bg-[#ECD19C] p-5 shadow-[0_8px_0_#673818]">
-            <SelectedMarketHeader
-              selectedMarket={selectedMarket}
-              selectedOutcome={selectedOutcome}
-              onSelectOutcome={setSelectedOutcome}
-            />
-            <ChartPanel
-              selectedChartSymbol={selectedChartSymbol}
-              isLoadingCandles={isLoadingCandles}
-              lastChartUpdate={lastChartUpdate}
-              chartError={chartError}
-              timeframe={timeframe}
-              candles={candles}
-              onSelectTimeframe={setTimeframe}
-            />
-            <OrderBookPanel orderBook={orderBook} isLoadingBook={isLoadingBook} lastBookUpdate={lastBookUpdate} />
-            <PositionSummary
-              selectedPosition={selectedPosition}
-              selectedOutcome={selectedOutcome}
-              outcomePositions={outcomePositions}
-              collateralSymbol={selectedMarket?.quote ?? 'Collateral'}
-              collateralBalance={collateralBalance}
-            />
-            <RewardClaimPanel
-              canClaim={Boolean(serverWalletId && selectedMarketId)}
-              isClaimingRewards={isClaimingRewards}
-              result={rewardClaimResult}
-              onClaimRewards={() => void claimClosedRewards()}
-            />
-            <TradeTicket
-              selectedOutcome={selectedOutcome}
-              amount={amount}
-              slippagePercent={slippagePercent}
-              bestAsk={bestAsk}
-              canTrade={Boolean(serverWalletId && selectedTradable)}
-              canRefreshBook={Boolean(selectedTradable)}
-              canRefreshBalances={Boolean(serverWalletId)}
-              isTrading={isTrading}
-              isLoadingBook={isLoadingBook}
-              isLoadingBalances={isLoadingBalances}
-              onAmountChange={setAmount}
-              onSlippagePercentChange={setSlippagePercent}
-              onPlacePosition={() => void placePosition()}
-              onRefreshBook={() => void refreshBook()}
-              onRefreshBalances={() => void refreshBalances()}
-            />
-            <StatusPanel status={status} />
-          </section>
+            <section className="rounded-md bg-[#ECD19C] p-5 shadow-[0_8px_0_#673818]">
+              <SelectedMarketHeader
+                selectedMarket={selectedMarket}
+                selectedOutcome={selectedOutcome}
+                onSelectOutcome={setSelectedOutcome}
+              />
+              <ChartPanel />
+              <OrderBookPanel orderBook={orderBook} isLoadingBook={isLoadingBook} lastBookUpdate={lastBookUpdate} />
+              <PositionSummary
+                selectedPosition={selectedPosition}
+                selectedOutcome={selectedOutcome}
+                outcomePositions={outcomePositions}
+                collateralSymbol={selectedMarket?.quote ?? 'Collateral'}
+                collateralBalance={collateralBalance}
+              />
+              <RewardClaimPanel
+                canClaim={Boolean(serverWalletId && selectedMarketId)}
+                isClaimingRewards={isClaimingRewards}
+                result={rewardClaimResult}
+                onClaimRewards={() => void claimClosedRewards()}
+              />
+              <TradeTicket
+                selectedOutcome={selectedOutcome}
+                amount={amount}
+                slippagePercent={slippagePercent}
+                bestAsk={bestAsk}
+                canTrade={Boolean(serverWalletId && selectedTradable)}
+                canRefreshBook={Boolean(selectedTradable)}
+                canRefreshBalances={Boolean(serverWalletId)}
+                isTrading={isTrading}
+                isLoadingBook={isLoadingBook}
+                isLoadingBalances={isLoadingBalances}
+                onAmountChange={setAmount}
+                onSlippagePercentChange={setSlippagePercent}
+                onPlacePosition={() => void placePosition()}
+                onRefreshBook={() => void refreshBook()}
+                onRefreshBalances={() => void refreshBalances()}
+              />
+              <StatusPanel status={status} />
+            </section>
+
+            <FilledOrdersPanel selectedMarket={selectedMarket} />
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </SomniaMarketsProvider>
   )
 }

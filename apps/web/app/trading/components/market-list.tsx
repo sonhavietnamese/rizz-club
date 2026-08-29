@@ -49,7 +49,7 @@ export function MarketList({
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider opacity-70">Markets</p>
-          <h2 className="text-2xl font-black">Live Events</h2>
+          <h2 className="text-2xl font-black">Live 15m Events</h2>
         </div>
         <button
           type="button"
@@ -74,7 +74,7 @@ export function MarketList({
             />
           ))
         ) : (
-          <p className="rounded-md bg-[#F7E0B8] px-4 py-3 text-sm font-semibold">No active event markets.</p>
+          <p className="rounded-md bg-[#F7E0B8] px-4 py-3 text-sm font-semibold">No live 15m event markets.</p>
         )}
       </div>
     </section>

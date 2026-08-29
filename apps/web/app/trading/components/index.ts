@@ -1,5 +1,5 @@
-export { ChartPanel, ohlcvToCandle } from './chart-panel'
-export type { Candle, Timeframe } from './chart-panel'
+export { ChartPanel } from './chart-panel'
+export { FilledOrdersPanel } from './filled-orders-panel'
 export { formatNumber } from './formatters'
 export { MarketList } from './market-list'
 export { OrderBookPanel } from './order-book-panel'
