@@ -14,6 +14,7 @@ import {
   formatNumber,
   type Outcome,
   type RewardClaimResult,
+  type TradeSide,
   type TradingStatus,
 } from './components'
 import { createDreamDexExchange } from '@/lib/dreamdex'
@@ -117,11 +118,13 @@ function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
 function createClientPositionDebugTimer({
   marketSymbol,
   outcome,
+  side,
   amount,
   slippagePercent,
 }: {
   marketSymbol: string
   outcome: Outcome
+  side: TradeSide
   amount: number
   slippagePercent: number
 }): AsyncDebugTimer {
@@ -138,6 +141,7 @@ function createClientPositionDebugTimer({
     console.info(`[trade-position-client:${id}] #${currentStep} ${label} start`, {
       marketSymbol,
       outcome,
+      side,
       amount,
       slippagePercent,
       elapsedMs: Math.round(elapsedMs),
@@ -482,13 +486,15 @@ export default function TradingPage() {
     }
   }
 
-  async function placePosition() {
+  async function placePosition(side: TradeSide, outcome: Outcome = selectedOutcome) {
     if (!serverWalletId) {
       setStatus({ tone: 'error', message: 'No Privy server-signing wallet is available.' })
       return
     }
 
-    if (!selectedMarket || !selectedTradable || !isBinaryMarket(selectedMarket.info)) {
+    const targetTradable = selectedMarket?.outcomes?.find((marketOutcome) => marketOutcome.label === outcome)?.symbol
+
+    if (!selectedMarket || !targetTradable || !isBinaryMarket(selectedMarket.info)) {
       setStatus({ tone: 'error', message: 'Select an event market before trading.' })
       return
     }
@@ -506,29 +512,40 @@ export default function TradingPage() {
       return
     }
 
-    if (bestAsk === undefined) {
+    const targetPosition = outcomePositions.find((position) => position.label === outcome)?.total ?? 0
+    if (side === 'sell' && numericAmount > targetPosition) {
+      setStatus({
+        tone: 'error',
+        message: `You only have ${formatNumber(targetPosition)} ${outcome} to sell.`,
+      })
+      return
+    }
+
+    if (side === 'buy' && outcome === selectedOutcome && bestAsk === undefined) {
       setStatus({ tone: 'error', message: `No ${selectedOutcome} ask liquidity is available yet.` })
       return
     }
 
     const timer = createClientPositionDebugTimer({
       marketSymbol: selectedMarket.symbol,
-      outcome: selectedOutcome,
+      outcome,
+      side,
       amount: numericAmount,
       slippagePercent: numericSlippagePercent,
     })
 
     try {
       setIsTrading(true)
-      setStatus({ tone: 'neutral', message: `Taking ${selectedOutcome} position with server signer...` })
+      setStatus({ tone: 'neutral', message: `${side === 'buy' ? 'Buying' : 'Selling'} ${outcome} with server signer...` })
       const response = await tradingApiFetch(
         '/api/trading/position',
         {
           wallet_id: serverWalletId,
           market_id: selectedMarket.info.marketId,
           market_symbol: selectedMarket.symbol,
-          tradable: selectedTradable,
-          outcome: selectedOutcome,
+          tradable: targetTradable,
+          outcome,
+          side,
           amount: numericAmount,
           slippage_percent: numericSlippagePercent,
         },
@@ -553,9 +570,9 @@ export default function TradingPage() {
       }
       setStatus({
         tone: 'success',
-        message: `${selectedOutcome} position ${order.status}. Filled ${formatNumber(order.filled)} of ${formatNumber(
-          order.amount
-        )}.`,
+        message: `${side === 'buy' ? 'Buy' : 'Sell'} ${outcome} ${order.status}. Filled ${formatNumber(
+          order.filled
+        )} of ${formatNumber(order.amount)}.`,
         hash: order.txHash,
       })
       void refreshBook({ silent: true, timer })
@@ -671,6 +688,7 @@ export default function TradingPage() {
               />
               <TradeTicket
                 selectedOutcome={selectedOutcome}
+                outcomePositions={outcomePositions}
                 amount={amount}
                 slippagePercent={slippagePercent}
                 bestAsk={bestAsk}
@@ -682,7 +700,8 @@ export default function TradingPage() {
                 isLoadingBalances={isLoadingBalances}
                 onAmountChange={setAmount}
                 onSlippagePercentChange={setSlippagePercent}
-                onPlacePosition={() => void placePosition()}
+                onBuyPosition={() => void placePosition('buy')}
+                onSellPosition={(outcome) => void placePosition('sell', outcome)}
                 onRefreshBook={() => void refreshBook()}
                 onRefreshBalances={() => void refreshBalances()}
               />

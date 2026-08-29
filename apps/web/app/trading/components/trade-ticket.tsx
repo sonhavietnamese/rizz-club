@@ -1,10 +1,15 @@
 'use client'
 
-import { formatPercent } from './formatters'
-import { type Outcome } from './types'
+import { formatNumber, formatPercent } from './formatters'
+import { type Outcome, type OutcomePosition } from './types'
+
+function outcomePosition(outcomePositions: OutcomePosition[], outcome: Outcome) {
+  return outcomePositions.find((position) => position.label === outcome)?.total ?? 0
+}
 
 export function TradeTicket({
   selectedOutcome,
+  outcomePositions,
   amount,
   slippagePercent,
   bestAsk,
@@ -16,11 +21,13 @@ export function TradeTicket({
   isLoadingBalances,
   onAmountChange,
   onSlippagePercentChange,
-  onPlacePosition,
+  onBuyPosition,
+  onSellPosition,
   onRefreshBook,
   onRefreshBalances,
 }: {
   selectedOutcome: Outcome
+  outcomePositions: OutcomePosition[]
   amount: string
   slippagePercent: string
   bestAsk?: number
@@ -32,10 +39,18 @@ export function TradeTicket({
   isLoadingBalances: boolean
   onAmountChange: (value: string) => void
   onSlippagePercentChange: (value: string) => void
-  onPlacePosition: () => void
+  onBuyPosition: () => void
+  onSellPosition: (outcome: Outcome) => void
   onRefreshBook: () => void
   onRefreshBalances: () => void
 }) {
+  const numericAmount = Number(amount)
+  const sellAmountIsValid = Number.isFinite(numericAmount) && numericAmount > 0
+  const yesPosition = outcomePosition(outcomePositions, 'YES')
+  const noPosition = outcomePosition(outcomePositions, 'NO')
+  const canSellYes = canTrade && sellAmountIsValid && yesPosition >= numericAmount
+  const canSellNo = canTrade && sellAmountIsValid && noPosition >= numericAmount
+
   return (
     <>
       <div className="mt-5 grid gap-4 md:grid-cols-4">
@@ -72,11 +87,29 @@ export function TradeTicket({
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
-          onClick={onPlacePosition}
+          onClick={onBuyPosition}
           disabled={!canTrade || isTrading}
           className="h-12 rounded-md bg-[#D9903D] px-6 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#9B5A21] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {isTrading ? 'Trading...' : `Take ${selectedOutcome} Position`}
+          {isTrading ? 'Trading...' : `Buy ${selectedOutcome}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => onSellPosition('YES')}
+          disabled={!canSellYes || isTrading}
+          className="h-12 rounded-md bg-[#D6503C] px-6 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#8A2D25] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
+          title={`YES position: ${formatNumber(yesPosition)}`}
+        >
+          {isTrading ? 'Trading...' : 'Sell YES'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onSellPosition('NO')}
+          disabled={!canSellNo || isTrading}
+          className="h-12 rounded-md bg-[#D6503C] px-6 text-sm font-black uppercase tracking-wide text-white shadow-[0_4px_0_#8A2D25] transition enabled:active:translate-y-1 enabled:active:shadow-none disabled:cursor-not-allowed disabled:opacity-55"
+          title={`NO position: ${formatNumber(noPosition)}`}
+        >
+          {isTrading ? 'Trading...' : 'Sell NO'}
         </button>
         <button
           type="button"

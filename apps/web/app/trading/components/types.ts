@@ -1,4 +1,5 @@
 export type Outcome = 'YES' | 'NO'
+export type TradeSide = 'buy' | 'sell'
 
 export type TradingStatus =
   | { tone: 'neutral'; message: string }

@@ -10,10 +10,13 @@ import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-aut
 import { createViemAccount } from '@privy-io/node/viem'
 import {
   ORDER_TYPE,
+  quoteBinarySellOverBook,
   quoteBinaryStakeOverBook,
   type BinaryBookParams,
   type BinaryBuySide,
   type BinaryOrderBook,
+  type BinarySellQuote,
+  type BinarySellSide,
   type BinaryStakeQuote,
   type MarketOnchain,
   type PlaceOrderResult,
@@ -31,6 +34,7 @@ const placePositionBodySchema = z.object({
   market_symbol: z.string().min(1).optional(),
   tradable: z.string().min(1).optional(),
   outcome: z.enum(['YES', 'NO']),
+  side: z.enum(['buy', 'sell']).default('buy'),
   amount: z.coerce.number().positive(),
   slippage_percent: z.coerce.number().min(0).max(50).default(2),
 })
@@ -104,8 +108,10 @@ function widenedRetrySlippageBps(baseSlippageBps: bigint) {
   return widened > maxRetrySlippageBps ? maxRetrySlippageBps : widened
 }
 
-function binarySideForOutcome(outcome: 'YES' | 'NO'): BinaryBuySide {
-  return outcome === 'YES' ? 'BUY_YES' : 'BUY_NO'
+function binarySideForPosition(outcome: 'YES' | 'NO', side: 'buy' | 'sell'): BinaryBuySide | BinarySellSide {
+  if (side === 'buy') return outcome === 'YES' ? 'BUY_YES' : 'BUY_NO'
+
+  return outcome === 'YES' ? 'SELL_YES' : 'SELL_NO'
 }
 
 function humanAmount(raw: bigint, decimals: number) {
@@ -152,7 +158,14 @@ async function cachedBinaryBookParams({
   return params
 }
 
-function orderResponse(order: PlaceOrderResult, quantity: bigint, decimals: number, symbol: string, price: number) {
+function orderResponse(
+  order: PlaceOrderResult,
+  quantity: bigint,
+  decimals: number,
+  symbol: string,
+  price: number,
+  side: 'buy' | 'sell'
+) {
   const filledRaw = order.fills.reduce((total, fill) => total + fill.quantityFilled, BigInt(0))
   const filled = humanAmount(filledRaw, decimals)
   const amount = humanAmount(quantity, decimals)
@@ -162,7 +175,7 @@ function orderResponse(order: PlaceOrderResult, quantity: bigint, decimals: numb
     id: order.orderId?.toString(),
     symbol,
     type: 'market',
-    side: 'buy',
+    side,
     price,
     amount,
     filled,
@@ -172,6 +185,14 @@ function orderResponse(order: PlaceOrderResult, quantity: bigint, decimals: numb
     timestamp: Date.now(),
     datetime: new Date().toISOString(),
   } as const
+}
+
+function bestCrossPrice(book: BinaryOrderBook, outcome: 'YES' | 'NO', side: 'buy' | 'sell') {
+  if (side === 'buy') {
+    return outcome === 'YES' ? book.yesAsks[0]?.price : book.noAsks[0]?.price
+  }
+
+  return outcome === 'YES' ? book.yesBids[0]?.price : book.noBids[0]?.price
 }
 
 export async function POST(request: Request) {
@@ -197,6 +218,7 @@ export async function POST(request: Request) {
     market_symbol: marketSymbol,
     tradable,
     outcome,
+    side,
     amount,
     slippage_percent: slippagePercent,
   } = parseResult.data
@@ -240,15 +262,15 @@ export async function POST(request: Request) {
       'binaryBookParams cachedOrFetch',
       cachedBinaryBookParams({ exchange, pool: onchain.pool })
     )
-    const binarySide = binarySideForOutcome(outcome)
-    const stake = parseUnits(String(amount), onchain.decimals)
+    const binarySide = binarySideForPosition(outcome, side)
+    const rawAmount = parseUnits(String(amount), onchain.decimals)
     const slippageBps = BigInt(Math.round(slippagePercent * 100))
     const oneCollateral = BigInt(10) ** BigInt(onchain.decimals)
     const retrySlippageBps = widenedRetrySlippageBps(slippageBps)
     const slippagePlan = retrySlippageBps ? [slippageBps, retrySlippageBps] : [slippageBps]
 
     let book: BinaryOrderBook | null = null
-    let quote: BinaryStakeQuote | null = null
+    let quote: BinaryStakeQuote | BinarySellQuote | null = null
     let order: PlaceOrderResult | null = null
     let usedSlippageBps = slippageBps
 
@@ -258,10 +280,16 @@ export async function POST(request: Request) {
         `attempt ${attempt} exchange.client.getBinaryOrderBook`,
         exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals })
       )
-      quote = quoteBinaryStakeOverBook(book, binarySide, stake, oneCollateral, {
-        ...bookParams,
-        slippageBps: nextSlippageBps,
-      })
+      quote =
+        side === 'buy'
+          ? quoteBinaryStakeOverBook(book, binarySide as BinaryBuySide, rawAmount, oneCollateral, {
+              ...bookParams,
+              slippageBps: nextSlippageBps,
+            })
+          : quoteBinarySellOverBook(book, binarySide as BinarySellSide, rawAmount, oneCollateral, {
+              ...bookParams,
+              slippageBps: nextSlippageBps,
+            })
 
       if (!quote) {
         console.info(`[trade-position-api:${timer.summary().id}] no fillable quote`, {
@@ -269,14 +297,16 @@ export async function POST(request: Request) {
           marketId,
           marketSymbol,
           outcome,
+          side,
           ...timer.summary(),
         })
         return Response.json(
           {
-            error: `No fillable ${outcome} ask liquidity is available for this amount`,
+            error: `No fillable ${outcome} ${side === 'buy' ? 'ask' : 'bid'} liquidity is available for this amount`,
             marketId,
             marketSymbol,
             tradable,
+            side,
             debug: timer.summary(),
           },
           { status: 400 }
@@ -311,6 +341,7 @@ export async function POST(request: Request) {
           marketId,
           marketSymbol,
           outcome,
+          side,
           attempt,
           nextSlippagePercent: Number(retrySlippageBps) / 100,
         })
@@ -329,8 +360,9 @@ export async function POST(request: Request) {
       marketId,
       marketSymbol,
       outcome,
+      side,
       tradable,
-      bestAsk: humanAmount(outcome === 'YES' ? (book.yesAsks[0]?.price ?? BigInt(0)) : (book.noAsks[0]?.price ?? BigInt(0)), onchain.decimals),
+      bestPrice: humanAmount(bestCrossPrice(book, outcome, side) ?? BigInt(0), onchain.decimals),
       slippage: Number(usedSlippageBps) / 10_000,
       retry: {
         used: usedSlippageBps !== slippageBps,
@@ -340,14 +372,20 @@ export async function POST(request: Request) {
       quote: {
         limitPrice: formatUnits(quote.limitPrice, onchain.decimals),
         quantity: formatUnits(quote.quantity, onchain.decimals),
-        escrow: formatUnits(quote.escrow, onchain.decimals),
+        ...(side === 'buy'
+          ? { escrow: formatUnits((quote as BinaryStakeQuote).escrow, onchain.decimals) }
+          : {
+              fillableQuantity: formatUnits((quote as BinarySellQuote).fillableQuantity, onchain.decimals),
+              estProceeds: formatUnits((quote as BinarySellQuote).estProceeds, onchain.decimals),
+            }),
       },
       order: orderResponse(
         order,
         quote.quantity,
         onchain.decimals,
         tradable ?? `${marketId}#${outcome}`,
-        humanAmount(quote.limitPrice, onchain.decimals)
+        humanAmount(quote.limitPrice, onchain.decimals),
+        side
       ),
       debug: timer.summary(),
     })
@@ -364,6 +402,7 @@ export async function POST(request: Request) {
           ...error.context,
           marketSymbol,
           outcome,
+          side,
           debug: timer.summary(),
         },
         { status: error.status }
@@ -377,6 +416,7 @@ export async function POST(request: Request) {
         walletId,
         marketSymbol,
         outcome,
+        side,
         debug: timer.summary(),
       },
       { status: 500 }
