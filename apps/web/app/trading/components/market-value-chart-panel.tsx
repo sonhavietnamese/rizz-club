@@ -2,18 +2,10 @@
 
 import { formatNumber, formatPercent } from './formatters'
 import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
-import {
-  isBinaryMarket,
-  toHuman,
-  type LiveFill,
-  type UnifiedMarket,
-} from '@somnia-chain/markets-sdk'
-import { useLiveBinaryOrderBook, useLiveFills, useWatchMarket } from '@somnia-chain/markets-sdk/react'
+import { useMarketTimeseries } from '@/lib/use-market-timeseries'
+import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-// The SDK's live store retains roughly 400 fills per watched pool, which is
-// the complete history available from the watch snapshot plus its live tail.
-const marketFillLimit = 400
 const defaultMarketWindowSeconds = 15 * 60
 const yesColor = '#90B64F'
 const noColor = '#D6503C'
@@ -25,43 +17,6 @@ const currentWindows: WindowOption[] = [
   { label: '5m', secs: 300 },
   { label: '15m', secs: defaultMarketWindowSeconds },
 ]
-
-function rawToProbability(value: string | null | undefined, decimals: number) {
-  if (value == null) return undefined
-
-  try {
-    const probability = toHuman(value, decimals)
-    if (!Number.isFinite(probability)) return undefined
-    return Math.max(0, Math.min(1, probability))
-  } catch {
-    return undefined
-  }
-}
-
-function bigintToProbability(value: bigint | undefined, decimals: number) {
-  if (value === undefined) return undefined
-
-  try {
-    const probability = toHuman(value, decimals)
-    if (!Number.isFinite(probability)) return undefined
-    return Math.max(0, Math.min(1, probability))
-  } catch {
-    return undefined
-  }
-}
-
-function fillSortValue(fill: LiveFill) {
-  return fill.blockNumber * 1_000_000 + fill.logIndex
-}
-
-function fillPointTime(timestamp: string, sequence: number) {
-  const seconds = Number(timestamp)
-  if (!Number.isFinite(seconds)) return undefined
-
-  // Several fills can share a block timestamp. Keep their chain order without
-  // changing the visible second-level time labels.
-  return seconds + sequence / 1_000_000
-}
 
 function normalizePoints(points: LivelinePoint[]) {
   return points
@@ -83,20 +38,20 @@ function marketWindowSeconds(market: UnifiedMarket | null) {
   return Math.max(60, expiry - tradingStart)
 }
 
+function selectedMarketIds(market: UnifiedMarket | null) {
+  if (!market) return []
+
+  const ids = [market.id]
+  if (isBinaryMarket(market.info)) ids.push(market.info.marketId)
+  return [...new Set(ids.map((id) => id.toLowerCase()))]
+}
+
 function formatChartTime(seconds: number) {
   return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   }).format(new Date(seconds * 1000))
-}
-
-function liveFillToPoint(fill: LiveFill, decimals: number, sequence: number): LivelinePoint | null {
-  const value = rawToProbability(fill.fillPrice, decimals)
-  const time = fillPointTime(fill.timestamp, sequence)
-  if (value === undefined || time === undefined) return null
-
-  return { time, value }
 }
 
 function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | undefined, nowSeconds: number) {
@@ -106,9 +61,8 @@ function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | u
   if (value === undefined || nowSeconds === 0) return points
 
   const firstTime = points.at(-1)?.time ?? nowSeconds
-  const priorTime = firstTime - 1
   return normalizePoints([
-    { time: priorTime, value },
+    { time: firstTime - 1, value },
     { time: firstTime, value },
   ])
 }
@@ -131,9 +85,8 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
   const [mode, setMode] = useState<MarketValueMode>('current')
   const [nowSeconds, setNowSeconds] = useState(0)
   const binaryMarket = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info : null
-  const fills = useLiveFills(binaryMarket?.poolAddress, marketFillLimit)
-  const book = useLiveBinaryOrderBook(binaryMarket?.poolAddress, 5)
-  const watchStatus = useWatchMarket(binaryMarket?.poolAddress)
+  const marketIds = useMemo(() => selectedMarketIds(selectedMarket), [selectedMarket])
+  const { points, status } = useMarketTimeseries(marketIds)
   const windowSeconds = marketWindowSeconds(selectedMarket)
   const chartWindows =
     mode === 'overview'
@@ -148,30 +101,20 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
     return () => window.clearInterval(timer)
   }, [])
 
-  const marketFills = useMemo(() => {
-    const marketId = binaryMarket?.marketId.toLowerCase()
-    if (!marketId) return []
-
-    return fills
-      .filter((fill) => fill.market_id.toLowerCase() === marketId)
-      .sort((left, right) => fillSortValue(left) - fillSortValue(right))
-  }, [binaryMarket?.marketId, fills])
-
-  const fallbackYes = rawToProbability(binaryMarket?.lastPrice, binaryMarket?.quoteDecimals ?? 6)
-  const bookBid = bigintToProbability(book.yesBids[0]?.price, binaryMarket?.quoteDecimals ?? 6)
-  const bookAsk = bigintToProbability(book.yesAsks[0]?.price, binaryMarket?.quoteDecimals ?? 6)
-  const bookYes = bookBid !== undefined && bookAsk !== undefined ? (bookBid + bookAsk) / 2 : (bookBid ?? bookAsk)
+  const latest = points.at(-1)
+  const fallbackYes = latest?.yes
 
   const yesPoints = useMemo(() => {
     if (!binaryMarket) return []
 
-    const fillPoints = marketFills.flatMap((fill, index) => {
-      const point = liveFillToPoint(fill, binaryMarket.quoteDecimals, index)
-      return point ? [point] : []
-    })
-
-    const historyPoints = normalizePoints(fillPoints)
-    const liveValue = bookYes ?? historyPoints.at(-1)?.value ?? fallbackYes
+    const historyPoints = normalizePoints(
+      points.flatMap((point) => {
+        const time = point.t / 1000
+        if (!Number.isFinite(time) || !Number.isFinite(point.yes)) return []
+        return [{ time, value: point.yes }]
+      }),
+    )
+    const liveValue = historyPoints.at(-1)?.value ?? fallbackYes
     const livePoints =
       liveValue === undefined || nowSeconds === 0
         ? []
@@ -181,17 +124,16 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           ]
 
     return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoints]), liveValue, nowSeconds)
-  }, [binaryMarket, bookYes, fallbackYes, marketFills, nowSeconds])
+  }, [binaryMarket, fallbackYes, nowSeconds, points])
 
   const noPoints = useMemo(() => {
-    const points = yesPoints.map((point) => ({ time: point.time, value: 1 - point.value }))
+    const history = yesPoints.map((point) => ({ time: point.time, value: 1 - point.value }))
     const fallbackNo = fallbackYes === undefined ? undefined : 1 - fallbackYes
-    return ensureDrawablePoints(points, fallbackNo, nowSeconds)
+    return ensureDrawablePoints(history, fallbackNo, nowSeconds)
   }, [fallbackYes, nowSeconds, yesPoints])
 
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes ?? 0.5
   const noValue = noPoints.at(-1)?.value ?? (fallbackYes === undefined ? 0.5 : 1 - fallbackYes)
-  const fillCount = marketFills.length
   const series: LivelineSeries[] = [
     { id: 'yes', label: 'YES', data: yesPoints, value: yesValue, color: yesColor },
     { id: 'no', label: 'NO', data: noPoints, value: noValue, color: noColor },
@@ -224,12 +166,12 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           <p className="mt-1 text-base font-black tabular-nums text-[#9F2E20]">{formatPercent(noValue)}</p>
         </div>
         <div className="rounded-md bg-[#ECD19C] px-3 py-2">
-          <p className="text-xs font-black uppercase tracking-wider opacity-70">Fills</p>
-          <p className="mt-1 text-base font-black tabular-nums">{formatNumber(fillCount)}</p>
+          <p className="text-xs font-black uppercase tracking-wider opacity-70">Points</p>
+          <p className="mt-1 text-base font-black tabular-nums">{formatNumber(points.length)}</p>
         </div>
       </div>
 
-      <div className="h-[240px] rounded-md bg-white px-2 py-3">
+      <div className="h-[400px] rounded-md bg-white px-2 py-3">
         <Liveline
           key={`${binaryMarket?.marketId ?? 'empty'}-${mode}`}
           data={yesPoints}
@@ -240,10 +182,16 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
           windows={chartWindows}
           windowStyle="rounded"
-          loading={Boolean(binaryMarket) && watchStatus !== 'live' && yesPoints.length === 0}
-          emptyText={binaryMarket ? 'Waiting for market fills...' : 'Select an event market.'}
+          loading={Boolean(binaryMarket) && status === 'loading'}
+          emptyText={
+            binaryMarket
+              ? status === 'error'
+                ? 'Could not load market series.'
+                : 'Waiting for live market data...'
+              : 'Select an event market.'
+          }
           referenceLine={{ value: 0.5, label: '50%' }}
-          yDomain={[0, 1]}
+          yDomain={[-0.5, 1.5]}
           formatValue={formatPercent}
           formatTime={formatChartTime}
           lineWidth={3}

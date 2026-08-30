@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAnalytics } from 'firebase/analytics'
+import { getDatabase, type Database } from 'firebase/database'
 import { env } from '@/env'
 
 const firebaseConfig = {
@@ -14,4 +15,11 @@ const firebaseConfig = {
 }
 
 export const app = initializeApp(firebaseConfig)
-export const analytics = getAnalytics(app)
+export const analytics = typeof window === 'undefined' ? undefined : getAnalytics(app)
+
+let database: Database | undefined
+
+export function getFirebaseDatabase() {
+  database ??= getDatabase(app)
+  return database
+}
