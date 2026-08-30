@@ -190,9 +190,14 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
 
     const historyPoints = normalizePoints([...candlePoints, ...fillPoints])
     const liveValue = bookYes ?? historyPoints.at(-1)?.value ?? fallbackYes
-    const livePoint = liveValue === undefined || nowSeconds === 0 ? [] : [{ time: nowSeconds, value: liveValue }]
+    const livePoints = liveValue === undefined || nowSeconds === 0
+      ? []
+      : [
+          { time: nowSeconds - 1, value: liveValue },
+          { time: nowSeconds, value: liveValue },
+        ]
 
-    return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoint]), liveValue, nowSeconds)
+    return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoints]), liveValue, nowSeconds)
   }, [binaryMarket, bookYes, candles.data, fallbackYes, marketFills, nowSeconds])
 
   const noPoints = useMemo(() => {
