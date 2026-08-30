@@ -5,19 +5,16 @@ import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } 
 import {
   isBinaryMarket,
   toHuman,
-  type Candle,
-  type FillRow,
   type LiveFill,
   type UnifiedMarket,
 } from '@somnia-chain/markets-sdk'
-import { useCandles, useIndexerQuery, useLiveBinaryOrderBook, useLiveFills } from '@somnia-chain/markets-sdk/react'
+import { useLiveBinaryOrderBook, useLiveFills, useWatchMarket } from '@somnia-chain/markets-sdk/react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-const marketFillLimit = 500
-const historicalFillPageSize = 1_000
-const maxHistoricalFillPages = 50
+// The SDK's live store retains roughly 400 fills per watched pool, which is
+// the complete history available from the watch snapshot plus its live tail.
+const marketFillLimit = 400
 const defaultMarketWindowSeconds = 15 * 60
-const marketCandleIntervalSeconds = 60
 const yesColor = '#90B64F'
 const noColor = '#D6503C'
 
@@ -57,22 +54,13 @@ function fillSortValue(fill: LiveFill) {
   return fill.blockNumber * 1_000_000 + fill.logIndex
 }
 
-function historicalFillSortValue(fill: FillRow) {
-  const [blockValue, logValue] = fill.id.split('_')
-  const blockNumber = Number(blockValue)
-  const logIndex = Number(logValue)
-  if (Number.isFinite(blockNumber) && Number.isFinite(logIndex)) return blockNumber * 1_000_000 + logIndex
-
-  const timestamp = Number(fill.timestamp)
-  return Number.isFinite(timestamp) ? timestamp * 1_000_000 : 0
-}
-
-function fillPointTime(timestamp: string, sortValue: number) {
+function fillPointTime(timestamp: string, sequence: number) {
   const seconds = Number(timestamp)
   if (!Number.isFinite(seconds)) return undefined
 
-  const offset = Math.abs(sortValue % 1_000) / 1_000
-  return seconds + offset
+  // Several fills can share a block timestamp. Keep their chain order without
+  // changing the visible second-level time labels.
+  return seconds + sequence / 1_000_000
 }
 
 function normalizePoints(points: LivelinePoint[]) {
@@ -95,16 +83,6 @@ function marketWindowSeconds(market: UnifiedMarket | null) {
   return Math.max(60, expiry - tradingStart)
 }
 
-function marketTimeWindow(market: UnifiedMarket | null) {
-  if (!market || !isBinaryMarket(market.info)) return undefined
-
-  const from = Number(market.info.tradingStart)
-  const to = Number(market.info.expiry)
-  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return undefined
-
-  return { from, to }
-}
-
 function formatChartTime(seconds: number) {
   return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
@@ -113,28 +91,9 @@ function formatChartTime(seconds: number) {
   }).format(new Date(seconds * 1000))
 }
 
-function candleToPoint(candle: Candle, decimals: number): LivelinePoint | null {
-  const value = rawToProbability(candle.closePrice, decimals)
-  const bucketStart = Number(candle.bucketStart)
-  if (value === undefined || !Number.isFinite(bucketStart)) return null
-
-  return {
-    time: bucketStart + marketCandleIntervalSeconds,
-    value,
-  }
-}
-
-function liveFillToPoint(fill: LiveFill, decimals: number): LivelinePoint | null {
+function liveFillToPoint(fill: LiveFill, decimals: number, sequence: number): LivelinePoint | null {
   const value = rawToProbability(fill.fillPrice, decimals)
-  const time = fillPointTime(fill.timestamp, fillSortValue(fill))
-  if (value === undefined || time === undefined) return null
-
-  return { time, value }
-}
-
-function historicalFillToPoint(fill: FillRow, decimals: number): LivelinePoint | null {
-  const value = rawToProbability(fill.fillPrice, decimals)
-  const time = fillPointTime(fill.timestamp, historicalFillSortValue(fill))
+  const time = fillPointTime(fill.timestamp, sequence)
   if (value === undefined || time === undefined) return null
 
   return { time, value }
@@ -174,36 +133,8 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
   const binaryMarket = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info : null
   const fills = useLiveFills(binaryMarket?.poolAddress, marketFillLimit)
   const book = useLiveBinaryOrderBook(binaryMarket?.poolAddress, 5)
+  const watchStatus = useWatchMarket(binaryMarket?.poolAddress)
   const windowSeconds = marketWindowSeconds(selectedMarket)
-  const timeWindow = marketTimeWindow(selectedMarket)
-  const candles = useCandles(binaryMarket?.poolAddress, marketCandleIntervalSeconds, {
-    limit: Math.ceil(windowSeconds / marketCandleIntervalSeconds) + 2,
-    from: timeWindow?.from,
-    to: timeWindow?.to,
-  })
-  const historicalFills = useIndexerQuery(
-    async (client) => {
-      if (!binaryMarket || !timeWindow) return []
-
-      const marketId = binaryMarket.marketId.toLowerCase()
-      const rows: FillRow[] = []
-
-      for (let page = 0; page < maxHistoricalFillPages; page += 1) {
-        const batch = await client.getFills(binaryMarket.poolAddress, {
-          limit: historicalFillPageSize,
-          offset: page * historicalFillPageSize,
-          since: timeWindow.from,
-          until: timeWindow.to,
-        })
-
-        rows.push(...batch.filter((fill) => fill.market.toLowerCase() === marketId))
-        if (batch.length < historicalFillPageSize) break
-      }
-
-      return rows.sort((left, right) => historicalFillSortValue(left) - historicalFillSortValue(right))
-    },
-    [binaryMarket?.poolAddress, binaryMarket?.marketId, timeWindow?.from, timeWindow?.to],
-  )
   const chartWindows =
     mode === 'overview'
       ? [{ label: 'Window', secs: windowSeconds }]
@@ -234,23 +165,12 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
   const yesPoints = useMemo(() => {
     if (!binaryMarket) return []
 
-    const candlePoints =
-      candles.data?.flatMap((candle) => {
-        const point = candleToPoint(candle, binaryMarket.quoteDecimals)
-        return point ? [point] : []
-      }) ?? []
-    const historicalFillPoints =
-      historicalFills.data?.flatMap((fill) => {
-        const point = historicalFillToPoint(fill, binaryMarket.quoteDecimals)
-        return point ? [point] : []
-      }) ?? []
-
-    const fillPoints = marketFills.flatMap((fill) => {
-      const point = liveFillToPoint(fill, binaryMarket.quoteDecimals)
+    const fillPoints = marketFills.flatMap((fill, index) => {
+      const point = liveFillToPoint(fill, binaryMarket.quoteDecimals, index)
       return point ? [point] : []
     })
 
-    const historyPoints = normalizePoints([...candlePoints, ...historicalFillPoints, ...fillPoints])
+    const historyPoints = normalizePoints(fillPoints)
     const liveValue = bookYes ?? historyPoints.at(-1)?.value ?? fallbackYes
     const livePoints =
       liveValue === undefined || nowSeconds === 0
@@ -261,7 +181,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           ]
 
     return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoints]), liveValue, nowSeconds)
-  }, [binaryMarket, bookYes, candles.data, fallbackYes, historicalFills.data, marketFills, nowSeconds])
+  }, [binaryMarket, bookYes, fallbackYes, marketFills, nowSeconds])
 
   const noPoints = useMemo(() => {
     const points = yesPoints.map((point) => ({ time: point.time, value: 1 - point.value }))
@@ -271,7 +191,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
 
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes ?? 0.5
   const noValue = noPoints.at(-1)?.value ?? (fallbackYes === undefined ? 0.5 : 1 - fallbackYes)
-  const fillCount = historicalFills.data?.length ?? marketFills.length
+  const fillCount = marketFills.length
   const series: LivelineSeries[] = [
     { id: 'yes', label: 'YES', data: yesPoints, value: yesValue, color: yesColor },
     { id: 'no', label: 'NO', data: noPoints, value: noValue, color: noColor },
@@ -320,7 +240,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
           windows={chartWindows}
           windowStyle="rounded"
-          loading={Boolean(binaryMarket) && (candles.loading || historicalFills.loading) && yesPoints.length === 0}
+          loading={Boolean(binaryMarket) && watchStatus !== 'live' && yesPoints.length === 0}
           emptyText={binaryMarket ? 'Waiting for market fills...' : 'Select an event market.'}
           referenceLine={{ value: 0.5, label: '50%' }}
           yDomain={[0, 1]}
