@@ -2,12 +2,13 @@
 
 import { formatNumber, formatPercent } from './formatters'
 import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
-import { isBinaryMarket, toHuman, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { useLiveFills } from '@somnia-chain/markets-sdk/react'
-import { type ReactNode, useMemo, useState } from 'react'
+import { isBinaryMarket, toHuman, type Candle, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
+import { useCandles, useLiveBinaryOrderBook, useLiveFills } from '@somnia-chain/markets-sdk/react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 const marketFillLimit = 500
 const defaultMarketWindowSeconds = 15 * 60
+const marketCandleIntervalSeconds = 60
 const yesColor = '#90B64F'
 const noColor = '#D6503C'
 
@@ -21,6 +22,18 @@ const currentWindows: WindowOption[] = [
 
 function rawToProbability(value: string | null | undefined, decimals: number) {
   if (value == null) return undefined
+
+  try {
+    const probability = toHuman(value, decimals)
+    if (!Number.isFinite(probability)) return undefined
+    return Math.max(0, Math.min(1, probability))
+  } catch {
+    return undefined
+  }
+}
+
+function bigintToProbability(value: bigint | undefined, decimals: number) {
+  if (value === undefined) return undefined
 
   try {
     const probability = toHuman(value, decimals)
@@ -55,6 +68,16 @@ function marketWindowSeconds(market: UnifiedMarket | null) {
   return Math.max(60, expiry - tradingStart)
 }
 
+function marketTimeWindow(market: UnifiedMarket | null) {
+  if (!market || !isBinaryMarket(market.info)) return undefined
+
+  const from = Number(market.info.tradingStart)
+  const to = Number(market.info.expiry)
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return undefined
+
+  return { from, to }
+}
+
 function formatChartTime(seconds: number) {
   return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
@@ -63,12 +86,22 @@ function formatChartTime(seconds: number) {
   }).format(new Date(seconds * 1000))
 }
 
-function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | undefined) {
+function candleToPoint(candle: Candle, decimals: number): LivelinePoint | null {
+  const value = rawToProbability(candle.closePrice, decimals)
+  const bucketStart = Number(candle.bucketStart)
+  if (value === undefined || !Number.isFinite(bucketStart)) return null
+
+  return {
+    time: bucketStart + marketCandleIntervalSeconds,
+    value,
+  }
+}
+
+function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | undefined, nowSeconds: number) {
   if (points.length >= 2) return points
 
-  const nowSeconds = Math.floor(Date.now() / 1000)
   const value = points.at(-1)?.value ?? fallbackValue
-  if (value === undefined) return points
+  if (value === undefined || nowSeconds === 0) return points
 
   const firstTime = points.at(-1)?.time ?? nowSeconds
   const priorTime = firstTime - 1
@@ -102,12 +135,28 @@ function ModeButton({
 
 export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: UnifiedMarket | null }) {
   const [mode, setMode] = useState<MarketValueMode>('current')
+  const [nowSeconds, setNowSeconds] = useState(0)
   const binaryMarket = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info : null
   const fills = useLiveFills(binaryMarket?.poolAddress, marketFillLimit)
+  const book = useLiveBinaryOrderBook(binaryMarket?.poolAddress, 5)
   const windowSeconds = marketWindowSeconds(selectedMarket)
+  const timeWindow = marketTimeWindow(selectedMarket)
+  const candles = useCandles(binaryMarket?.poolAddress, marketCandleIntervalSeconds, {
+    limit: Math.ceil(windowSeconds / marketCandleIntervalSeconds) + 2,
+    from: timeWindow?.from,
+    to: timeWindow?.to,
+  })
   const chartWindows = mode === 'overview'
     ? [{ label: 'Window', secs: windowSeconds }]
     : currentWindows.filter((option) => option.secs <= windowSeconds)
+
+  useEffect(() => {
+    const updateNow = () => setNowSeconds(Math.floor(Date.now() / 1000))
+
+    updateNow()
+    const timer = window.setInterval(updateNow, 1_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const marketFills = useMemo(() => {
     const marketId = binaryMarket?.marketId.toLowerCase()
@@ -119,23 +168,38 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
   }, [binaryMarket?.marketId, fills])
 
   const fallbackYes = rawToProbability(binaryMarket?.lastPrice, binaryMarket?.quoteDecimals ?? 6)
+  const bookBid = bigintToProbability(book.yesBids[0]?.price, binaryMarket?.quoteDecimals ?? 6)
+  const bookAsk = bigintToProbability(book.yesAsks[0]?.price, binaryMarket?.quoteDecimals ?? 6)
+  const bookYes = bookBid !== undefined && bookAsk !== undefined
+    ? (bookBid + bookAsk) / 2
+    : (bookBid ?? bookAsk)
+
   const yesPoints = useMemo(() => {
     if (!binaryMarket) return []
 
-    const points = marketFills.flatMap((fill) => {
+    const candlePoints = candles.data?.flatMap((candle) => {
+      const point = candleToPoint(candle, binaryMarket.quoteDecimals)
+      return point ? [point] : []
+    }) ?? []
+
+    const fillPoints = marketFills.flatMap((fill) => {
       const value = rawToProbability(fill.fillPrice, binaryMarket.quoteDecimals)
       const time = Number(fill.timestamp)
       return value === undefined || !Number.isFinite(time) ? [] : [{ time, value }]
     })
 
-    return ensureDrawablePoints(normalizePoints(points), fallbackYes)
-  }, [binaryMarket, fallbackYes, marketFills])
+    const historyPoints = normalizePoints([...candlePoints, ...fillPoints])
+    const liveValue = bookYes ?? historyPoints.at(-1)?.value ?? fallbackYes
+    const livePoint = liveValue === undefined || nowSeconds === 0 ? [] : [{ time: nowSeconds, value: liveValue }]
+
+    return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoint]), liveValue, nowSeconds)
+  }, [binaryMarket, bookYes, candles.data, fallbackYes, marketFills, nowSeconds])
 
   const noPoints = useMemo(() => {
     const points = yesPoints.map((point) => ({ time: point.time, value: 1 - point.value }))
     const fallbackNo = fallbackYes === undefined ? undefined : 1 - fallbackYes
-    return ensureDrawablePoints(points, fallbackNo)
-  }, [fallbackYes, yesPoints])
+    return ensureDrawablePoints(points, fallbackNo, nowSeconds)
+  }, [fallbackYes, nowSeconds, yesPoints])
 
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes ?? 0.5
   const noValue = noPoints.at(-1)?.value ?? (fallbackYes === undefined ? 0.5 : 1 - fallbackYes)
@@ -187,7 +251,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
           windows={chartWindows}
           windowStyle="rounded"
-          loading={Boolean(binaryMarket) && yesPoints.length === 0}
+          loading={Boolean(binaryMarket) && candles.loading && yesPoints.length === 0}
           emptyText={binaryMarket ? 'Waiting for market fills...' : 'Select an event market.'}
           referenceLine={{ value: 0.5, label: '50%' }}
           yDomain={[0, 1]}
