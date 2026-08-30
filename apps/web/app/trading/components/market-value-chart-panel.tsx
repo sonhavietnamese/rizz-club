@@ -2,7 +2,14 @@
 
 import { formatNumber, formatPercent } from './formatters'
 import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
-import { isBinaryMarket, toHuman, type Candle, type FillRow, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
+import {
+  isBinaryMarket,
+  toHuman,
+  type Candle,
+  type FillRow,
+  type LiveFill,
+  type UnifiedMarket,
+} from '@somnia-chain/markets-sdk'
 import { useCandles, useIndexerQuery, useLiveBinaryOrderBook, useLiveFills } from '@somnia-chain/markets-sdk/react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
@@ -147,15 +154,7 @@ function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | u
   ])
 }
 
-function ModeButton({
-  isActive,
-  onClick,
-  children,
-}: {
-  isActive: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
+function ModeButton({ isActive, onClick, children }: { isActive: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -205,9 +204,10 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
     },
     [binaryMarket?.poolAddress, binaryMarket?.marketId, timeWindow?.from, timeWindow?.to],
   )
-  const chartWindows = mode === 'overview'
-    ? [{ label: 'Window', secs: windowSeconds }]
-    : currentWindows.filter((option) => option.secs <= windowSeconds)
+  const chartWindows =
+    mode === 'overview'
+      ? [{ label: 'Window', secs: windowSeconds }]
+      : currentWindows.filter((option) => option.secs <= windowSeconds)
 
   useEffect(() => {
     const updateNow = () => setNowSeconds(Math.floor(Date.now() / 1000))
@@ -229,21 +229,21 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
   const fallbackYes = rawToProbability(binaryMarket?.lastPrice, binaryMarket?.quoteDecimals ?? 6)
   const bookBid = bigintToProbability(book.yesBids[0]?.price, binaryMarket?.quoteDecimals ?? 6)
   const bookAsk = bigintToProbability(book.yesAsks[0]?.price, binaryMarket?.quoteDecimals ?? 6)
-  const bookYes = bookBid !== undefined && bookAsk !== undefined
-    ? (bookBid + bookAsk) / 2
-    : (bookBid ?? bookAsk)
+  const bookYes = bookBid !== undefined && bookAsk !== undefined ? (bookBid + bookAsk) / 2 : (bookBid ?? bookAsk)
 
   const yesPoints = useMemo(() => {
     if (!binaryMarket) return []
 
-    const candlePoints = candles.data?.flatMap((candle) => {
-      const point = candleToPoint(candle, binaryMarket.quoteDecimals)
-      return point ? [point] : []
-    }) ?? []
-    const historicalFillPoints = historicalFills.data?.flatMap((fill) => {
-      const point = historicalFillToPoint(fill, binaryMarket.quoteDecimals)
-      return point ? [point] : []
-    }) ?? []
+    const candlePoints =
+      candles.data?.flatMap((candle) => {
+        const point = candleToPoint(candle, binaryMarket.quoteDecimals)
+        return point ? [point] : []
+      }) ?? []
+    const historicalFillPoints =
+      historicalFills.data?.flatMap((fill) => {
+        const point = historicalFillToPoint(fill, binaryMarket.quoteDecimals)
+        return point ? [point] : []
+      }) ?? []
 
     const fillPoints = marketFills.flatMap((fill) => {
       const point = liveFillToPoint(fill, binaryMarket.quoteDecimals)
@@ -252,12 +252,13 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
 
     const historyPoints = normalizePoints([...candlePoints, ...historicalFillPoints, ...fillPoints])
     const liveValue = bookYes ?? historyPoints.at(-1)?.value ?? fallbackYes
-    const livePoints = liveValue === undefined || nowSeconds === 0
-      ? []
-      : [
-          { time: nowSeconds - 1, value: liveValue },
-          { time: nowSeconds, value: liveValue },
-        ]
+    const livePoints =
+      liveValue === undefined || nowSeconds === 0
+        ? []
+        : [
+            { time: nowSeconds - 1, value: liveValue },
+            { time: nowSeconds, value: liveValue },
+          ]
 
     return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoints]), liveValue, nowSeconds)
   }, [binaryMarket, bookYes, candles.data, fallbackYes, historicalFills.data, marketFills, nowSeconds])
@@ -326,6 +327,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
           formatValue={formatPercent}
           formatTime={formatChartTime}
           lineWidth={3}
+          smoothCurve={false}
           pulse={mode === 'current'}
         />
       </div>

@@ -48,6 +48,7 @@ export interface DrawOptions {
   showGrid: boolean
   showMomentum: boolean
   showPulse: boolean
+  smoothCurve: boolean
   showFill: boolean
   referenceLine?: ReferenceLine
   hoverX: number | null
@@ -151,6 +152,10 @@ export function drawFrame(
     opts.scrubAmount,
     reveal,
     opts.now_ms,
+    undefined,
+    undefined,
+    undefined,
+    opts.smoothCurve,
   )
 
   // 4. Time axis — same timing as grid
@@ -292,6 +297,7 @@ export interface MultiSeriesDrawOptions {
   now: number
   showGrid: boolean
   showPulse: boolean
+  smoothCurve: boolean
   referenceLine?: ReferenceLine
   hoverX: number | null
   hoverTime: number | null
@@ -371,6 +377,10 @@ export function drawMultiFrame(ctx: CanvasRenderingContext2D, layout: ChartLayou
       opts.scrubAmount,
       reveal,
       opts.now_ms,
+      undefined,
+      undefined,
+      undefined,
+      opts.smoothCurve,
     )
     ctx.restore()
     if (pts && pts.length > 0) {

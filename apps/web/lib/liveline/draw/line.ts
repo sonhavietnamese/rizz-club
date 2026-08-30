@@ -31,12 +31,24 @@ function blendColor(c1: string, c2: string, t: number): string {
   return `rgba(${r},${g},${b},${a.toFixed(3)})`
 }
 
+function drawLinePath(ctx: CanvasRenderingContext2D, pts: [number, number][], smoothCurve: boolean) {
+  if (smoothCurve) {
+    drawSpline(ctx, pts)
+    return
+  }
+
+  for (let i = 1; i < pts.length; i += 1) {
+    ctx.lineTo(pts[i][0], pts[i][1])
+  }
+}
+
 /** Draw the fill gradient + stroke line for a set of points. */
 function renderCurve(
   ctx: CanvasRenderingContext2D,
   layout: ChartLayout,
   palette: LivelinePalette,
   pts: [number, number][],
+  smoothCurve: boolean,
   showFill: boolean,
   lineAlpha: number = 1,
   fillAlpha: number = 1,
@@ -53,7 +65,7 @@ function renderCurve(
     ctx.beginPath()
     ctx.moveTo(pts[0][0], h - pad.bottom)
     ctx.lineTo(pts[0][0], pts[0][1])
-    drawSpline(ctx, pts)
+    drawLinePath(ctx, pts, smoothCurve)
     ctx.lineTo(pts[pts.length - 1][0], h - pad.bottom)
     ctx.closePath()
     ctx.fillStyle = grad
@@ -63,7 +75,7 @@ function renderCurve(
   ctx.globalAlpha = baseAlpha * lineAlpha
   ctx.beginPath()
   ctx.moveTo(pts[0][0], pts[0][1])
-  drawSpline(ctx, pts)
+  drawLinePath(ctx, pts, smoothCurve)
   ctx.strokeStyle = strokeColor ?? palette.line
   ctx.lineWidth = palette.lineWidth
   ctx.lineJoin = 'round'
@@ -87,6 +99,7 @@ export function drawLine(
   colorBlend: number = 1,
   skipDashLine: boolean = false,
   fillScale: number = 1,
+  smoothCurve: boolean = true,
 ) {
   const { h, pad, toX, toY, chartW, chartH } = layout
   const incomingAlpha = ctx.globalAlpha
@@ -167,7 +180,7 @@ export function drawLine(
     ctx.beginPath()
     ctx.rect(0, 0, scrubX!, h)
     ctx.clip()
-    renderCurve(ctx, layout, palette, pts, showFill, lineAlpha, fillAlpha, strokeColor)
+    renderCurve(ctx, layout, palette, pts, smoothCurve, showFill, lineAlpha, fillAlpha, strokeColor)
     ctx.restore()
 
     // Dimmed portion: clipped to RIGHT of scrub point
@@ -176,10 +189,10 @@ export function drawLine(
     ctx.rect(scrubX!, 0, layout.w - scrubX!, h)
     ctx.clip()
     ctx.globalAlpha = incomingAlpha * (1 - scrubAmount * 0.6)
-    renderCurve(ctx, layout, palette, pts, showFill, lineAlpha, fillAlpha, strokeColor)
+    renderCurve(ctx, layout, palette, pts, smoothCurve, showFill, lineAlpha, fillAlpha, strokeColor)
     ctx.restore()
   } else {
-    renderCurve(ctx, layout, palette, pts, showFill, lineAlpha, fillAlpha, strokeColor)
+    renderCurve(ctx, layout, palette, pts, smoothCurve, showFill, lineAlpha, fillAlpha, strokeColor)
   }
 
   // Restore from chart-area clip

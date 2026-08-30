@@ -33,6 +33,7 @@ interface EngineConfig {
   padding: Required<Padding>
   onHover?: (point: HoverPoint | null) => void
   showPulse: boolean
+  smoothCurve: boolean
   scrub: boolean
   exaggerate: boolean
   degenOptions?: DegenOptions
@@ -1684,6 +1685,7 @@ export function useLivelineEngine(
       now,
       showGrid: cfg.showGrid,
       showPulse: cfg.showPulse,
+      smoothCurve: cfg.smoothCurve,
       referenceLine: cfg.referenceLine,
       hoverX: drawHoverX,
       hoverTime: drawHoverTime,
@@ -1842,6 +1844,7 @@ export function useLivelineEngine(
       showGrid: cfg.showGrid,
       showMomentum: cfg.showMomentum,
       showPulse: cfg.showPulse,
+      smoothCurve: cfg.smoothCurve,
       showFill: cfg.showFill,
       referenceLine: cfg.referenceLine,
       hoverX: drawHoverX,

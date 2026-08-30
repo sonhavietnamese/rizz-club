@@ -109,6 +109,7 @@ export interface LivelineProps {
   cursor?: string          // CSS cursor on hover (default: 'crosshair')
   pulse?: boolean          // Pulsing ring on live dot (default: true)
   lineWidth?: number       // Stroke width of the main line in px (default: 2)
+  smoothCurve?: boolean    // Use spline curves instead of straight line segments (default: true)
 
   // Candlestick mode
   mode?: 'line' | 'candle'       // Chart type (default: 'line')
