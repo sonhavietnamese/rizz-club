@@ -20,6 +20,7 @@ export function Liveline({
   theme = 'dark',
   color = '#3b82f6',
   window: windowSecs = 30,
+  yDomain,
   grid = true,
   badge = true,
   momentum = true,
@@ -72,8 +73,6 @@ export function Liveline({
   const modeBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
   const [modeIndicatorStyle, setModeIndicatorStyle] = useState<{ left: number; width: number } | null>(null)
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
-  const lastSeriesPropRef = useRef(seriesProp)
-  if (seriesProp && seriesProp.length > 0) lastSeriesPropRef.current = seriesProp
 
   const palette = useMemo(() => {
     const p = resolveTheme(color, theme)
@@ -82,7 +81,8 @@ export function Liveline({
   }, [color, theme, lineWidth])
   const isDark = theme === 'dark'
   const isMultiSeries = seriesProp != null && seriesProp.length > 0
-  const showSeriesToggle = (lastSeriesPropRef.current?.length ?? 0) > 1
+  const toggleSeries = seriesProp ?? []
+  const showSeriesToggle = toggleSeries.length > 1
 
   // Per-series palettes (memoized on series ids + colors + theme)
   const seriesPalettes = useMemo(() => {
@@ -186,6 +186,7 @@ export function Liveline({
     value,
     palette,
     windowSecs: effectiveWindowSecs,
+    yDomain,
     lerpSpeed,
     showGrid: grid,
     showBadge: isMultiSeries ? false : badge,
@@ -446,7 +447,7 @@ export function Liveline({
                 pointerEvents: isMultiSeries ? 'auto' : 'none',
               }}
             >
-              {(lastSeriesPropRef.current ?? []).map((s, si) => {
+              {toggleSeries.map((s, si) => {
                 const isHidden = hiddenSeries.has(s.id)
                 const seriesColor = s.color || SERIES_COLORS[si % SERIES_COLORS.length]
                 return (

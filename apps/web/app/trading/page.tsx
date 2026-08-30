@@ -4,6 +4,7 @@ import {
   ChartPanel,
   FilledOrdersPanel,
   MarketList,
+  MarketValueChartPanel,
   OrderBookPanel,
   PositionSummary,
   RewardClaimPanel,
@@ -672,6 +673,7 @@ export default function TradingPage() {
                 onSelectOutcome={setSelectedOutcome}
               />
               <ChartPanel />
+              <MarketValueChartPanel selectedMarket={selectedMarket} />
               <OrderBookPanel orderBook={orderBook} isLoadingBook={isLoadingBook} lastBookUpdate={lastBookUpdate} />
               <PositionSummary
                 selectedPosition={selectedPosition}

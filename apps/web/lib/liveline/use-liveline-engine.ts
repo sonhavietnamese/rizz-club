@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/immutability, react-hooks/refs */
 import { useRef, useEffect, useCallback } from 'react'
-import type { LivelinePoint, LivelinePalette, LivelineSeries, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint } from './types'
+import type { LivelinePoint, LivelinePalette, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint } from './types'
 import { lerp } from './math/lerp'
 import { computeRange } from './math/range'
 import { detectMomentum } from './math/momentum'
@@ -19,6 +20,7 @@ interface EngineConfig {
   value: number
   palette: LivelinePalette
   windowSecs: number
+  yDomain?: [number, number]
   lerpSpeed: number
   showGrid: boolean
   showBadge: boolean
@@ -164,7 +166,7 @@ function updateWindowTransition(
       }
     }
     if (targetVisible.length > 0) {
-      const targetRange = computeRange(targetVisible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate)
+      const targetRange = computeRange(targetVisible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate, cfg.yDomain)
       wt.rangeToMin = targetRange.min
       wt.rangeToMax = targetRange.max
     }
@@ -1186,7 +1188,7 @@ export function useLivelineEngine(
       if (smoothLive && smoothLive.time + displayCandleWidth >= leftEdge && smoothLive.time <= rightEdge) {
         visible.push(smoothLive)
       }
-      let oldVisible: CandlePoint[] = []
+      const oldVisible: CandlePoint[] = []
       if (morphT >= 0 && cwt.oldCandles.length > 0) {
         for (const c of cwt.oldCandles) {
           if (c.time + cwt.oldWidth >= leftEdge && c.time <= rightEdge) oldVisible.push(c)
@@ -1535,7 +1537,7 @@ export function useLivelineEngine(
           if (p.time >= targetLeftEdge - 2 && p.time <= targetRightEdge) targetVisible.push(p)
         }
         if (targetVisible.length > 0) {
-          const range = computeRange(targetVisible, sv, cfg.referenceLine?.value, cfg.exaggerate)
+          const range = computeRange(targetVisible, sv, cfg.referenceLine?.value, cfg.exaggerate, cfg.yDomain)
           if (range.min < unionMin) unionMin = range.min
           if (range.max > unionMax) unionMax = range.max
         }
@@ -1572,7 +1574,7 @@ export function useLivelineEngine(
       if (visible.length >= 2) {
         // Only include in range if series is at least partially visible
         if (alpha > 0.01) {
-          const range = computeRange(visible, sv, cfg.referenceLine?.value, cfg.exaggerate)
+          const range = computeRange(visible, sv, cfg.referenceLine?.value, cfg.exaggerate, cfg.yDomain)
           if (range.min < globalMin) globalMin = range.min
           if (range.max > globalMax) globalMax = range.max
         }
@@ -1604,7 +1606,9 @@ export function useLivelineEngine(
     }
 
     // Smooth global range
-    const computedRange = { min: isFinite(globalMin) ? globalMin : 0, max: isFinite(globalMax) ? globalMax : 1 }
+    const computedRange = cfg.yDomain
+      ? computeRange([], 0, undefined, false, cfg.yDomain)
+      : { min: isFinite(globalMin) ? globalMin : 0, max: isFinite(globalMax) ? globalMax : 1 }
     const adaptiveSpeed = cfg.lerpSpeed + ADAPTIVE_SPEED_BOOST * 0.5
     const rangeResult = updateRange(
       computedRange, rangeInitedRef.current,
@@ -1783,7 +1787,7 @@ export function useLivelineEngine(
     }
 
     // Compute + smooth Y range
-    const computedRange = computeRange(visible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate)
+    const computedRange = computeRange(visible, smoothValue, cfg.referenceLine?.value, cfg.exaggerate, cfg.yDomain)
     const isWindowTransitioning = transition.startMs > 0
     const rangeResult = updateRange(
       computedRange, rangeInitedRef.current,

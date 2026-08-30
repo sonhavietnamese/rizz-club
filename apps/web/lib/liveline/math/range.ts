@@ -9,7 +9,16 @@ export function computeRange(
   currentValue: number,
   referenceValue?: number,
   exaggerate?: boolean,
+  yDomain?: [number, number],
 ): { min: number; max: number } {
+  if (
+    yDomain &&
+    Number.isFinite(yDomain[0]) &&
+    Number.isFinite(yDomain[1]) &&
+    yDomain[1] > yDomain[0]
+  ) {
+    return { min: yDomain[0], max: yDomain[1] }
+  }
   let targetMin = Infinity
   let targetMax = -Infinity
 

@@ -50,12 +50,12 @@ describe('computeRange', () => {
   })
 
   it('includes current value in range', () => {
-    const { min, max } = computeRange(pts([10, 20]), 25)
+    const { max } = computeRange(pts([10, 20]), 25)
     expect(max).toBeGreaterThan(25)
   })
 
   it('includes reference value in range', () => {
-    const { min, max } = computeRange(pts([10, 20]), 15, 5)
+    const { min } = computeRange(pts([10, 20]), 15, 5)
     expect(min).toBeLessThan(5)
   })
 
@@ -68,6 +68,9 @@ describe('computeRange', () => {
     const { min, max } = computeRange(pts([50]), 50)
     const mid = (min + max) / 2
     expect(mid).toBeCloseTo(50, 1)
+  })
+  it('uses a fixed y domain when provided', () => {
+    expect(computeRange(pts([0.42, 0.58]), 0.7, 0.5, false, [0, 1])).toEqual({ min: 0, max: 1 })
   })
 })
 

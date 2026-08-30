@@ -67,6 +67,7 @@ export interface LivelineProps {
 
   // Time
   window?: number
+  yDomain?: [number, number]
 
   // Feature flags
   grid?: boolean
