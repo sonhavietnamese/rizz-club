@@ -5,7 +5,7 @@ import {
   getCachedMarketOnchain,
   setCachedBinaryBookParams,
   setCachedMarketOnchain,
-} from '@/lib/dreamdex-market-cache'
+} from '@/lib/dreamdex'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
 import { createViemAccount } from '@privy-io/node/viem'
 import {
@@ -164,7 +164,7 @@ function orderResponse(
   decimals: number,
   symbol: string,
   price: number,
-  side: 'buy' | 'sell'
+  side: 'buy' | 'sell',
 ) {
   const filledRaw = order.fills.reduce((total, fill) => total + fill.quantityFilled, BigInt(0))
   const filled = humanAmount(filledRaw, decimals)
@@ -197,7 +197,10 @@ function bestCrossPrice(book: BinaryOrderBook, outcome: 'YES' | 'NO', side: 'buy
 
 export async function POST(request: Request) {
   const timer = createPositionDebugTimer()
-  const body = await timer.wait('request.json', request.json().catch(() => null))
+  const body = await timer.wait(
+    'request.json',
+    request.json().catch(() => null),
+  )
   const parseResult = placePositionBodySchema.safeParse(body)
 
   if (!parseResult.success) {
@@ -208,7 +211,7 @@ export async function POST(request: Request) {
         details: parseResult.error.flatten().fieldErrors,
         debug: timer.summary(),
       },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
@@ -254,13 +257,13 @@ export async function POST(request: Request) {
           onchainStatus: onchain.status,
           debug: timer.summary(),
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     const bookParams = await timer.wait(
       'binaryBookParams cachedOrFetch',
-      cachedBinaryBookParams({ exchange, pool: onchain.pool })
+      cachedBinaryBookParams({ exchange, pool: onchain.pool }),
     )
     const binarySide = binarySideForPosition(outcome, side)
     const rawAmount = parseUnits(String(amount), onchain.decimals)
@@ -278,7 +281,7 @@ export async function POST(request: Request) {
       const attempt = index + 1
       book = await timer.wait(
         `attempt ${attempt} exchange.client.getBinaryOrderBook`,
-        exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals })
+        exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals }),
       )
       quote =
         side === 'buy'
@@ -309,7 +312,7 @@ export async function POST(request: Request) {
             side,
             debug: timer.summary(),
           },
-          { status: 400 }
+          { status: 400 },
         )
       }
 
@@ -329,7 +332,7 @@ export async function POST(request: Request) {
             collateral: onchain.collateral,
             expireTimestampNs: onchain.expiry * BigInt(1_000_000_000),
             orderType: ORDER_TYPE.MARKET,
-          })
+          }),
         )
         break
       } catch (error) {
@@ -385,7 +388,7 @@ export async function POST(request: Request) {
         onchain.decimals,
         tradable ?? `${marketId}#${outcome}`,
         humanAmount(quote.limitPrice, onchain.decimals),
-        side
+        side,
       ),
       debug: timer.summary(),
     })
@@ -405,7 +408,7 @@ export async function POST(request: Request) {
           side,
           debug: timer.summary(),
         },
-        { status: error.status }
+        { status: error.status },
       )
     }
 
@@ -419,7 +422,7 @@ export async function POST(request: Request) {
         side,
         debug: timer.summary(),
       },
-      { status: 500 }
+      { status: 500 },
     )
   } finally {
     if (exchange) {

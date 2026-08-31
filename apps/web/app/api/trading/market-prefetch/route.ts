@@ -4,7 +4,7 @@ import {
   getCachedMarketOnchain,
   setCachedBinaryBookParams,
   setCachedMarketOnchain,
-} from '@/lib/dreamdex-market-cache'
+} from '@/lib/dreamdex'
 import { type Hex } from 'viem'
 import { z } from 'zod'
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         error: 'Validation failed',
         details: parseResult.error.flatten().fieldErrors,
       },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         details: errorMessage(error),
         marketId,
       },
-      { status: 500 }
+      { status: 500 },
     )
   } finally {
     await exchange?.close()
