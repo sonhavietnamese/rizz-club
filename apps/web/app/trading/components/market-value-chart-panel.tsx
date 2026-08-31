@@ -2,8 +2,8 @@
 
 import { formatNumber, formatPercent } from './formatters'
 import { Liveline, type LivelineSeries, type WindowOption } from '@/lib/liveline'
-import { ensureDrawablePoints, holdLastValue, normalizePoints } from '@/lib/market-series'
-import { useMarketTimeseries } from '@/lib/use-market-timeseries'
+import { ensureDrawablePoints, holdLastValue, normalizePoints } from '@/lib/utils'
+import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
