@@ -1,7 +1,8 @@
 'use client'
 
 import { formatNumber, formatPercent } from './formatters'
-import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
+import { Liveline, type LivelineSeries, type WindowOption } from '@/lib/liveline'
+import { ensureDrawablePoints, holdLastValue, normalizePoints } from '@/lib/market-series'
 import { useMarketTimeseries } from '@/lib/use-market-timeseries'
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
@@ -17,13 +18,6 @@ const currentWindows: WindowOption[] = [
   { label: '5m', secs: 300 },
   { label: '15m', secs: defaultMarketWindowSeconds },
 ]
-
-function normalizePoints(points: LivelinePoint[]) {
-  return points
-    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value))
-    .sort((left, right) => left.time - right.time)
-    .filter((point, index, sorted) => index === sorted.length - 1 || point.time !== sorted[index + 1].time)
-}
 
 function marketWindowSeconds(market: UnifiedMarket | null) {
   if (!market || !isBinaryMarket(market.info)) return defaultMarketWindowSeconds
@@ -52,19 +46,6 @@ function formatChartTime(seconds: number) {
     minute: '2-digit',
     second: '2-digit',
   }).format(new Date(seconds * 1000))
-}
-
-function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: number | undefined, nowSeconds: number) {
-  if (points.length >= 2) return points
-
-  const value = points.at(-1)?.value ?? fallbackValue
-  if (value === undefined || nowSeconds === 0) return points
-
-  const firstTime = points.at(-1)?.time ?? nowSeconds
-  return normalizePoints([
-    { time: firstTime - 1, value },
-    { time: firstTime, value },
-  ])
 }
 
 function ModeButton({ isActive, onClick, children }: { isActive: boolean; onClick: () => void; children: ReactNode }) {
@@ -115,15 +96,7 @@ export function MarketValueChartPanel({ selectedMarket }: { selectedMarket: Unif
       }),
     )
     const liveValue = historyPoints.at(-1)?.value ?? fallbackYes
-    const livePoints =
-      liveValue === undefined || nowSeconds === 0
-        ? []
-        : [
-            { time: nowSeconds - 1, value: liveValue },
-            { time: nowSeconds, value: liveValue },
-          ]
-
-    return ensureDrawablePoints(normalizePoints([...historyPoints, ...livePoints]), liveValue, nowSeconds)
+    return ensureDrawablePoints(holdLastValue(historyPoints, nowSeconds), liveValue, nowSeconds)
   }, [binaryMarket, fallbackYes, nowSeconds, points])
 
   const noPoints = useMemo(() => {

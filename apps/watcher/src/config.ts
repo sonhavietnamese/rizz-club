@@ -16,6 +16,7 @@ export const successorPollNearExpiryMs = 15_000
 export const successorPollHotMs = 1_000
 export const successorPollMsDefault = 3_000
 export const etlDebounceMs = 250
+export const etlHeartbeatMs = 1_000
 export const etlPath = 'market'
 
 export const dreamDexConfig = {
