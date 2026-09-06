@@ -2,7 +2,7 @@ import { cn } from 'cn'
 
 export default function SectionStatus() {
   return (
-    <section className="section-panel font-sans flex-none p-2 gap-2 flex justify-between">
+    <section className="section-panel font-sans flex-none p-2 gap-2 flex justify-between select-none">
       <div className="p-2 px-2.5 bg-[#24362C] leading-none rounded-lg w-fit">
         <span
           className={cn(
@@ -26,8 +26,8 @@ export default function SectionStatus() {
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
-                fill-rule="evenodd"
-                clip-rule="evenodd"
+                fillRule="evenodd"
+                clipRule="evenodd"
                 d="M6.91817 7.66351H6.93392C8.40392 7.66351 9.59917 6.46767 9.59917 4.99826C9.59917 3.52884 8.40392 2.33301 6.93392 2.33301C5.4645 2.33301 4.26925 3.52884 4.26925 4.99651C4.26633 5.70642 4.53992 6.37492 5.04042 6.87834C5.53975 7.38234 6.2065 7.66117 6.91817 7.66351ZM5.14425 4.99826C5.14425 4.01126 5.94692 3.20801 6.93392 3.20801C7.92092 3.20801 8.72417 4.01126 8.72417 4.99826C8.72417 5.98584 7.92092 6.78851 6.93392 6.78851H6.91933C6.44333 6.78676 5.9965 6.59951 5.66108 6.26176C5.32567 5.92401 5.1425 5.47659 5.14425 4.99826Z"
                 fill="#6A7374"
               />
@@ -40,8 +40,8 @@ export default function SectionStatus() {
                 fill="#6A7374"
               />
               <path
-                fill-rule="evenodd"
-                clip-rule="evenodd"
+                fillRule="evenodd"
+                clipRule="evenodd"
                 d="M6.9339 12.1277C5.96615 12.1277 3.02031 12.1277 3.02031 10.264C3.02031 8.40781 5.96615 8.40781 6.9339 8.40781C7.90165 8.40781 10.8469 8.40781 10.8469 10.2739C10.8469 12.1277 8.00432 12.1277 6.9339 12.1277ZM6.9339 9.28281C5.5479 9.28281 3.89531 9.45314 3.89531 10.264C3.89531 11.0812 5.5479 11.2527 6.9339 11.2527C8.3199 11.2527 9.9719 11.083 9.9719 10.2739C9.9719 9.45489 8.3199 9.28281 6.9339 9.28281Z"
                 fill="#6A7374"
               />

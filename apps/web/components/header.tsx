@@ -3,7 +3,7 @@ import { cn } from 'cn'
 
 export default function Header() {
   return (
-    <header className="w-full h-[90px] rounded-2xl relative">
+    <header className="w-full h-[90px] rounded-2xl relative select-none">
       <div
         className={cn(
           'overflow-hidden w-full h-full absolute top-0 left-0 rounded-2xl',

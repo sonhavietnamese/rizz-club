@@ -8,7 +8,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full">
             <div className="flex gap-4 w-[90%]">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
@@ -35,7 +35,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full">
             <div className="flex gap-4 w-[90%]">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
@@ -65,7 +65,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full flex-row-reverse">
             <div className="flex gap-4 w-[90%] flex-row-reverse">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
@@ -95,7 +95,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full">
             <div className="flex gap-4 w-[90%]">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
@@ -125,9 +125,9 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full">
             <div className="flex gap-4 w-[90%]">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
-                    src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
+                    src="https://i.pinimg.com/1200x/a5/65/6c/a5656c180fedac78f1f913abc7253015.jpg"
                     alt="avatar"
                     width={60}
                     height={60}
@@ -155,7 +155,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full">
             <div className="flex gap-4 w-[90%]">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
@@ -185,7 +185,7 @@ export default function SectionChat() {
           <li className="flex gap-4 w-full flex-row-reverse">
             <div className="flex gap-4 w-[90%] flex-row-reverse">
               <div>
-                <figure className="w-15 h-15 aspect-square rounded-lg p-[2.5px] bg-[#ff00ff] bg-cover bg-center">
+                <figure className="w-15 h-15 aspect-square rounded-lg p-[2px] bg-[#ff00ff] bg-cover bg-center">
                   <Image
                     src="https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg"
                     alt="avatar"
