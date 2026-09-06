@@ -329,7 +329,7 @@ export default function MePage() {
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-wider opacity-70">Player Profile</p>
-              <h1 className="text-3xl font-black leading-tight">{getDisplayName(user)}</h1>
+              <h1 className="text-3xl font-black">{getDisplayName(user)}</h1>
             </div>
           </div>
 

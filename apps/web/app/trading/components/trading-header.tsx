@@ -13,7 +13,7 @@ export function TradingHeader({
     <header className="flex flex-col gap-4 rounded-md bg-[#ECD19C] p-5 shadow-[0_8px_0_#673818] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider opacity-70">DreamDex</p>
-        <h1 className="text-3xl font-black leading-tight">Event Trading</h1>
+        <h1 className="text-3xl font-black">Event Trading</h1>
         <p className="mt-2 text-sm font-semibold opacity-75">
           {walletAddress ? `Wallet ${formatAddress(walletAddress)}` : 'Wallet connecting...'}
         </p>

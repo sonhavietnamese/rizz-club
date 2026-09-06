@@ -20,7 +20,7 @@ const geist = Geist({
 })
 
 export const metadata: Metadata = {
-  title: 'Rizz Club',
+  title: 'Rizz Club | BTC - 5m',
   icons: {
     icon: '/icon.png',
   },

@@ -3,7 +3,7 @@ import { cn } from 'cn'
 
 export default function Header() {
   return (
-    <header className="w-full h-[100px] rounded-2xl relative ">
+    <header className="w-full h-[90px] rounded-2xl relative">
       <div
         className={cn(
           'overflow-hidden w-full h-full absolute top-0 left-0 rounded-2xl',
@@ -13,7 +13,7 @@ export default function Header() {
         <div className="w-full h-full flex items-center justify-center">
           <Marquee>
             {Array.from({ length: 20 }).map((_, index) => (
-              <figure key={index} className="w-[280px] h-auto">
+              <figure key={index} className="w-[200px] h-auto">
                 <svg
                   width="373"
                   height="91"
@@ -33,7 +33,7 @@ export default function Header() {
         </div>
       </div>
 
-      <figure className="w-[530px] h-auto absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-20">
+      <figure className="w-[480px] h-auto absolute left-1/2 -translate-x-1/2 z-20 top-[-7px]">
         <svg
           width="562"
           height="116"
@@ -46,13 +46,13 @@ export default function Header() {
             d="M275.598 25.3428L286.767 46.1426L307.714 33.7305L310.03 32.3584L312.654 32.957L326.347 36.082L524.245 32.1729L531.596 28.6035L540.851 24.1055L541.285 34.3877L542.327 59.1406L546.906 63.8408L551.774 68.8369L546.619 73.5361L529.698 88.959L527.766 90.7197H310.549L294.33 97.7285L293.656 98.0195L292.935 98.1592L277.435 101.159L276.124 101.413L274.814 101.147L236.075 93.3018L35.4276 99.2793L26.6454 99.541L28.6591 90.9883L29.7323 86.4268L25.245 85.0615L15.3182 82.041L22.1053 74.1934L26.869 68.6846L14.4188 38.6094L10.327 28.7227L21.0116 29.291L245.25 41.2305L257.309 37.2744L263.708 25.3467L269.649 14.2676L275.598 25.3428Z"
             fill="black"
             stroke="#121314"
-            stroke-width="13.494"
+            strokeWidth="13.494"
           />
           <path
             d="M275.008 11.7305L294.296 35.5225L302.557 31.4766L306.497 29.5459L306.681 33.9307L308.002 65.5596L314.82 72.6143L316.863 74.7275L314.698 76.7168L294.604 95.1797L294.289 95.4697L293.902 95.6553L283.014 100.862L282.622 101.05L282.192 101.112L267.595 103.25L238.639 110.319L234.107 111.426L235.169 106.883L237.557 96.6553L227.598 93.6006L223.413 92.3164L226.264 88.9941L234.01 79.9629L218.002 40.9775L215.569 35.0518L221.608 37.1865L245.057 45.4766L248.778 41.7969L249.202 41.3779L249.757 41.1631L265.743 34.9502L269.968 12.9941L271.131 6.94824L275.008 11.7305Z"
             fill="black"
             stroke="white"
-            stroke-width="5.73171"
+            strokeWidth="5.73171"
           />
           <path
             d="M295.664 59.8257C296.874 61.1933 299.333 63.6685 299.136 70.1353C298.873 78.762 294.559 84.1276 290.246 85.7583C289.768 85.1314 289.139 84.0799 288.538 82.8237C289.264 83.4809 289.998 83.8637 290.691 83.8638C293.817 83.8638 296.927 78.7854 296.927 72.9751C296.927 67.9786 294.88 63.9154 292.319 62.8745C293.285 61.8075 294.394 60.7781 295.664 59.8257Z"
@@ -72,12 +72,12 @@ export default function Header() {
           />
         </svg>
 
-        <div className="w-[510px] h-[80px] font-abc-gravity-italic flex justify-between items-center text-white px-12 pt-4 leading-none absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2">
-          <div className="text-[36px] leading-none">
+        <div className="w-[510px] h-[60px] font-abc-gravity-italic flex justify-between items-center text-white px-18 pt-2 leading-none absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2">
+          <div className="text-[30px] leading-none pt-1">
             <span>BTC</span>
           </div>
 
-          <div className="text-[36px] leading-none tabular-nums">
+          <div className="text-[30px] leading-none tabular-nums">
             <span>00:20</span>
           </div>
         </div>
