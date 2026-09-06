@@ -31,7 +31,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const liveMarketRefreshMs = 15_000
-const targetMarketIntervalSeconds = 15 * 60
+const targetMarketIntervalSeconds = 5 * 60
 
 type PlacePositionApiResponse = {
   order: {
@@ -272,7 +272,7 @@ export default function TradingPage() {
       try {
         if (!hasLoadedOnce) {
           setIsLoadingMarkets(true)
-          setStatus({ tone: 'neutral', message: 'Loading DreamDex 15m live markets...' })
+          setStatus({ tone: 'neutral', message: 'Loading DreamDex 5m live markets...' })
         }
 
         const registry = await exchange.loadMarkets(true)
@@ -294,8 +294,8 @@ export default function TradingPage() {
             tone: 'neutral',
             message:
               binaryMarkets.length > 0
-                ? 'Auto-selected the live 15m DreamDex market.'
-                : 'No live 15m DreamDex event markets were returned.',
+                ? 'Auto-selected the live 5m DreamDex market.'
+                : 'No live 5m DreamDex event markets were returned.',
           })
         }
         hasLoadedOnce = true

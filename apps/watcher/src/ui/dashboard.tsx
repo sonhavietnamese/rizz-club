@@ -76,7 +76,7 @@ function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
         </Text>
         <Text dimColor>  watcher</Text>
         <Spacer />
-        <Text color={muted}>BTC 15m</Text>
+        <Text color={muted}>BTC 5m</Text>
       </Box>
       <Box>
         <Text color={cream} wrap="truncate">

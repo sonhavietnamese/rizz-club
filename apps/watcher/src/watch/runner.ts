@@ -27,8 +27,8 @@ export async function startWatcher(onSnapshot: SnapshotListener, signal: AbortSi
           onSnapshot({
             phase: 'waiting',
             message: previousMarket
-              ? `${previousMarket.symbol} expired · waiting for the next ${targetAsset} 15m`
-              : `Waiting for a live ${targetAsset} 15m market`,
+              ? `${previousMarket.symbol} expired · waiting for the next ${targetAsset} 5m`
+              : `Waiting for a live ${targetAsset} 5m market`,
             retryAt: Date.now() + marketRefreshMs,
             fillCount: 0,
             fills: [],

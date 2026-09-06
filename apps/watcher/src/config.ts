@@ -8,7 +8,7 @@ import { somniaShannon } from '@somnia-chain/markets-sdk/chains'
 export const marketRefreshMs = 5_000
 export const reconnectDelayMs = 5_000
 export const targetAsset = 'BTC'
-export const targetIntervalSeconds = 15 * 60
+export const targetIntervalSeconds = 5 * 60
 export const marketFillLimit = 400
 export const dashboardFillLimit = 10
 export const defaultQuoteDecimals = 6

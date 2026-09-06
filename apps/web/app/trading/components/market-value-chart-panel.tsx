@@ -7,7 +7,7 @@ import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-const defaultMarketWindowSeconds = 15 * 60
+const defaultMarketWindowSeconds = 5 * 60
 const yesColor = '#90B64F'
 const noColor = '#D6503C'
 
@@ -15,8 +15,7 @@ type MarketValueMode = 'current' | 'overview'
 
 const currentWindows: WindowOption[] = [
   { label: '1m', secs: 60 },
-  { label: '5m', secs: 300 },
-  { label: '15m', secs: defaultMarketWindowSeconds },
+  { label: '5m', secs: defaultMarketWindowSeconds },
 ]
 
 function marketWindowSeconds(market: UnifiedMarket | null) {
