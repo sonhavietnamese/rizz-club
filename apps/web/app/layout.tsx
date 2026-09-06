@@ -9,6 +9,11 @@ const faylake = localFont({
   variable: '--font-faylake',
 })
 
+const abcGravityItalic = localFont({
+  src: '../fonts/ABCGravity-ExtendedItalic-Trial.otf',
+  variable: '--font-abc-gravity-italic',
+})
+
 const geist = Geist({
   subsets: ['latin'],
   variable: '--font-geist',
@@ -28,7 +33,7 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${faylake.variable} ${geist.className} antialiased `}>
+      <body className={`${faylake.variable} ${geist.className} ${abcGravityItalic.variable} antialiased `}>
         <Providers>{children}</Providers>
       </body>
     </html>
