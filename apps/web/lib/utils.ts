@@ -1,4 +1,4 @@
-import type { LivelinePoint } from '@/lib/liveline'
+import type { CandlePoint, LivelinePoint } from '@/lib/liveline'
 import type { PriceFeedStatus, PricePoint, LivePrice } from '@somnia-chain/markets-sdk'
 
 export function formatAddress(address: string) {
@@ -120,8 +120,59 @@ export function formatUpdateTime(value?: number) {
   }).format(new Date(value))
 }
 
+const gmt7TimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Ho_Chi_Minh',
+})
+
+export function formatGmt7Time(value: number = Date.now()) {
+  return `${gmt7TimeFormatter.format(new Date(value))} GMT+7`
+}
+
 export function priceStatusLabel(status: PriceFeedStatus, lastUpdateMs?: number) {
   if (status === 'live') return `Live ${formatUpdateTime(lastUpdateMs)}`
   if (status === 'hydrating') return 'Syncing'
   return 'Waiting'
+}
+
+export function candleWidthForWindow(windowSecs: number) {
+  if (windowSecs <= 60) return 2
+  if (windowSecs <= 300) return 5
+  if (windowSecs <= 900) return 15
+  return 60
+}
+
+export function pointsToCandles(points: LivelinePoint[], candleWidth: number) {
+  const buckets = new Map<number, CandlePoint>()
+
+  for (const point of points) {
+    const openTime = Math.floor(point.time / candleWidth) * candleWidth
+    const existing = buckets.get(openTime)
+
+    if (!existing) {
+      buckets.set(openTime, {
+        time: openTime,
+        open: point.value,
+        high: point.value,
+        low: point.value,
+        close: point.value,
+      })
+      continue
+    }
+
+    existing.high = Math.max(existing.high, point.value)
+    existing.low = Math.min(existing.low, point.value)
+    existing.close = point.value
+  }
+
+  const candles = [...buckets.values()].sort((left, right) => left.time - right.time)
+  const liveCandle = candles.at(-1)
+
+  return {
+    candles: candles.slice(0, -1),
+    liveCandle,
+  }
 }

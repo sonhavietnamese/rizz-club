@@ -1,13 +1,9 @@
+import LiveTabName from '@/components/live-tabname'
 import Providers from '@/components/providers'
 import '@/styles/globals.css'
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import localFont from 'next/font/local'
-
-const faylake = localFont({
-  src: '../fonts/faylake.ttf',
-  variable: '--font-faylake',
-})
 
 const abcGravityItalic = localFont({
   src: '../fonts/ABCGravity-ExtendedItalic-Trial.otf',
@@ -20,7 +16,7 @@ const geist = Geist({
 })
 
 export const metadata: Metadata = {
-  title: 'Rizz Club | BTC - 5m',
+  title: 'Rizz Club | BTC',
   icons: {
     icon: '/icon.png',
   },
@@ -33,8 +29,11 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${faylake.variable} ${geist.className} ${abcGravityItalic.variable} antialiased `}>
-        <Providers>{children}</Providers>
+      <body className={`${geist.className} ${abcGravityItalic.variable} antialiased `}>
+        <Providers>
+          <LiveTabName />
+          {children}
+        </Providers>
       </body>
     </html>
   )

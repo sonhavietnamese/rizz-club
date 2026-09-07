@@ -3,11 +3,13 @@
 import { createDreamDexExchange } from '@/lib/dreamdex'
 import { Liveline } from '@/lib/liveline'
 import {
+  candleWidthForWindow,
   formatChange,
   formatChartTime,
   formatUsd,
   livePriceToPoint,
   normalizePricePoints,
+  pointsToCandles,
   priceStatusLabel,
   tickToLivelinePoint,
 } from '@/lib/utils'
@@ -19,7 +21,7 @@ import {
   useWatchPrice,
 } from '@somnia-chain/markets-sdk/react'
 import { cn } from 'cn'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 const btcPriceAsset = 'BTC'
 const maxBtcPriceTicks = 1_000
@@ -33,6 +35,8 @@ const btcPriceWindows = [
 ]
 
 function BtcPriceFeed() {
+  const [chartMode, setChartMode] = useState<'line' | 'candle'>('line')
+  const [windowSecs, setWindowSecs] = useState(btcPriceWindows[0].secs)
   const priceStatus = useWatchPrice(btcPriceAsset)
   const btcPrice = useLivePrice(btcPriceAsset)
   const feedInfo = useLivePriceFeedInfo(btcPriceAsset)
@@ -42,6 +46,11 @@ function BtcPriceFeed() {
     if (btcPrice) points.push(livePriceToPoint(btcPrice))
     return normalizePricePoints(points)
   }, [btcPrice, btcPriceTicks])
+  const candleWidth = candleWidthForWindow(windowSecs)
+  const { candles, liveCandle } = useMemo(
+    () => pointsToCandles(btcPricePoints, candleWidth),
+    [btcPricePoints, candleWidth],
+  )
   const lastBtcPriceUpdate = feedInfo?.updatedAtMs ?? (btcPrice ? btcPrice.blockTimestamp * 1000 : undefined)
   const isLoadingBtcPrice = priceStatus === 'hydrating' && btcPricePoints.length === 0
   const first = btcPricePoints.at(0)
@@ -91,9 +100,18 @@ function BtcPriceFeed() {
             value={latestValue ?? 0}
             color={btcOrange}
             theme="dark"
-            window={btcPriceWindows[0].secs}
+            window={windowSecs}
             windows={btcPriceWindows}
+            onWindowChange={setWindowSecs}
             windowStyle="rounded"
+            mode="candle"
+            lineMode={chartMode === 'line'}
+            onModeChange={setChartMode}
+            candles={candles}
+            candleWidth={candleWidth}
+            liveCandle={liveCandle}
+            lineData={btcPricePoints}
+            lineValue={latestValue}
             loading={isLoadingBtcPrice}
             emptyText="Waiting for BTC price..."
             formatValue={formatUsd}

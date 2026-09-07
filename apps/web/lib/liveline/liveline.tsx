@@ -351,6 +351,9 @@ export function Liveline({
               )}
               {/* Line icon */}
               <button
+                type="button"
+                aria-label="Line chart"
+                aria-pressed={activeMode === 'line'}
                 ref={(el) => {
                   if (el) modeBtnRefs.current.set('line', el)
                   else modeBtnRefs.current.delete('line')
@@ -380,6 +383,9 @@ export function Liveline({
               </button>
               {/* Candle icon */}
               <button
+                type="button"
+                aria-label="Candlestick chart"
+                aria-pressed={activeMode === 'candle'}
                 ref={(el) => {
                   if (el) modeBtnRefs.current.set('candle', el)
                   else modeBtnRefs.current.delete('candle')

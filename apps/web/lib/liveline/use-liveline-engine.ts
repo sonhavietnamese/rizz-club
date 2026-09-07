@@ -634,10 +634,18 @@ export function useLivelineEngine(
   const lineSmoothInitedRef = useRef(false)
   const closeLineSmoothRef = useRef(0)         // smooth close for dashed line — never resets on candle birth
   const closeLineSmoothInitedRef = useRef(false)
-  const lineModeProgRef = useRef(0)
-  const lineModeTransRef = useRef({ startMs: 0, from: 0, to: 0 })
-  const lineDensityProgRef = useRef(0)
-  const lineDensityTransRef = useRef({ startMs: 0, from: 0, to: 0 })
+  const lineModeProgRef = useRef(config.lineMode ? 1 : 0)
+  const lineModeTransRef = useRef({
+    startMs: 0,
+    from: config.lineMode ? 1 : 0,
+    to: config.lineMode ? 1 : 0,
+  })
+  const lineDensityProgRef = useRef(config.lineMode ? 1 : 0)
+  const lineDensityTransRef = useRef({
+    startMs: 0,
+    from: config.lineMode ? 1 : 0,
+    to: config.lineMode ? 1 : 0,
+  })
   const lineTickSmoothRef = useRef(0)
   const lineTickSmoothInitedRef = useRef(false)
   const candleWidthTransRef = useRef({

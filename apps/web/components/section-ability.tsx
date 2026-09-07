@@ -25,8 +25,9 @@ export default function SectionAbility() {
       <ul className="w-full h-full flex gap-4 overflow-x-auto hide-scrollbar rounded-lg">
         {CARDS.map((card) => (
           <li key={card.id}>
-            <figure className="aspect-[368/528] h-full">
+            <figure className="cursor-pointer aspect-[368/528] h-full">
               <Image
+                draggable={false}
                 src={card.image}
                 alt={card.id.toString()}
                 width={368}
