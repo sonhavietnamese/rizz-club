@@ -1,7 +1,7 @@
 import Marquee from 'react-fast-marquee'
 import { cn } from 'cn'
 
-export default function Header() {
+export default function SectionHeader() {
   return (
     <header className="w-full h-[90px] rounded-2xl relative select-none">
       <div

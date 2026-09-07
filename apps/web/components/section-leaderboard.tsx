@@ -17,7 +17,7 @@ const LEADERBOARD_ITEMS: LeaderboardItem[] = [
   {
     id: 1,
     avatar: 'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-    name: 'sonhavietnamese',
+    name: 'wwww',
     bpm: 120,
     price: 12.3,
     shares: 100,
@@ -27,7 +27,7 @@ const LEADERBOARD_ITEMS: LeaderboardItem[] = [
   {
     id: 2,
     avatar: 'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-    name: 'sonhavietnamese',
+    name: 'wwww',
     bpm: 120,
     price: 12.3,
     shares: 100,
@@ -37,7 +37,7 @@ const LEADERBOARD_ITEMS: LeaderboardItem[] = [
   {
     id: 3,
     avatar: 'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-    name: 'sonhavietnamese',
+    name: 'wwww',
     bpm: 120,
     price: 12.3,
     shares: 100,
@@ -47,7 +47,7 @@ const LEADERBOARD_ITEMS: LeaderboardItem[] = [
   {
     id: 4,
     avatar: 'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-    name: 'sonhavietnamese',
+    name: 'wwww',
     bpm: 120,
     price: 12.3,
     shares: 100,
@@ -57,7 +57,7 @@ const LEADERBOARD_ITEMS: LeaderboardItem[] = [
   {
     id: 5,
     avatar: 'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-    name: 'sonhavietnamese',
+    name: 'wwww',
     bpm: 120,
     price: 12.3,
     shares: 100,
