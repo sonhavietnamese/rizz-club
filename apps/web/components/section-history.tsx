@@ -246,7 +246,7 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
   }, [width, viewportHeight, items.length, maxScrollTop])
 
   return (
-    <section className="section-panel flex-none h-[180px] overflow-hidden select-none">
+    <section className="section-panel flex-none h-[200px] overflow-hidden select-none relative">
       <div ref={scrollRef} className="h-full overflow-x-hidden overflow-y-auto overscroll-y-none hide-scrollbar">
         <div ref={containerRef} className="relative w-full overflow-hidden bg-section-background" style={{ height }}>
           {width > 0 && (
@@ -301,6 +301,8 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
             })}
         </div>
       </div>
+
+      <div className="pointer-events-none absolute w-full bottom-0 h-[50%] bg-gradient-to-t from-section-background to-transparent z-10"></div>
     </section>
   )
 }

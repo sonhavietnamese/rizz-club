@@ -1,7 +1,7 @@
 'use client'
 
+import { useCurrentMarket } from '@/hooks/use-current-market'
 import { useMarketTimeseries, type MarketTimeseriesPoint } from '@/hooks/use-market-timeseries'
-import { createDreamDexExchange } from '@/lib/dreamdex'
 import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
 import {
   ensureDrawablePoints,
@@ -15,8 +15,6 @@ import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { cn } from 'cn'
 import { useEffect, useMemo, useState } from 'react'
 
-const liveMarketRefreshMs = 5_000
-const targetMarketIntervalSeconds = 5 * 60
 const defaultMarketWindowSeconds = 5 * 60
 const yesColor = '#2DD530'
 const noColor = '#F87171'
@@ -27,41 +25,6 @@ const currentWindows: WindowOption[] = [
 ]
 
 type MarketValueMode = 'current' | 'overview'
-
-function binaryMarketIntervalSeconds(market: UnifiedMarket) {
-  if (!isBinaryMarket(market.info)) return null
-
-  const intervalSeconds = market.info.intervalSec ? Number(market.info.intervalSec) : Number.NaN
-  if (Number.isFinite(intervalSeconds) && intervalSeconds > 0) return intervalSeconds
-
-  const tradingStart = Number(market.info.tradingStart)
-  const expiry = Number(market.info.expiry)
-  if (!Number.isFinite(tradingStart) || !Number.isFinite(expiry)) return null
-
-  return expiry - tradingStart
-}
-
-function isLiveTargetMarket(market: UnifiedMarket, nowSeconds: number) {
-  if (!market.active || !isBinaryMarket(market.info) || !market.outcomes?.length) return false
-  if (binaryMarketIntervalSeconds(market) !== targetMarketIntervalSeconds) return false
-
-  const tradingStart = Number(market.info.tradingStart)
-  const expiry = Number(market.info.expiry)
-
-  return Number.isFinite(tradingStart) && Number.isFinite(expiry) && tradingStart <= nowSeconds && nowSeconds < expiry
-}
-
-function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
-  if (!isBinaryMarket(left.info) || !isBinaryMarket(right.info)) return 0
-
-  const expiryDelta = Number(left.info.expiry) - Number(right.info.expiry)
-  if (expiryDelta !== 0) return expiryDelta
-
-  const startDelta = Number(right.info.tradingStart) - Number(left.info.tradingStart)
-  if (startDelta !== 0) return startDelta
-
-  return left.symbol.localeCompare(right.symbol)
-}
 
 function marketWindowSeconds(market: UnifiedMarket | null) {
   if (!market || !isBinaryMarket(market.info)) return defaultMarketWindowSeconds
@@ -127,11 +90,9 @@ function ModeButton({ isActive, onClick, children }: { isActive: boolean; onClic
 }
 
 function MarketValueFeed() {
-  const exchange = useMemo(() => createDreamDexExchange(), [])
+  const { market: selectedMarket, isLoading: isLoadingMarkets } = useCurrentMarket()
   const [mode, setMode] = useState<MarketValueMode>('current')
   const [nowSeconds, setNowSeconds] = useState(0)
-  const [selectedMarket, setSelectedMarket] = useState<UnifiedMarket | null>(null)
-  const [isLoadingMarkets, setIsLoadingMarkets] = useState(true)
   const binaryMarket = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info : null
   const marketIds = useMemo(() => selectedMarketIds(selectedMarket), [selectedMarket])
   const { points, status } = useMarketTimeseries(marketIds)
@@ -142,59 +103,12 @@ function MarketValueFeed() {
       : currentWindows.filter((option) => option.secs <= windowSeconds)
 
   useEffect(() => {
-    return () => {
-      void exchange.close()
-    }
-  }, [exchange])
-
-  useEffect(() => {
     const updateNow = () => setNowSeconds(Math.floor(Date.now() / 1000))
 
     updateNow()
     const timer = window.setInterval(updateNow, 1_000)
     return () => window.clearInterval(timer)
   }, [])
-
-  useEffect(() => {
-    let canceled = false
-    let loading = false
-
-    async function loadMarkets() {
-      if (loading) return
-      loading = true
-
-      try {
-        const registry = await exchange.loadMarkets(true)
-        const now = Math.floor(Date.now() / 1000)
-        const binaryMarkets = Object.values(registry)
-          .filter((market) => isLiveTargetMarket(market, now))
-          .sort(compareLiveMarkets)
-
-        if (canceled) return
-
-        setSelectedMarket((current) => {
-          if (current && binaryMarkets.some((market) => market.symbol === current.symbol)) {
-            return binaryMarkets.find((market) => market.symbol === current.symbol) ?? binaryMarkets[0] ?? null
-          }
-
-          return binaryMarkets[0] ?? null
-        })
-      } catch {
-        if (!canceled) setSelectedMarket(null)
-      } finally {
-        loading = false
-        if (!canceled) setIsLoadingMarkets(false)
-      }
-    }
-
-    void loadMarkets()
-    const refreshTimer = window.setInterval(loadMarkets, liveMarketRefreshMs)
-
-    return () => {
-      canceled = true
-      window.clearInterval(refreshTimer)
-    }
-  }, [exchange])
 
   const latest = points.at(-1)
   const fallbackYes = latest == null ? undefined : latest.yes

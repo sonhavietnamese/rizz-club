@@ -1,5 +1,59 @@
-import Marquee from 'react-fast-marquee'
+'use client'
+
+import { useMarketCountdown } from '@/hooks/use-current-market'
+import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
 import { cn } from 'cn'
+import { useState } from 'react'
+import Marquee from 'react-fast-marquee'
+
+const countdownEase = 'cubic-bezier(0.23, 1, 0.32, 1)'
+const countdownTiming = { duration: 350, easing: countdownEase }
+const countdownDigits = { 1: { max: 5 } } as const
+const countdownFormat = { minimumIntegerDigits: 2 } as const
+
+function MarketCountdown() {
+  const remaining = useMarketCountdown()
+  const [previous, setPrevious] = useState(remaining)
+
+  if (remaining !== previous) setPrevious(remaining)
+
+  const jumped = remaining != null && previous != null && Math.abs(remaining - previous) > 1
+
+  if (remaining == null) return <span>--:--</span>
+
+  const minutes = Math.floor(remaining / 60)
+  const seconds = remaining % 60
+
+  return (
+    <NumberFlowGroup>
+      <div className="flex items-baseline" style={{ fontVariantNumeric: 'tabular-nums', lineHeight: 0.85 }}>
+        <NumberFlow
+          value={minutes}
+          trend={-1}
+          digits={countdownDigits}
+          format={countdownFormat}
+          animated={!jumped}
+          willChange
+          transformTiming={countdownTiming}
+          spinTiming={countdownTiming}
+          opacityTiming={{ duration: 200, easing: countdownEase }}
+        />
+        <NumberFlow
+          prefix=":"
+          value={seconds}
+          trend={-1}
+          digits={countdownDigits}
+          format={countdownFormat}
+          animated={!jumped}
+          willChange
+          transformTiming={countdownTiming}
+          spinTiming={countdownTiming}
+          opacityTiming={{ duration: 200, easing: countdownEase }}
+        />
+      </div>
+    </NumberFlowGroup>
+  )
+}
 
 export default function SectionHeader() {
   return (
@@ -78,7 +132,7 @@ export default function SectionHeader() {
           </div>
 
           <div className="text-[30px] leading-none tabular-nums">
-            <span>00:20</span>
+            <MarketCountdown />
           </div>
         </div>
       </figure>
