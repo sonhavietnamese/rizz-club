@@ -9,16 +9,18 @@ type Point = {
 }
 
 const stepMs = 5 * 60 * 1000
+const hourMs = 60 * 60 * 1000
+const gmt7OffsetMs = 7 * hourMs
 const windowMs = 2 * 60 * 60 * 1000
 const itemsPerRow = 6
-const rowHeight = 100
-const insetX = 24
-const rowPadX = 24
+const rowHeight = 90
+const insetX = 12
+const rowPadX = 36
 const cornerRadius = 24
 const stub = 24
-const boxSizeRatio = 0.62
+const boxSizeRatio = 0.82
 const maxBoxSize = 72
-const boxTopGap = 18
+const boxTopGap = 16
 const firstRowY = 36
 
 const slotLabelFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -117,10 +119,14 @@ type Item = {
   isPast: boolean
 }
 
+function startOfHourGmt7(ms: number) {
+  return Math.floor((ms + gmt7OffsetMs) / hourMs) * hourMs - gmt7OffsetMs
+}
+
 function generateTimeSlots(now: number): Item[] {
   const aligned = Math.floor(now / stepMs) * stepMs
-  const start = aligned - windowMs
-  const end = aligned + windowMs
+  const start = startOfHourGmt7(aligned - windowMs)
+  const end = startOfHourGmt7(aligned + windowMs) + hourMs - stepMs
   const slots: Item[] = []
 
   for (let time = start; time <= end; time += stepMs) {
@@ -165,14 +171,14 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
   const lastRowY = rows.length === 0 ? firstRowY : firstRowY + rowHeight * (rows.length - 1)
   const height = lastRowY + boxTopGap + maxBoxSize + stub
 
-  const xInset = insetX + rowPadX
+  const itemInsetX = insetX + rowPadX
   const waypoints =
     width > 0 && rows.length > 0
-      ? buildSerpentineWaypoints({ width, insetX: xInset, rowHeight, stub, rows: rows.length, firstRowY })
+      ? buildSerpentineWaypoints({ width, insetX, rowHeight, stub, rows: rows.length, firstRowY })
       : []
   const d = waypoints.length ? roundedPathFromPoints(waypoints, cornerRadius) : ''
 
-  const colWidth = width > 0 ? (width - xInset * 2) / (itemsPerRow - 1) : 0
+  const colWidth = width > 0 ? (width - itemInsetX * 2) / (itemsPerRow - 1) : 0
   const boxSize = Math.min(colWidth * boxSizeRatio, maxBoxSize)
 
   useEffect(() => {
@@ -213,7 +219,7 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
             const rowY = firstRowY + rowHeight * rowIndex
 
             return row.map((item, colIndex) => {
-              const x = itemX(colIndex, rowIndex, colWidth, xInset)
+              const x = itemX(colIndex, rowIndex, colWidth, itemInsetX)
 
               return (
                 <div
