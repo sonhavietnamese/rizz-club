@@ -17,7 +17,7 @@ const rowHeight = 90
 const insetX = 12
 const rowPadX = 36
 const cornerRadius = 24
-const stub = 24
+const stub = 28
 const boxSizeRatio = 0.82
 const maxBoxSize = 72
 const boxTopGap = 16
@@ -247,15 +247,8 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
 
   return (
     <section className="section-panel flex-none h-[180px] overflow-hidden select-none">
-      <div
-        ref={scrollRef}
-        className="h-full overflow-x-hidden overflow-y-auto overscroll-y-none hide-scrollbar"
-      >
-        <div
-          ref={containerRef}
-          className="relative w-full overflow-hidden bg-section-background"
-          style={{ height }}
-        >
+      <div ref={scrollRef} className="h-full overflow-x-hidden overflow-y-auto overscroll-y-none hide-scrollbar">
+        <div ref={containerRef} className="relative w-full overflow-hidden bg-section-background" style={{ height }}>
           {width > 0 && (
             <svg
               width={width}
