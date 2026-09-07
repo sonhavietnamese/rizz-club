@@ -11,7 +11,7 @@ type Point = {
 const stepMs = 5 * 60 * 1000
 const hourMs = 60 * 60 * 1000
 const gmt7OffsetMs = 7 * hourMs
-const windowMs = 2 * 60 * 60 * 1000
+const windowMs = 1 * 60 * 60 * 1000
 const itemsPerRow = 6
 const rowHeight = 90
 const insetX = 12
@@ -146,20 +146,75 @@ function itemX(colIndex: number, rowIndex: number, colWidth: number, startX: num
   return goingLeft ? startX + (itemsPerRow - 1 - colIndex) * colWidth : startX + colIndex * colWidth
 }
 
+function currentRowMaxScrollTop(items: Item[]) {
+  const currentIndex = items.findIndex((item) => item.isCurrent)
+  if (currentIndex < 0) return 0
+  return Math.floor(currentIndex / itemsPerRow) * rowHeight
+}
+
+function easeOutQuint(t: number) {
+  return 1 - (1 - t) ** 5
+}
+
+function animateScrollTo(scroller: HTMLElement, to: number, duration = 400) {
+  const from = scroller.scrollTop
+  const delta = to - from
+  if (delta === 0) return () => {}
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduce) {
+    scroller.scrollTop = to
+    return () => {}
+  }
+
+  let frame = 0
+  let cancelled = false
+  const startedAt = performance.now()
+
+  const cancel = () => {
+    cancelled = true
+    if (frame) cancelAnimationFrame(frame)
+  }
+
+  const tick = (now: number) => {
+    if (cancelled) return
+    const t = Math.min(1, (now - startedAt) / duration)
+    scroller.scrollTop = from + delta * easeOutQuint(t)
+    if (t < 1) frame = requestAnimationFrame(tick)
+  }
+
+  const stop = () => cancel()
+  scroller.addEventListener('wheel', stop, { passive: true, once: true })
+  scroller.addEventListener('touchstart', stop, { passive: true, once: true })
+  scroller.addEventListener('pointerdown', stop, { once: true })
+
+  frame = requestAnimationFrame(tick)
+  return () => {
+    cancel()
+    scroller.removeEventListener('wheel', stop)
+    scroller.removeEventListener('touchstart', stop)
+    scroller.removeEventListener('pointerdown', stop)
+  }
+}
+
 function SerpentineTimeline({ items }: { items: Item[] }) {
-  const scrollRef = useRef<HTMLElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const didScrollRef = useRef(false)
   const [width, setWidth] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(0)
 
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const nextWidth = entries[0]?.contentRect.width ?? 0
-      setWidth(nextWidth)
+    const scroller = scrollRef.current
+    const inner = containerRef.current
+    if (!scroller || !inner) return
+
+    const observer = new ResizeObserver(() => {
+      setWidth(inner.clientWidth)
+      setViewportHeight(scroller.clientHeight)
     })
-    observer.observe(el)
+    observer.observe(scroller)
+    observer.observe(inner)
     return () => observer.disconnect()
   }, [])
 
@@ -169,7 +224,9 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
   }
 
   const lastRowY = rows.length === 0 ? firstRowY : firstRowY + rowHeight * (rows.length - 1)
-  const height = lastRowY + boxTopGap + maxBoxSize + stub
+  const fullHeight = lastRowY + boxTopGap + maxBoxSize + stub
+  const maxScrollTop = currentRowMaxScrollTop(items)
+  const height = viewportHeight > 0 ? Math.min(fullHeight, maxScrollTop + viewportHeight) : fullHeight
 
   const itemInsetX = insetX + rowPadX
   const waypoints =
@@ -182,77 +239,74 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
   const boxSize = Math.min(colWidth * boxSizeRatio, maxBoxSize)
 
   useEffect(() => {
-    if (!width || didScrollRef.current) return
     const scroller = scrollRef.current
-    if (!scroller) return
-    const currentIndex = items.findIndex((item) => item.isCurrent)
-    if (currentIndex < 0) return
-    const rowIndex = Math.floor(currentIndex / itemsPerRow)
-    const rowY = firstRowY + rowHeight * rowIndex
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!scroller || !width || viewportHeight === 0 || items.length === 0 || didScrollRef.current) return
     didScrollRef.current = true
-    scroller.scrollTo({
-      top: Math.max(0, rowY - scroller.clientHeight / 2),
-      behavior: reduce ? 'auto' : 'smooth',
-    })
-  }, [width, items])
+    animateScrollTo(scroller, maxScrollTop)
+  }, [width, viewportHeight, items.length, maxScrollTop])
 
   return (
-    <section
-      ref={scrollRef}
-      className="section-panel flex-none h-[180px] overflow-x-hidden overflow-y-auto hide-scrollbar select-none"
-    >
-      <div ref={containerRef} className="relative w-full bg-section-background" style={{ height }}>
-        {width > 0 && (
-          <svg
-            width={width}
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
-            className="pointer-events-none absolute top-0 left-0 block"
-          >
-            <path d={d} fill="none" stroke="#3B3B3B" strokeWidth={3} strokeDasharray="8 8" strokeLinecap="round" />
-          </svg>
-        )}
+    <section className="section-panel flex-none h-[180px] overflow-hidden select-none">
+      <div
+        ref={scrollRef}
+        className="h-full overflow-x-hidden overflow-y-auto overscroll-y-none hide-scrollbar"
+      >
+        <div
+          ref={containerRef}
+          className="relative w-full overflow-hidden bg-section-background"
+          style={{ height }}
+        >
+          {width > 0 && (
+            <svg
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+              className="pointer-events-none absolute top-0 left-0 block"
+            >
+              <path d={d} fill="none" stroke="#3B3B3B" strokeWidth={3} strokeDasharray="8 8" strokeLinecap="round" />
+            </svg>
+          )}
 
-        {width > 0 &&
-          rows.map((row, rowIndex) => {
-            const rowY = firstRowY + rowHeight * rowIndex
+          {width > 0 &&
+            rows.map((row, rowIndex) => {
+              const rowY = firstRowY + rowHeight * rowIndex
 
-            return row.map((item, colIndex) => {
-              const x = itemX(colIndex, rowIndex, colWidth, itemInsetX)
+              return row.map((item, colIndex) => {
+                const x = itemX(colIndex, rowIndex, colWidth, itemInsetX)
 
-              return (
-                <div
-                  key={item.time}
-                  data-current={item.isCurrent ? 'true' : undefined}
-                  className="bg-amber-400 relative"
-                >
+                return (
                   <div
-                    className={cn(
-                      'font-sans absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 bg-section-background p-2 text-sm whitespace-nowrap tabular-nums font-medium',
-                      item.isCurrent ? 'text-white' : item.isPast ? 'text-[#8a8a8a]' : 'text-[#6A7374]',
-                    )}
-                    style={{ left: x, top: rowY }}
+                    key={item.time}
+                    data-current={item.isCurrent ? 'true' : undefined}
+                    className="bg-amber-400 relative"
                   >
-                    {item.label}
-                  </div>
+                    <div
+                      className={cn(
+                        'font-sans absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 bg-section-background p-2 text-sm whitespace-nowrap tabular-nums font-medium',
+                        item.isCurrent ? 'text-white' : item.isPast ? 'text-[#8a8a8a]' : 'text-[#6A7374]',
+                      )}
+                      style={{ left: x, top: rowY }}
+                    >
+                      {item.label}
+                    </div>
 
-                  <div
-                    className="absolute -translate-x-1/2"
-                    style={{
-                      left: x,
-                      top: rowY + boxTopGap,
-                      width: boxSize,
-                      height: boxSize,
-                      borderRadius: boxSize * 0.28,
-                      background: item.isCurrent ? '#525252' : item.isPast ? '#3a3a3a' : '#2a2a2a',
-                      boxShadow: item.isCurrent ? 'inset 0 0 0 1px rgba(255,255,255,0.28)' : undefined,
-                    }}
-                  />
-                </div>
-              )
-            })
-          })}
+                    <div
+                      className="absolute -translate-x-1/2"
+                      style={{
+                        left: x,
+                        top: rowY + boxTopGap,
+                        width: boxSize,
+                        height: boxSize,
+                        borderRadius: boxSize * 0.28,
+                        background: item.isCurrent ? '#525252' : item.isPast ? '#3a3a3a' : '#2a2a2a',
+                        boxShadow: item.isCurrent ? 'inset 0 0 0 1px rgba(255,255,255,0.28)' : undefined,
+                      }}
+                    />
+                  </div>
+                )
+              })
+            })}
+        </div>
       </div>
     </section>
   )
