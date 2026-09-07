@@ -20,9 +20,9 @@ export function binaryMarketIntervalSeconds(market: UnifiedMarket) {
   return expiry - tradingStart
 }
 
-export function isTargetBtcMarket(market: UnifiedMarket) {
+export function isTargetBtcMarket(market: UnifiedMarket, intervalSeconds = targetIntervalSeconds) {
   if (!isBinaryMarket(market.info) || !market.outcomes?.length) return false
-  if (binaryMarketIntervalSeconds(market) !== targetIntervalSeconds) return false
+  if (binaryMarketIntervalSeconds(market) !== intervalSeconds) return false
   return market.base.toUpperCase().startsWith(`${targetAsset}-`)
 }
 
@@ -37,8 +37,8 @@ export function targetMarketStatus(market: UnifiedMarket, nowSeconds: number): D
   return market.active ? 'live' : 'inactive'
 }
 
-export function isLiveBtcMarket(market: UnifiedMarket, nowSeconds: number) {
-  return isTargetBtcMarket(market) && targetMarketStatus(market, nowSeconds) === 'live'
+export function isLiveBtcMarket(market: UnifiedMarket, nowSeconds: number, intervalSeconds = targetIntervalSeconds) {
+  return isTargetBtcMarket(market, intervalSeconds) && targetMarketStatus(market, nowSeconds) === 'live'
 }
 
 export function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
@@ -114,11 +114,15 @@ export function toDashboardMarkets(markets: UnifiedMarket[], nowSeconds = Math.f
   return visible
 }
 
-export async function discoverTargetMarkets(exchange: SomniaMarkets): Promise<MarketDiscovery> {
+export async function discoverTargetMarkets(
+  exchange: SomniaMarkets,
+  intervalSeconds = targetIntervalSeconds,
+): Promise<MarketDiscovery> {
   const registry = await exchange.loadMarkets(true)
   const nowSeconds = Math.floor(Date.now() / 1000)
-  const targets = Object.values(registry).filter(isTargetBtcMarket)
-  const current = targets.filter((market) => isLiveBtcMarket(market, nowSeconds)).sort(compareLiveMarkets)[0] ?? null
+  const targets = Object.values(registry).filter((market) => isTargetBtcMarket(market, intervalSeconds))
+  const current =
+    targets.filter((market) => isLiveBtcMarket(market, nowSeconds, intervalSeconds)).sort(compareLiveMarkets)[0] ?? null
 
   return {
     current,

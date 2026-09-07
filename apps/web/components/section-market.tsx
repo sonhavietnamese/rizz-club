@@ -20,8 +20,8 @@ const yesColor = '#2DD530'
 const noColor = '#F87171'
 
 const currentWindows: WindowOption[] = [
-  { label: '1m', secs: 60 },
   { label: '5m', secs: defaultMarketWindowSeconds },
+  { label: '1m', secs: 60 },
 ]
 
 type MarketValueMode = 'current' | 'overview'
@@ -47,7 +47,12 @@ function selectedMarketIds(market: UnifiedMarket | null) {
   return [...new Set(ids.map((id) => id.toLowerCase()))]
 }
 
-function toYesPoints(points: MarketTimeseriesPoint[], nowSeconds: number, fallbackYes?: number) {
+function toYesPoints(
+  points: MarketTimeseriesPoint[],
+  nowSeconds: number,
+  fallbackYes?: number,
+  fromTime?: number,
+) {
   const historyPoints = normalizePoints(
     points.flatMap((point) => {
       const time = point.t / 1000
@@ -56,7 +61,7 @@ function toYesPoints(points: MarketTimeseriesPoint[], nowSeconds: number, fallba
     }),
   )
   const liveValue = historyPoints.at(-1)?.value ?? fallbackYes
-  return ensureDrawablePoints(holdLastValue(historyPoints, nowSeconds), liveValue, nowSeconds)
+  return ensureDrawablePoints(holdLastValue(historyPoints, nowSeconds, 1, fromTime), liveValue, nowSeconds)
 }
 
 function toNoPoints(yesPoints: LivelinePoint[], nowSeconds: number, fallbackYes?: number) {
@@ -112,7 +117,9 @@ function MarketValueFeed() {
 
   const latest = points.at(-1)
   const fallbackYes = latest == null ? undefined : latest.yes
-  const yesPoints = binaryMarket ? toYesPoints(points, nowSeconds, fallbackYes) : []
+  const tradingStart = binaryMarket ? Number(binaryMarket.tradingStart) : Number.NaN
+  const chartOrigin = Number.isFinite(tradingStart) ? tradingStart : undefined
+  const yesPoints = binaryMarket ? toYesPoints(points, nowSeconds, fallbackYes, chartOrigin) : []
   const noPoints = toNoPoints(yesPoints, nowSeconds, fallbackYes)
 
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes
@@ -187,6 +194,7 @@ function MarketValueFeed() {
             color={yesColor}
             theme="dark"
             window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
+            origin={chartOrigin}
             windows={chartWindows}
             windowStyle="rounded"
             loading={Boolean(binaryMarket) && (isLoadingMarkets || status === 'loading')}

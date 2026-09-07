@@ -18,7 +18,12 @@ export function normalizePoints(points: LivelinePoint[]) {
  * window often has no point near the left edge — the stroke starts mid-chart
  * and then “continues”. Hold the last known value on a 1s grid through `now`.
  */
-export function holdLastValue(points: LivelinePoint[], nowSeconds: number, stepSeconds = 1): LivelinePoint[] {
+export function holdLastValue(
+  points: LivelinePoint[],
+  nowSeconds: number,
+  stepSeconds = 1,
+  fromTime?: number,
+): LivelinePoint[] {
   const sorted = normalizePoints(points)
   if (sorted.length === 0 || nowSeconds === 0) return sorted
 
@@ -26,12 +31,14 @@ export function holdLastValue(points: LivelinePoint[], nowSeconds: number, stepS
   const last = sorted[sorted.length - 1]
   if (!first || !last) return sorted
 
+  const start =
+    fromTime != null && Number.isFinite(fromTime) && fromTime < first.time ? fromTime : first.time
   const end = Math.max(nowSeconds, last.time)
   const held: LivelinePoint[] = []
   let index = 0
   let value = first.value
 
-  for (let time = first.time; time < end; time += stepSeconds) {
+  for (let time = start; time < end; time += stepSeconds) {
     while (index + 1 < sorted.length && (sorted[index + 1]?.time ?? Number.POSITIVE_INFINITY) <= time) {
       index += 1
       value = sorted[index]?.value ?? value

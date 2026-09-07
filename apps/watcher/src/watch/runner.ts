@@ -1,4 +1,12 @@
-import { dreamDexConfig, marketRefreshMs, reconnectDelayMs, targetAsset } from '@/config'
+import {
+  defaultInterval,
+  dreamDexConfig,
+  intervalSecondsByLabel,
+  marketRefreshMs,
+  reconnectDelayMs,
+  targetMarketLabel,
+  type IntervalOption,
+} from '@/config'
 import { discoverTargetMarkets } from '@/extract/discovery'
 import { errorMessage, sleep } from '@/lib/async'
 import { switchingSnapshot } from '@/transform/snapshot'
@@ -10,7 +18,13 @@ function withMarkets(snapshot: WatcherSnapshot, markets: DashboardMarket[]): Wat
   return { ...snapshot, markets }
 }
 
-export async function startWatcher(onSnapshot: SnapshotListener, signal: AbortSignal) {
+export async function startWatcher(
+  onSnapshot: SnapshotListener,
+  signal: AbortSignal,
+  interval: IntervalOption = defaultInterval,
+) {
+  const intervalSeconds = intervalSecondsByLabel[interval]
+  const marketLabel = targetMarketLabel(interval)
   let markets: DashboardMarket[] = []
   let last: WatcherSnapshot = {
     phase: 'connecting',
@@ -43,7 +57,7 @@ export async function startWatcher(onSnapshot: SnapshotListener, signal: AbortSi
 
     try {
       while (!signal.aborted) {
-        const discovery = await discoverTargetMarkets(exchange)
+        const discovery = await discoverTargetMarkets(exchange, intervalSeconds)
         if (signal.aborted) return
 
         setMarkets(discovery.markets)
@@ -53,8 +67,8 @@ export async function startWatcher(onSnapshot: SnapshotListener, signal: AbortSi
           emit({
             phase: 'waiting',
             message: previousMarket
-              ? `${previousMarket.symbol} expired · waiting for the next ${targetAsset} 5m`
-              : `Waiting for a live ${targetAsset} 5m market`,
+              ? `${previousMarket.symbol} expired · waiting for the next ${marketLabel}`
+              : `Waiting for a live ${marketLabel} market`,
             retryAt: Date.now() + marketRefreshMs,
             fillCount: 0,
             fills: [],
@@ -68,7 +82,7 @@ export async function startWatcher(onSnapshot: SnapshotListener, signal: AbortSi
           emit(switchingSnapshot(market, `Switched to ${market.symbol}`))
         }
 
-        const result = await watchMarket(exchange, market, emit, signal, (next) => {
+        const result = await watchMarket(exchange, market, emit, signal, intervalSeconds, (next) => {
           setMarkets(next.markets)
         })
         if (signal.aborted) return

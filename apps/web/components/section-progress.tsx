@@ -3,10 +3,10 @@ const TRACK_COLOR = '#3B3B3B'
 const FILL_COLOR = '#C8C8C8'
 
 const TRACKS = [
-  { id: 1, name: 'Trade Masters', value: 0 },
-  { id: 2, name: 'Trade Masters', value: 1 },
-  { id: 3, name: 'Trade Masters', value: 2 },
-  { id: 4, name: 'Trade Masters', value: 3 },
+  { id: 1, name: 'Trade Masters', value: 0, max: 100 },
+  { id: 2, name: 'Streak Climber', value: 60, max: 100 },
+  { id: 3, name: 'Poker Face', value: 2, max: 100 },
+  { id: 4, name: 'Day Trader', value: 3, max: 100 },
 ]
 
 function DashedLine({ color }: { color: string }) {
@@ -27,8 +27,13 @@ function DashedLine({ color }: { color: string }) {
   )
 }
 
-function StageTrack({ value, max = STAGE_COUNT }: { value: number; max?: number }) {
-  const progress = Math.min(Math.max(value / max, 0), 1)
+function isStageFilled(stage: number, progress: number) {
+  if (progress <= 0) return false
+  return stage / (STAGE_COUNT - 1) <= progress
+}
+
+function StageTrack({ value, max }: { value: number; max: number }) {
+  const progress = max <= 0 ? 0 : Math.min(Math.max(value / max, 0), 1)
 
   return (
     <div
@@ -53,7 +58,7 @@ function StageTrack({ value, max = STAGE_COUNT }: { value: number; max?: number 
           <span
             key={stage}
             className="size-2.5 rounded-full transition-colors duration-150 [transition-timing-function:ease] motion-reduce:transition-none"
-            style={{ background: stage < value ? FILL_COLOR : TRACK_COLOR }}
+            style={{ background: isStageFilled(stage, progress) ? FILL_COLOR : TRACK_COLOR }}
           />
         ))}
       </div>
@@ -71,9 +76,11 @@ export default function SectionProgress() {
             <div className="flex w-fit min-w-0 flex-col gap-2.5 flex-1 pr-2">
               <div className="flex items-end justify-between gap-2">
                 <span className="font-sans text-[14px] font-semibold">{track.name}</span>
-                <span className="font-sans text-[12px] text-white/50">1/100</span>
+                <span className="font-sans text-[12px] text-white/50">
+                  {track.value}/{track.max}
+                </span>
               </div>
-              <StageTrack value={track.value} />
+              <StageTrack value={track.value} max={track.max} />
             </div>
             <div className="size-12 shrink-0 rounded-lg bg-[#C8C8C8]"></div>
           </li>

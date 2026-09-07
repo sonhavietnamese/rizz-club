@@ -10,6 +10,7 @@ export async function waitForMarketSwitch(
   exchange: SomniaMarkets,
   currentMarket: UnifiedMarket,
   signal: AbortSignal,
+  intervalSeconds: number,
   onDiscovery?: (discovery: MarketDiscovery) => void,
 ): Promise<WatchResult | void> {
   while (!signal.aborted) {
@@ -20,7 +21,7 @@ export async function waitForMarketSwitch(
       return { event: 'market_expired' }
     }
 
-    const discovery = await discoverTargetMarkets(exchange)
+    const discovery = await discoverTargetMarkets(exchange, intervalSeconds)
     if (signal.aborted) return
 
     onDiscovery?.(discovery)
@@ -81,6 +82,7 @@ export async function watchMarket(
   market: UnifiedMarket,
   onSnapshot: SnapshotListener,
   signal: AbortSignal,
+  intervalSeconds: number,
   onDiscovery?: (discovery: MarketDiscovery) => void,
 ) {
   const yesSymbol = pickTradable(market, 'YES')
@@ -106,7 +108,7 @@ export async function watchMarket(
   try {
     return await Promise.race<WatchResult | void>([
       watchMarketValue(exchange, market, onSnapshot, controller.signal),
-      waitForMarketSwitch(exchange, market, controller.signal, onDiscovery),
+      waitForMarketSwitch(exchange, market, controller.signal, intervalSeconds, onDiscovery),
       waitUntilMarketExpiry(market, controller.signal),
     ])
   } finally {

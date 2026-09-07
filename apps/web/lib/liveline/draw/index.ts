@@ -73,6 +73,7 @@ export interface DrawOptions {
   chartReveal: number // 0 = loading/morphing from center, 1 = fully revealed
   pauseProgress: number // 0 = playing, 1 = fully paused
   now_ms: number // performance.now() for breathing animation timing
+  fadeLeftEdge?: boolean // erase the left of the line (default true; off when origin-anchored)
 }
 
 /**
@@ -235,16 +236,18 @@ export function drawFrame(
     }
   }
 
-  // 7. Left edge fade — gradient erase
-  const fadeW = FADE_EDGE_WIDTH
-  ctx.save()
-  ctx.globalCompositeOperation = 'destination-out'
-  const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + fadeW, 0)
-  fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = fadeGrad
-  ctx.fillRect(0, 0, layout.pad.left + fadeW, layout.h)
-  ctx.restore()
+  // 7. Left edge fade — gradient erase (skip when origin-anchored so the start stays visible)
+  if (opts.fadeLeftEdge !== false) {
+    const fadeW = FADE_EDGE_WIDTH
+    ctx.save()
+    ctx.globalCompositeOperation = 'destination-out'
+    const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + fadeW, 0)
+    fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
+    fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = fadeGrad
+    ctx.fillRect(0, 0, layout.pad.left + fadeW, layout.h)
+    ctx.restore()
+  }
 
   // 8. Crosshair — fade out well before reaching live dot
   if (opts.hoverX !== null && opts.hoverValue !== null && opts.hoverTime !== null && pts && pts.length > 0) {
@@ -317,6 +320,7 @@ export interface MultiSeriesDrawOptions {
   now_ms: number
   /** Primary palette (from first series) for grid/axis/crosshair colors */
   primaryPalette: LivelinePalette
+  fadeLeftEdge?: boolean
 }
 
 /**
@@ -440,15 +444,17 @@ export function drawMultiFrame(ctx: CanvasRenderingContext2D, layout: ChartLayou
     }
   }
 
-  // 6. Left edge fade
-  ctx.save()
-  ctx.globalCompositeOperation = 'destination-out'
-  const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + FADE_EDGE_WIDTH, 0)
-  fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = fadeGrad
-  ctx.fillRect(0, 0, layout.pad.left + FADE_EDGE_WIDTH, layout.h)
-  ctx.restore()
+  // 6. Left edge fade — skip when origin-anchored so the start stays visible
+  if (opts.fadeLeftEdge !== false) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'destination-out'
+    const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + FADE_EDGE_WIDTH, 0)
+    fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
+    fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = fadeGrad
+    ctx.fillRect(0, 0, layout.pad.left + FADE_EDGE_WIDTH, layout.h)
+    ctx.restore()
+  }
 
   // 7. Multi-series crosshair — fade out near live dots (same logic as single-series)
   if (

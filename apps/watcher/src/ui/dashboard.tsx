@@ -1,3 +1,4 @@
+import { targetMarketLabel, type IntervalOption } from '@/config'
 import { publishMarket } from '@/load/publish'
 import type { DashboardFill, DashboardMarket, WatcherSnapshot } from '@/types'
 import { startWatcher } from '@/watch/runner'
@@ -34,7 +35,7 @@ function useNow(intervalMs = 1_000) {
   return now
 }
 
-function useWatcher() {
+function useWatcher(interval: IntervalOption) {
   const [snapshot, setSnapshot] = useState<WatcherSnapshot>({
     phase: 'connecting',
     message: 'Connecting to DreamDex',
@@ -46,15 +47,19 @@ function useWatcher() {
 
   useEffect(() => {
     const controller = new AbortController()
-    void startWatcher((next) => {
-      setSnapshot(next)
-      void publishMarket(next).then(
-        () => setSyncError(undefined),
-        (error) => setSyncError(error instanceof Error ? error.message : 'Sync failed'),
-      )
-    }, controller.signal)
+    void startWatcher(
+      (next) => {
+        setSnapshot(next)
+        void publishMarket(next).then(
+          () => setSyncError(undefined),
+          (error) => setSyncError(error instanceof Error ? error.message : 'Sync failed'),
+        )
+      },
+      controller.signal,
+      interval,
+    )
     return () => controller.abort()
-  }, [])
+  }, [interval])
 
   return { snapshot, syncError }
 }
@@ -69,7 +74,7 @@ function ProbabilityBar({ yes, width }: { yes: number; width: number }) {
   )
 }
 
-function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
+function Header({ snapshot, now, interval }: { snapshot: WatcherSnapshot; now: number; interval: IntervalOption }) {
   const remaining = formatRemaining(snapshot.expirySeconds, now)
   const fetching = snapshot.marketSymbol
 
@@ -81,7 +86,7 @@ function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
         </Text>
         <Text dimColor> watcher</Text>
         <Spacer />
-        <Text color={muted}>BTC 5m</Text>
+        <Text color={muted}>{targetMarketLabel(interval)}</Text>
       </Box>
       <Box>
         <Text color={cream} wrap="truncate">
@@ -143,11 +148,13 @@ function MarketRoster({
   fetchingId,
   source,
   now,
+  interval,
 }: {
   markets: DashboardMarket[]
   fetchingId?: string
   source?: WatcherSnapshot['source']
   now: number
+  interval: IntervalOption
 }) {
   const liveCount = markets.filter((market) => market.status === 'live').length
   const nextCount = markets.filter((market) => market.status === 'upcoming').length
@@ -164,7 +171,7 @@ function MarketRoster({
         </Text>
       </Box>
       {markets.length === 0 ? (
-        <Text color={muted}>Waiting for BTC 5m markets…</Text>
+        <Text color={muted}>Waiting for {targetMarketLabel(interval)} markets…</Text>
       ) : (
         <>
           <Box>
@@ -299,7 +306,15 @@ function StatusPanel({ snapshot, now }: { snapshot: WatcherSnapshot; now: number
   )
 }
 
-export function DashboardView({ snapshot, syncError }: { snapshot: WatcherSnapshot; syncError?: string }) {
+export function DashboardView({
+  snapshot,
+  syncError,
+  interval,
+}: {
+  snapshot: WatcherSnapshot
+  syncError?: string
+  interval: IntervalOption
+}) {
   const now = useNow()
   const { columns } = useWindowSize()
   const barWidth = Math.max(16, Math.min(48, columns - 8))
@@ -307,12 +322,13 @@ export function DashboardView({ snapshot, syncError }: { snapshot: WatcherSnapsh
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1} borderStyle="round" borderColor={cream}>
-      <Header snapshot={snapshot} now={now} />
+      <Header snapshot={snapshot} now={now} interval={interval} />
       <MarketRoster
         markets={snapshot.markets ?? []}
         fetchingId={snapshot.marketId}
         source={snapshot.source}
         now={now}
+        interval={interval}
       />
 
       {showMarket ? (
@@ -365,14 +381,14 @@ function SyncStatus({ error }: { error?: string }) {
   return <Text color={muted}>rtb market</Text>
 }
 
-export function Dashboard() {
+export function Dashboard({ interval }: { interval: IntervalOption }) {
   const { isRawModeSupported } = useStdin()
-  const { snapshot, syncError } = useWatcher()
+  const { snapshot, syncError } = useWatcher(interval)
 
   return (
     <>
       {isRawModeSupported ? <QuitOnQ /> : null}
-      <DashboardView snapshot={snapshot} syncError={syncError} />
+      <DashboardView snapshot={snapshot} syncError={syncError} interval={interval} />
     </>
   )
 }

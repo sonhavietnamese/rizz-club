@@ -8,10 +8,19 @@ To install dependencies:
 bun install
 ```
 
-To run:
+To run the live 15m market:
 
 ```bash
 bun run start
+```
+
+Watch a different window with `--interval`:
+
+```bash
+bun run start -- --interval 1m
+bun run start -- --interval 5m
+bun run start -- --interval 15m
+bun run start -- --interval 1h
 ```
 
 Press `q` to quit.

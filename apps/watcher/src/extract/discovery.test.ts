@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { dashboardExpiredMarketLimit } from '../config.ts'
-import { isLiveBtcMarket, targetMarketStatus, toDashboardMarkets } from './discovery.ts'
+import { isLiveBtcMarket, isTargetBtcMarket, targetMarketStatus, toDashboardMarkets } from './discovery.ts'
 
 function market({
   id,
@@ -10,7 +10,7 @@ function market({
   active = true,
   tradingStart,
   expiry,
-  intervalSec = 300,
+  intervalSec = 900,
 }: {
   id: string
   symbol: string
@@ -52,6 +52,30 @@ describe('targetMarketStatus', () => {
     expect(targetMarketStatus(off, now)).toBe('inactive')
     expect(isLiveBtcMarket(live, now)).toBe(true)
     expect(isLiveBtcMarket(next, now)).toBe(false)
+  })
+
+  test('matches only the chosen market interval', () => {
+    const now = 1_000
+    const oneMinute = market({ id: '1m', symbol: 'ONE', tradingStart: 900, expiry: 960, intervalSec: 60 })
+    const fiveMinute = market({ id: '5m', symbol: 'FIVE', tradingStart: 900, expiry: 1_200, intervalSec: 300 })
+    const fifteenMinute = market({
+      id: '15m',
+      symbol: 'FIFTEEN',
+      tradingStart: 900,
+      expiry: 1_800,
+      intervalSec: 900,
+    })
+    const oneHour = market({ id: '1h', symbol: 'HOUR', tradingStart: 900, expiry: 4_500, intervalSec: 3_600 })
+
+    expect(isTargetBtcMarket(oneMinute, 60)).toBe(true)
+    expect(isTargetBtcMarket(fiveMinute, 300)).toBe(true)
+    expect(isTargetBtcMarket(fifteenMinute, 900)).toBe(true)
+    expect(isTargetBtcMarket(oneHour, 3_600)).toBe(true)
+    expect(isTargetBtcMarket(fiveMinute, 900)).toBe(false)
+    expect(isTargetBtcMarket(oneHour, 900)).toBe(false)
+    expect(isLiveBtcMarket(fifteenMinute, now, 900)).toBe(true)
+    expect(isLiveBtcMarket(fiveMinute, now, 900)).toBe(false)
+    expect(isLiveBtcMarket(oneHour, now, 3_600)).toBe(true)
   })
 })
 

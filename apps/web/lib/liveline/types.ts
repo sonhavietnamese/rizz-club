@@ -67,6 +67,8 @@ export interface LivelineProps {
 
   // Time
   window?: number
+  /** Unix seconds. Pins the left edge so the line draws left-to-right instead of the window scrolling. */
+  origin?: number
   yDomain?: [number, number]
 
   // Feature flags

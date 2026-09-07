@@ -20,6 +20,7 @@ interface EngineConfig {
   value: number
   palette: LivelinePalette
   windowSecs: number
+  origin?: number
   yDomain?: [number, number]
   lerpSpeed: number
   showGrid: boolean
@@ -138,6 +139,15 @@ function computeAdaptiveSpeed(
   return noMotion ? 1 : lerpSpeed + (1 - gapRatio) * ADAPTIVE_SPEED_BOOST
 }
 
+/** Rolling window follows `now`. Origin-anchored window stays pinned until `now` fills it. */
+function computeWindowEdges(now: number, windowSecs: number, buffer: number, origin?: number) {
+  if (origin != null && Number.isFinite(origin) && now <= origin + windowSecs) {
+    return { leftEdge: origin, rightEdge: origin + windowSecs, anchored: true }
+  }
+  const rightEdge = now + windowSecs * buffer
+  return { leftEdge: rightEdge - windowSecs, rightEdge, anchored: false }
+}
+
 /** Update window transition state, returning current display window and transition progress. */
 function updateWindowTransition(
   cfg: EngineConfig,
@@ -158,8 +168,9 @@ function updateWindowTransition(
     wt.startMs = now_ms
     wt.rangeFromMin = displayMin
     wt.rangeFromMax = displayMax
-    const targetRightEdge = now + cfg.windowSecs * buffer
-    const targetLeftEdge = targetRightEdge - cfg.windowSecs
+    const { leftEdge: targetLeftEdge, rightEdge: targetRightEdge } = computeWindowEdges(
+      now, cfg.windowSecs, buffer, cfg.origin,
+    )
     const targetVisible: LivelinePoint[] = []
     for (const p of points) {
       if (p.time >= targetLeftEdge - 2 && p.time <= targetRightEdge) {
@@ -1534,8 +1545,9 @@ export function useLivelineEngine(
     )
     // Override range target with union of ALL series (not just first)
     if (transition.startMs > 0 && effectiveMultiSeries.length > 1) {
-      const targetRightEdge = now + cfg.windowSecs * buffer
-      const targetLeftEdge = targetRightEdge - cfg.windowSecs
+      const { leftEdge: targetLeftEdge, rightEdge: targetRightEdge } = computeWindowEdges(
+        now, cfg.windowSecs, buffer, cfg.origin,
+      )
       let unionMin = Infinity
       let unionMax = -Infinity
       for (const s of effectiveMultiSeries) {
@@ -1561,9 +1573,9 @@ export function useLivelineEngine(
     const windowTransProgress = windowResult.windowTransProgress
     const isWindowTransitioning = transition.startMs > 0
 
-    const rightEdge = now + windowSecs * buffer
-    const leftEdge = rightEdge - windowSecs
-    const filterRight = rightEdge - (rightEdge - now) * pauseProgress
+    const { leftEdge, rightEdge, anchored } = computeWindowEdges(now, windowSecs, buffer, cfg.origin)
+    const headTime = Math.min(now, rightEdge)
+    const filterRight = rightEdge - (rightEdge - headTime) * pauseProgress
 
     // Build per-series visible arrays and compute global range
     // Use paused snapshots when available to prevent left-edge erosion
@@ -1650,7 +1662,7 @@ export function useLivelineEngine(
     let hoverEntries: { color: string; label: string; value: number }[] = []
 
     if (hoverPx !== null && hoverPx >= pad.left && hoverPx <= w - pad.right) {
-      const maxHoverX = layout.toX(now)
+      const maxHoverX = layout.toX(headTime)
       const clampedX = Math.min(hoverPx, maxHoverX)
       const t = leftEdge + ((clampedX - pad.left) / chartW) * (rightEdge - leftEdge)
       drawHoverX = clampedX
@@ -1690,7 +1702,7 @@ export function useLivelineEngine(
     // Draw multi-series frame
     drawMultiFrame(ctx, layout, {
       series: seriesEntries,
-      now,
+      now: headTime,
       showGrid: cfg.showGrid,
       showPulse: cfg.showPulse,
       smoothCurve: cfg.smoothCurve,
@@ -1712,6 +1724,7 @@ export function useLivelineEngine(
       pauseProgress,
       now_ms,
       primaryPalette: cfg.palette,
+      fadeLeftEdge: !anchored,
     })
 
     // During reverse morph (chart → loading/empty), overlay the empty text
@@ -1777,12 +1790,12 @@ export function useLivelineEngine(
     const windowSecs = windowResult.windowSecs
     const windowTransProgress = windowResult.windowTransProgress
 
-    const rightEdge = now + windowSecs * buffer
-    const leftEdge = rightEdge - windowSecs
+    const { leftEdge, rightEdge, anchored } = computeWindowEdges(now, windowSecs, buffer, cfg.origin)
+    const headTime = Math.min(now, rightEdge)
 
     // Filter visible points — when pausing, contract right edge to `now`
     // so new data (with real-time timestamps) can't appear past the live dot
-    const filterRight = rightEdge - (rightEdge - now) * pauseProgress
+    const filterRight = rightEdge - (rightEdge - headTime) * pauseProgress
     const visible: LivelinePoint[] = []
     for (const p of effectivePoints) {
       if (p.time >= leftEdge - 2 && p.time <= filterRight) {
@@ -1827,7 +1840,7 @@ export function useLivelineEngine(
 
     // Hover + scrub
     const hoverResult = updateHoverState(
-      hoverXRef.current, pad, w, layout, now, visible,
+      hoverXRef.current, pad, w, layout, headTime, visible,
       scrubAmountRef.current, lastHoverRef.current,
       cfg, noMotion, leftEdge, rightEdge, chartW, dt,
     )
@@ -1846,7 +1859,7 @@ export function useLivelineEngine(
     drawFrame(ctx, layout, cfg.palette, {
       visible,
       smoothValue,
-      now,
+      now: headTime,
       momentum,
       arrowState: arrowStateRef.current,
       showGrid: cfg.showGrid,
@@ -1877,6 +1890,7 @@ export function useLivelineEngine(
       chartReveal,
       pauseProgress,
       now_ms,
+      fadeLeftEdge: !anchored,
     })
 
     // During morph (chart ↔ empty), overlay the gradient gap + text on

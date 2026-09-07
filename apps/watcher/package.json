@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run index.tsx --watch",
+    "dev": "bun run index.tsx -- --interval 1h",
     "start": "bun run index.tsx",
     "check-types": "tsc --noEmit"
   },
