@@ -1,7 +1,14 @@
+'use client'
+
+import { CHAT_MAX_LENGTH, useChat, type ChatMessage } from '@/hooks/use-chat'
+import { usePrivy, type User } from '@privy-io/react-auth'
+import { animate } from 'motion'
+import { motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 
 type ChatItem = {
-  id: number
+  id: string
   avatar: string
   name: string
   message: string
@@ -14,38 +21,56 @@ const AVATARS = [
   'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
 ] as const
 
-const CHAT_ITEMS: ChatItem[] = [
-  { id: 1, avatar: AVATARS[0], name: 'nova', message: 'gm, we printing today?', side: 'left' },
-  { id: 2, avatar: AVATARS[1], name: 'kira', message: 'btc looking heavy into the open', side: 'left' },
-  { id: 3, avatar: AVATARS[2], name: 'you', message: 'fading the first spike', side: 'right' },
-  { id: 4, avatar: AVATARS[0], name: 'jax', message: 'That would be great', side: 'left' },
-  { id: 5, avatar: AVATARS[1], name: 'mira', message: 'volume just died on the ask', side: 'left' },
-  { id: 6, avatar: AVATARS[2], name: 'you', message: 'holding the down side for now', side: 'right' },
-  { id: 7, avatar: AVATARS[0], name: 'leo', message: 'who is still long here', side: 'left' },
-  { id: 8, avatar: AVATARS[1], name: 'sage', message: 'not me, already flipped', side: 'left' },
-  {
-    id: 9,
-    avatar: AVATARS[0],
-    name: 'rex',
-    message: 'Contrary to popular belief, Lorem Ipsum is not simply random text.',
-    side: 'left',
-  },
-  { id: 10, avatar: AVATARS[2], name: 'you', message: 'wait for the next candle close', side: 'right' },
-  { id: 11, avatar: AVATARS[1], name: 'nina', message: 'this spread is criminal', side: 'left' },
-  { id: 12, avatar: AVATARS[0], name: 'otto', message: 'leaderboard is cooked already', side: 'left' },
-  { id: 13, avatar: AVATARS[1], name: 'ivy', message: 'sonha just printed +$12', side: 'left' },
-  { id: 14, avatar: AVATARS[2], name: 'you', message: 'yeah I saw that, insane fill', side: 'right' },
-  { id: 15, avatar: AVATARS[0], name: 'zed', message: 'lock in, 30s left', side: 'left' },
-  { id: 16, avatar: AVATARS[1], name: 'aria', message: 'do not fade this wick', side: 'left' },
-  { id: 17, avatar: AVATARS[0], name: 'kai', message: 'ok now it is moving', side: 'left' },
-  { id: 18, avatar: AVATARS[2], name: 'you', message: 'adding a bit more size', side: 'right' },
-  { id: 19, avatar: AVATARS[1], name: 'lux', message: 'send it', side: 'left' },
-  { id: 20, avatar: AVATARS[0], name: 'rio', message: 'gg if this holds the high', side: 'left' },
-]
+const NEAR_BOTTOM_PX = 48
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
+const ENTER_DURATION = 0.2
+
+function avatarFor(seed: string) {
+  let hash = 0
+  for (const character of seed) {
+    hash = (hash + character.charCodeAt(0)) % AVATARS.length
+  }
+  return AVATARS[hash] ?? AVATARS[0]
+}
+
+function formatAddress(address?: string | null) {
+  if (!address) return 'you'
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function chatName(user: User) {
+  return user.google?.name ?? user.discord?.username ?? user.email?.address ?? formatAddress(user.wallet?.address)
+}
+
+function chatIdentity(user: User | null) {
+  if (!user) return null
+  return {
+    address: user.wallet?.address || user.id,
+    name: chatName(user),
+  }
+}
+
+function isSelfMessage(message: ChatMessage, user: User | null) {
+  if (!user) return false
+  const keys = [user.wallet?.address, user.id].filter((value): value is string => Boolean(value)).map((value) => value.toLowerCase())
+  return keys.includes(message.address.toLowerCase())
+}
+
+function toChatItem(message: ChatMessage, user: User | null): ChatItem {
+  return {
+    id: message.id,
+    avatar: avatarFor(message.address || message.id),
+    name: message.name,
+    message: message.message,
+    side: isSelfMessage(message, user) ? 'right' : 'left',
+  }
+}
 
 function BubbleTail({ side }: { side: ChatItem['side'] }) {
   return (
-    <figure className={side === 'left' ? 'absolute top-[10px] left-[-6px]' : 'absolute top-[10px] right-[-6px] scale-x-[-1]'}>
+    <figure
+      className={side === 'left' ? 'absolute top-[10px] left-[-6px]' : 'absolute top-[10px] right-[-6px] scale-x-[-1]'}
+    >
       <svg width="8" height="9" viewBox="0 0 8 9" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M0.47 3.34927L5.58321 0.153515C6.24925 -0.262765 7.1132 0.216078 7.1132 1.00151V7.39302C7.1132 8.17845 6.24925 8.6573 5.58321 8.24102L0.470001 5.04526C-0.156667 4.6536 -0.156668 3.74094 0.47 3.34927Z"
@@ -56,13 +81,21 @@ function BubbleTail({ side }: { side: ChatItem['side'] }) {
   )
 }
 
-function ChatRow({ item }: { item: ChatItem }) {
+function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
   const isRight = item.side === 'right'
+  const reduceMotion = useReducedMotion()
+  const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(8px) scale(0.96)' }
+  const shown = reduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'translateY(0px) scale(1)' }
 
   return (
-    <li className={`flex w-full gap-4 ${isRight ? 'flex-row-reverse' : ''}`}>
-      <div className={`flex w-[90%] gap-4 ${isRight ? 'flex-row-reverse' : ''}`}>
-        <figure className="aspect-square h-15 w-15 rounded-lg bg-[#ff00ff] p-[2px]">
+    <motion.li
+      initial={enter ? hidden : false}
+      animate={shown}
+      transition={{ duration: ENTER_DURATION, ease: EASE_OUT }}
+      className={`flex min-w-0 w-full ${isRight ? 'justify-end' : ''}`}
+    >
+      <div className={`flex min-w-0 max-w-full gap-4 ${isRight ? 'flex-row-reverse' : ''}`}>
+        <figure className="h-15 w-15 shrink-0 rounded-lg bg-[#ff00ff] p-[2px]">
           <Image
             src={item.avatar}
             alt={item.name}
@@ -71,29 +104,131 @@ function ChatRow({ item }: { item: ChatItem }) {
             className="h-full w-full rounded-[6px] object-cover"
           />
         </figure>
-        <div className="relative h-fit w-fit rounded-lg bg-[#3A3A3A] p-2 text-white/80">
+        <div className="relative min-w-0 w-fit max-w-full rounded-lg bg-[#3A3A3A] p-2 text-white/80">
           <BubbleTail side={item.side} />
-          <span className="leading-[1.1]">{item.message}</span>
+          <span className="block wrap-break-word break-words leading-[1.1]">{item.message}</span>
         </div>
       </div>
-    </li>
+    </motion.li>
   )
 }
 
 export default function SectionChat() {
+  const { ready, authenticated, user, login } = usePrivy()
+  const { messages, initialIds, send } = useChat()
+  const items = messages.map((message) => toChatItem(message, user ?? null))
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
+  const programmaticScrollRef = useRef(false)
+  const reduceMotion = useReducedMotion()
+  const latestId = messages.at(-1)?.id
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const canSubmit = draft.trim().length > 0 && !sending && ready
+
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current
+    if (!scroller || !stickToBottomRef.current) return
+
+    const top = scroller.scrollHeight - scroller.clientHeight
+    if (top <= 0) return
+
+    if (reduceMotion) {
+      scroller.scrollTop = top
+      return
+    }
+
+    programmaticScrollRef.current = true
+    const playback = animate(scroller.scrollTop, top, {
+      duration: ENTER_DURATION,
+      ease: EASE_OUT,
+      onUpdate: (value) => {
+        scroller.scrollTop = value
+      },
+      onComplete: () => {
+        programmaticScrollRef.current = false
+        stickToBottomRef.current = true
+      },
+    })
+
+    return () => {
+      playback.stop()
+      programmaticScrollRef.current = false
+    }
+  }, [latestId, reduceMotion])
+
   return (
-    <section className="section-panel flex flex-col gap-2">
-      <div className="flex-1 overflow-y-auto rounded-lg hide-scrollbar">
-        <ul className="flex h-[100px] flex-col gap-4 px-0.5">
-          {CHAT_ITEMS.map((item) => (
-            <ChatRow key={item.id} item={item} />
+    <section className="section-panel flex min-h-0 flex-col gap-2 overflow-hidden">
+      <div
+        ref={scrollerRef}
+        onScroll={(event) => {
+          if (programmaticScrollRef.current) return
+          const scroller = event.currentTarget
+          stickToBottomRef.current =
+            scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= NEAR_BOTTOM_PX
+        }}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-lg hide-scrollbar"
+      >
+        <ul className="flex min-w-0 flex-col gap-4 px-2">
+          {items.map((item) => (
+            <ChatRow key={item.id} enter={Boolean(initialIds && !initialIds.has(item.id))} item={item} />
           ))}
         </ul>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-[#272727]">
-        <input className="w-full rounded-lg p-4 text-white/80" placeholder="What's that" />
-        <button type="button" className="p-4 opacity-50 hover:opacity-100">
+      <form
+        onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault()
+          if (!ready || sending) return
+
+          if (!authenticated || !user) {
+            login()
+            return
+          }
+
+          const identity = chatIdentity(user)
+          const message = draft.trim()
+          if (!identity || !message) return
+
+          setSending(true)
+          stickToBottomRef.current = true
+          setDraft('')
+          inputRef.current?.focus()
+
+          try {
+            await send({
+              address: identity.address,
+              name: identity.name,
+              message,
+            })
+          } catch (error) {
+            setDraft(message)
+            console.error(error)
+          } finally {
+            setSending(false)
+            inputRef.current?.focus()
+          }
+        }}
+        className="flex shrink-0 items-center justify-between rounded-lg bg-[#272727]"
+      >
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={CHAT_MAX_LENGTH}
+          autoComplete="off"
+          disabled={!ready}
+          className="w-full rounded-lg bg-transparent p-4 text-white/80 disabled:opacity-50"
+          placeholder={authenticated ? "What's that" : 'Sign in to chat'}
+        />
+        <button
+          type="submit"
+          disabled={authenticated && !canSubmit}
+          className={`p-4 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:pointer-events-none ${
+            authenticated && !canSubmit ? 'opacity-50' : 'opacity-100'
+          }`}
+        >
           <figure className="h-5 w-5">
             <svg
               className="h-full w-full"
@@ -114,7 +249,7 @@ export default function SectionChat() {
             </svg>
           </figure>
         </button>
-      </div>
+      </form>
     </section>
   )
 }

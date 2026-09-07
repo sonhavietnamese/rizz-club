@@ -1,8 +1,8 @@
-import { push, remove } from 'firebase/database'
 import { etlDebounceMs, etlHeartbeatMs } from '@/config'
 import { pointKey, snapshotMarketId, toMarketPoint } from '@/transform/point'
 import type { WatcherSnapshot } from '@/types'
-import { marketRef } from '@/load/firebase'
+import { push, remove } from 'firebase/database'
+import { marketRef } from './firebase'
 
 let pending: WatcherSnapshot | undefined
 let timer: ReturnType<typeof setTimeout> | undefined

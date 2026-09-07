@@ -13,8 +13,8 @@ export default function Page() {
   return (
     <main className="w-screen h-screen bg-background relative p-2 flex flex-col gap-2">
       <Header />
-      <div className="w-full grid grid-cols-5 gap-2 flex-1">
-        <div className="col-span-1 flex flex-col gap-2">
+      <div className="grid min-h-0 w-full flex-1 grid-cols-5 gap-2">
+        <div className="col-span-1 flex min-h-0 flex-col gap-2 overflow-hidden">
           <SectionChat />
 
           <SectionProgress />
