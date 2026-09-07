@@ -1,10 +1,10 @@
+import { dreamDexConfig, marketRefreshMs, reconnectDelayMs, targetAsset } from '@/config'
+import { discoverTargetMarkets } from '@/extract/discovery'
+import { errorMessage, sleep } from '@/lib/async'
+import { switchingSnapshot } from '@/transform/snapshot'
+import type { DashboardMarket, SnapshotListener, WatcherSnapshot } from '@/types'
 import { SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { dreamDexConfig, marketRefreshMs, reconnectDelayMs, targetAsset } from '../config.ts'
-import { discoverTargetMarkets } from '../extract/discovery.ts'
-import { errorMessage, sleep } from '../lib/async.ts'
-import { switchingSnapshot } from '../transform/snapshot.ts'
-import type { DashboardMarket, SnapshotListener, WatcherSnapshot } from '../types.ts'
-import { watchMarket } from './market.ts'
+import { watchMarket } from './market'
 
 function withMarkets(snapshot: WatcherSnapshot, markets: DashboardMarket[]): WatcherSnapshot {
   return { ...snapshot, markets }

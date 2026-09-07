@@ -1,8 +1,8 @@
+import { publishMarket } from '@/load/publish'
+import type { DashboardFill, DashboardMarket, WatcherSnapshot } from '@/types'
+import { startWatcher } from '@/watch/runner'
 import { Box, Spacer, Text, useApp, useInput, useStdin, useWindowSize } from 'ink'
-import React, { useEffect, useState } from 'react'
-import { publishMarket } from '../load/publish.ts'
-import type { DashboardFill, DashboardMarket, WatcherSnapshot } from '../types.ts'
-import { startWatcher } from '../watch/runner.ts'
+import { useEffect, useState } from 'react'
 import {
   cream,
   formatClock,
@@ -21,7 +21,7 @@ import {
   phaseLabel,
   sideColor,
   yesColor,
-} from './format.ts'
+} from './format'
 
 function useNow(intervalMs = 1_000) {
   const [now, setNow] = useState(() => Date.now())
@@ -79,7 +79,7 @@ function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
         <Text bold color={cream}>
           RIZZ
         </Text>
-        <Text dimColor>  watcher</Text>
+        <Text dimColor> watcher</Text>
         <Spacer />
         <Text color={muted}>BTC 5m</Text>
       </Box>
@@ -205,15 +205,7 @@ function MarketRoster({
   )
 }
 
-function OutcomeCard({
-  label,
-  value,
-  color,
-}: {
-  label: string
-  value: number | undefined
-  color: string
-}) {
+function OutcomeCard({ label, value, color }: { label: string; value: number | undefined; color: string }) {
   return (
     <Box flexDirection="column" flexGrow={1} paddingX={1} borderStyle="round" borderColor={color}>
       <Text color={color} bold>

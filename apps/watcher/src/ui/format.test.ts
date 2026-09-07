@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCountdown, formatMarketTiming, formatSource, marketStatusLabel } from './format.ts'
+import { formatCountdown, formatMarketTiming, formatSource, marketStatusLabel } from './format'
 
 describe('formatCountdown', () => {
   test('formats remaining minutes and seconds', () => {
@@ -11,18 +11,12 @@ describe('formatCountdown', () => {
 
 describe('formatMarketTiming', () => {
   test('labels live, upcoming, and expired markets', () => {
-    expect(
-      formatMarketTiming(
-        { id: '1', symbol: 'LIVE', status: 'live', expirySeconds: 200 },
-        100_000,
-      ),
-    ).toBe('1m 40s left')
-    expect(
-      formatMarketTiming(
-        { id: '2', symbol: 'NEXT', status: 'upcoming', tradingStartSeconds: 160 },
-        100_000,
-      ),
-    ).toBe('in 1m 00s')
+    expect(formatMarketTiming({ id: '1', symbol: 'LIVE', status: 'live', expirySeconds: 200 }, 100_000)).toBe(
+      '1m 40s left',
+    )
+    expect(formatMarketTiming({ id: '2', symbol: 'NEXT', status: 'upcoming', tradingStartSeconds: 160 }, 100_000)).toBe(
+      'in 1m 00s',
+    )
     expect(formatMarketTiming({ id: '3', symbol: 'DONE', status: 'expired' }, 100_000)).toBe('ended')
   })
 })

@@ -1,4 +1,4 @@
-import type { MarketPoint, WatcherSnapshot } from '../types.ts'
+import type { MarketPoint, WatcherSnapshot } from '@/types'
 
 function asJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T

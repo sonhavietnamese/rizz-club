@@ -1,7 +1,6 @@
-import './src/env.ts'
+import '@/env'
+import { Dashboard } from '@/ui/dashboard'
 import { render } from 'ink'
-import React from 'react'
-import { Dashboard } from './src/ui/dashboard.tsx'
 
 const isInteractive = Boolean(process.stdin.isTTY)
 const app = render(<Dashboard />, {

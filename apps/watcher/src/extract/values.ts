@@ -1,7 +1,7 @@
 import { isBinaryMarket, SomniaMarkets, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { defaultQuoteDecimals, marketFillLimit } from '../config.ts'
-import { bigintToProbability, rawToProbability } from '../lib/units.ts'
-import type { MarketValueSource } from '../types.ts'
+import { defaultQuoteDecimals, marketFillLimit } from '@/config'
+import { bigintToProbability, rawToProbability } from '@/lib/units'
+import type { MarketValueSource } from '@/types'
 
 export type MarketValue = {
   yesValue: number

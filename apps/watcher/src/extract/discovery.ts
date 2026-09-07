@@ -1,6 +1,6 @@
 import { isBinaryMarket, SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { dashboardExpiredMarketLimit, targetAsset, targetIntervalSeconds } from '../config.ts'
-import type { DashboardMarket, DashboardMarketStatus, Outcome } from '../types.ts'
+import { dashboardExpiredMarketLimit, targetAsset, targetIntervalSeconds } from '@/config'
+import type { DashboardMarket, DashboardMarketStatus, Outcome } from '@/types'
 
 export type MarketDiscovery = {
   current: UnifiedMarket | null

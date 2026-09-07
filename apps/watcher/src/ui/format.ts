@@ -1,4 +1,4 @@
-import type { DashboardMarket, DashboardMarketStatus, MarketValueSource, WatcherSnapshot } from '../types.ts'
+import type { DashboardMarket, DashboardMarketStatus, MarketValueSource, WatcherSnapshot } from '@/types'
 
 export const yesColor = '#90B64F'
 export const noColor = '#D6503C'

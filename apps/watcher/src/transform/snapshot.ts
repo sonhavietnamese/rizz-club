@@ -1,9 +1,9 @@
 import { isBinaryMarket, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { dashboardFillLimit, defaultQuoteDecimals } from '../config.ts'
-import { pickTradable } from '../extract/discovery.ts'
-import type { MarketValue } from '../extract/values.ts'
-import { rawToHuman, rawToProbability } from '../lib/units.ts'
-import type { DashboardFill, WatcherSnapshot } from '../types.ts'
+import { dashboardFillLimit, defaultQuoteDecimals } from '@/config'
+import { pickTradable } from '@/extract/discovery'
+import type { MarketValue } from '@/extract/values'
+import { rawToHuman, rawToProbability } from '@/lib/units'
+import type { DashboardFill, WatcherSnapshot } from '@/types'
 
 function fillTimestampMs(timestamp: string | undefined) {
   if (!timestamp) return undefined

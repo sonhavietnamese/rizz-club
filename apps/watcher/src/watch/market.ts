@@ -1,10 +1,10 @@
+import { discoverTargetMarkets, pickTradable, type MarketDiscovery } from '@/extract/discovery'
+import { marketValues } from '@/extract/values'
+import { sleep, waitUntilAborted } from '@/lib/async'
+import { marketMeta, snapshotFromValue } from '@/transform/snapshot'
+import type { SnapshotListener, WatchResult } from '@/types'
 import { isBinaryMarket, SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { discoverTargetMarkets, pickTradable, type MarketDiscovery } from '../extract/discovery.ts'
-import { marketValues } from '../extract/values.ts'
-import { sleep, waitUntilAborted } from '../lib/async.ts'
-import { marketMeta, snapshotFromValue } from '../transform/snapshot.ts'
-import type { SnapshotListener, WatchResult } from '../types.ts'
-import { isMarketExpired, successorPollMs, waitUntilMarketExpiry } from './expiry.ts'
+import { isMarketExpired, successorPollMs, waitUntilMarketExpiry } from './expiry'
 
 export async function waitForMarketSwitch(
   exchange: SomniaMarkets,

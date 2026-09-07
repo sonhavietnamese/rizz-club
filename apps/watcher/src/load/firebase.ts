@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref } from 'firebase/database'
-import { etlPath } from '../config.ts'
-import { env } from '../env.ts'
+import { etlPath } from '@/config'
+import { env } from '@/env'
 
 const app = initializeApp({
   apiKey: env.FIREBASE_API_KEY,

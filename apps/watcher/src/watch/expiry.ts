@@ -1,12 +1,7 @@
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import {
-  marketRefreshMs,
-  successorPollHotMs,
-  successorPollMsDefault,
-  successorPollNearExpiryMs,
-} from '../config.ts'
-import { sleep } from '../lib/async.ts'
-import type { WatchResult } from '../types.ts'
+import { marketRefreshMs, successorPollHotMs, successorPollMsDefault, successorPollNearExpiryMs } from '@/config'
+import { sleep } from '@/lib/async'
+import type { WatchResult } from '@/types'
 
 export function marketExpiryMs(market: UnifiedMarket) {
   if (!isBinaryMarket(market.info)) return Number.NaN
