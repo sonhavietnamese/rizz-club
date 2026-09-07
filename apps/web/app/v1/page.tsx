@@ -1,6 +1,7 @@
 import Header from '@/components/header'
 import SectionAbility from '@/components/section-ability'
 import SectionAbout from '@/components/section-about'
+import SectionBtcPrice from '@/components/section-btc-price'
 import SectionChat from '@/components/section-chat'
 import SectionDynamicIsland from '@/components/section-dynamic-island'
 import SectionLeaderboard from '@/components/section-leaderboard'
@@ -20,9 +21,7 @@ export default function Page() {
           <SectionStatus />
         </div>
         <div className="col-span-3 flex flex-col gap-2">
-          <section className="section-panel">
-            <span>1</span>
-          </section>
+          <SectionBtcPrice />
 
           <section className="section-panel">
             <span>2</span>

@@ -1,4 +1,5 @@
 import type { LivelinePoint } from '@/lib/liveline'
+import type { PriceFeedStatus, PricePoint, LivePrice } from '@somnia-chain/markets-sdk'
 
 export function formatAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -55,4 +56,72 @@ export function ensureDrawablePoints(points: LivelinePoint[], fallbackValue: num
     { time: firstTime - 1, value },
     { time: firstTime, value },
   ])
+}
+
+export function tickToLivelinePoint(tick: PricePoint): LivelinePoint {
+  return {
+    time: Math.floor(tick.blockTimestamp),
+    value: tick.price,
+  }
+}
+
+export function livePriceToPoint(price: LivePrice): LivelinePoint {
+  return {
+    time: Math.floor(price.blockTimestamp),
+    value: price.price,
+  }
+}
+
+const MAX_PRICE_TICKS = 1_000
+
+export function normalizePricePoints(points: LivelinePoint[]) {
+  return points
+    .filter((point) => Number.isFinite(point.value) && point.value > 0)
+    .sort((left, right) => left.time - right.time)
+    .filter((point, index, sorted) => index === sorted.length - 1 || point.time !== sorted[index + 1].time)
+    .slice(-MAX_PRICE_TICKS)
+}
+
+export const usdFormatter = new Intl.NumberFormat('en', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+})
+
+export function formatUsd(value?: number) {
+  if (value === undefined) return '--'
+
+  return usdFormatter.format(value)
+}
+
+export function formatChange(value?: number, percent?: number) {
+  if (value === undefined || percent === undefined) return '--'
+
+  const sign = value >= 0 ? '+' : ''
+
+  return `${sign}${formatUsd(value)} (${sign}${(percent * 100).toFixed(2)}%)`
+}
+
+export function formatChartTime(seconds: number) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(seconds * 1000))
+}
+
+export function formatUpdateTime(value?: number) {
+  if (value === undefined) return 'Waiting'
+
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(value))
+}
+
+export function priceStatusLabel(status: PriceFeedStatus, lastUpdateMs?: number) {
+  if (status === 'live') return `Live ${formatUpdateTime(lastUpdateMs)}`
+  if (status === 'hydrating') return 'Syncing'
+  return 'Waiting'
 }
