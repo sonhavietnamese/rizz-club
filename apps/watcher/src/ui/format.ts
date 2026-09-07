@@ -1,4 +1,4 @@
-import type { MarketValueSource, WatcherSnapshot } from '../types.ts'
+import type { DashboardMarket, DashboardMarketStatus, MarketValueSource, WatcherSnapshot } from '../types.ts'
 
 export const yesColor = '#90B64F'
 export const noColor = '#D6503C'
@@ -25,15 +25,48 @@ export function formatClock(timestamp: number | undefined) {
   }).format(new Date(timestamp))
 }
 
-export function formatRemaining(expirySeconds: number | undefined, now: number) {
-  if (expirySeconds === undefined) return undefined
-  const remaining = Math.max(0, expirySeconds * 1000 - now)
+export function formatCountdown(targetSeconds: number | undefined, now: number) {
+  if (targetSeconds === undefined) return undefined
+  const remaining = Math.max(0, targetSeconds * 1000 - now)
   const totalSeconds = Math.ceil(remaining / 1000)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
-  if (totalSeconds <= 0) return 'expired · switching'
-  if (minutes <= 0) return `${seconds}s left`
-  return `${minutes}m ${seconds.toString().padStart(2, '0')}s left`
+  if (totalSeconds <= 0) return '0s'
+  if (minutes <= 0) return `${seconds}s`
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
+}
+
+export function formatRemaining(expirySeconds: number | undefined, now: number) {
+  const countdown = formatCountdown(expirySeconds, now)
+  if (countdown === undefined) return undefined
+  if (countdown === '0s') return 'expired · switching'
+  return `${countdown} left`
+}
+
+export function formatMarketTiming(market: DashboardMarket, now: number) {
+  if (market.status === 'live') {
+    const countdown = formatCountdown(market.expirySeconds, now)
+    return countdown ? `${countdown} left` : '—'
+  }
+  if (market.status === 'upcoming') {
+    const countdown = formatCountdown(market.tradingStartSeconds, now)
+    return countdown ? `in ${countdown}` : '—'
+  }
+  if (market.status === 'expired') return 'ended'
+  return 'off'
+}
+
+export function marketStatusLabel(status: DashboardMarketStatus) {
+  if (status === 'live') return 'LIVE'
+  if (status === 'upcoming') return 'NEXT'
+  if (status === 'expired') return 'DONE'
+  return 'OFF'
+}
+
+export function marketStatusColor(status: DashboardMarketStatus) {
+  if (status === 'live') return yesColor
+  if (status === 'upcoming') return '#E4B04A'
+  return muted
 }
 
 export function formatRetry(retryAt: number | undefined, now: number) {

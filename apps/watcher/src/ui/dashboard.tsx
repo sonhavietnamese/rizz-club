@@ -1,17 +1,20 @@
 import { Box, Spacer, Text, useApp, useInput, useStdin, useWindowSize } from 'ink'
 import React, { useEffect, useState } from 'react'
 import { publishMarket } from '../load/publish.ts'
-import type { DashboardFill, WatcherSnapshot } from '../types.ts'
+import type { DashboardFill, DashboardMarket, WatcherSnapshot } from '../types.ts'
 import { startWatcher } from '../watch/runner.ts'
 import {
   cream,
   formatClock,
+  formatMarketTiming,
   formatNumber,
   formatPercent,
   formatRemaining,
   formatRetry,
   formatSide,
   formatSource,
+  marketStatusColor,
+  marketStatusLabel,
   muted,
   noColor,
   phaseColor,
@@ -37,6 +40,7 @@ function useWatcher() {
     message: 'Connecting to DreamDex',
     fillCount: 0,
     fills: [],
+    markets: [],
   })
   const [syncError, setSyncError] = useState<string>()
 
@@ -67,6 +71,7 @@ function ProbabilityBar({ yes, width }: { yes: number; width: number }) {
 
 function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
   const remaining = formatRemaining(snapshot.expirySeconds, now)
+  const fetching = snapshot.marketSymbol
 
   return (
     <Box flexDirection="column">
@@ -80,7 +85,7 @@ function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
       </Box>
       <Box>
         <Text color={cream} wrap="truncate">
-          {snapshot.marketSymbol ?? 'No live market'}
+          {fetching ? `fetching ${fetching}` : 'No market selected'}
         </Text>
         <Spacer />
         <Text color={phaseColor(snapshot.phase)} bold>
@@ -93,6 +98,109 @@ function Header({ snapshot, now }: { snapshot: WatcherSnapshot; now: number }) {
           </Text>
         ) : null}
       </Box>
+    </Box>
+  )
+}
+
+function MarketRow({
+  market,
+  fetching,
+  source,
+  now,
+}: {
+  market: DashboardMarket
+  fetching: boolean
+  source?: WatcherSnapshot['source']
+  now: number
+}) {
+  return (
+    <Box>
+      <Box width={2}>
+        <Text color={fetching ? cream : muted}>{fetching ? '›' : ' '}</Text>
+      </Box>
+      <Box width={28}>
+        <Text color={fetching ? cream : undefined} bold={fetching} wrap="truncate">
+          {market.symbol}
+        </Text>
+      </Box>
+      <Box width={8}>
+        <Text color={marketStatusColor(market.status)} bold={market.status === 'live'}>
+          {marketStatusLabel(market.status)}
+        </Text>
+      </Box>
+      <Box width={14}>
+        <Text color={muted}>{formatMarketTiming(market, now)}</Text>
+      </Box>
+      <Box>
+        <Text color={fetching ? cream : muted}>{fetching ? `fetching · ${formatSource(source)}` : ''}</Text>
+      </Box>
+    </Box>
+  )
+}
+
+function MarketRoster({
+  markets,
+  fetchingId,
+  source,
+  now,
+}: {
+  markets: DashboardMarket[]
+  fetchingId?: string
+  source?: WatcherSnapshot['source']
+  now: number
+}) {
+  const liveCount = markets.filter((market) => market.status === 'live').length
+  const nextCount = markets.filter((market) => market.status === 'upcoming').length
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Box>
+        <Text color={muted} bold>
+          MARKETS
+        </Text>
+        <Spacer />
+        <Text color={muted}>
+          {liveCount} live · {nextCount} next
+        </Text>
+      </Box>
+      {markets.length === 0 ? (
+        <Text color={muted}>Waiting for BTC 5m markets…</Text>
+      ) : (
+        <>
+          <Box>
+            <Box width={2} />
+            <Box width={28}>
+              <Text color={muted} bold>
+                MARKET
+              </Text>
+            </Box>
+            <Box width={8}>
+              <Text color={muted} bold>
+                STATE
+              </Text>
+            </Box>
+            <Box width={14}>
+              <Text color={muted} bold>
+                TIME
+              </Text>
+            </Box>
+            <Box>
+              <Text color={muted} bold>
+                DATA
+              </Text>
+            </Box>
+          </Box>
+          {markets.map((market) => (
+            <MarketRow
+              key={market.id}
+              market={market}
+              fetching={Boolean(fetchingId) && market.id === fetchingId}
+              source={source}
+              now={now}
+            />
+          ))}
+        </>
+      )}
     </Box>
   )
 }
@@ -208,6 +316,12 @@ export function DashboardView({ snapshot, syncError }: { snapshot: WatcherSnapsh
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1} borderStyle="round" borderColor={cream}>
       <Header snapshot={snapshot} now={now} />
+      <MarketRoster
+        markets={snapshot.markets ?? []}
+        fetchingId={snapshot.marketId}
+        source={snapshot.source}
+        now={now}
+      />
 
       {showMarket ? (
         <Box flexDirection="column" marginTop={1} gap={1}>
@@ -232,7 +346,9 @@ export function DashboardView({ snapshot, syncError }: { snapshot: WatcherSnapsh
       )}
 
       <Box marginTop={1}>
-        <Text color={muted}>q quit · auto-switches on expiry · </Text>
+        <Text color={muted}>
+          q quit · {snapshot.marketSymbol ? `data from ${snapshot.marketSymbol}` : 'auto-switches on expiry'} ·{' '}
+        </Text>
         <SyncStatus error={syncError} />
       </Box>
     </Box>

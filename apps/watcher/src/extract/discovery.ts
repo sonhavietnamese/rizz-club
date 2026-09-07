@@ -1,6 +1,11 @@
 import { isBinaryMarket, SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { targetAsset, targetIntervalSeconds } from '../config.ts'
-import type { Outcome } from '../types.ts'
+import { dashboardExpiredMarketLimit, targetAsset, targetIntervalSeconds } from '../config.ts'
+import type { DashboardMarket, DashboardMarketStatus, Outcome } from '../types.ts'
+
+export type MarketDiscovery = {
+  current: UnifiedMarket | null
+  markets: DashboardMarket[]
+}
 
 export function binaryMarketIntervalSeconds(market: UnifiedMarket) {
   if (!isBinaryMarket(market.info)) return null
@@ -15,15 +20,25 @@ export function binaryMarketIntervalSeconds(market: UnifiedMarket) {
   return expiry - tradingStart
 }
 
-export function isLiveBtcMarket(market: UnifiedMarket, nowSeconds: number) {
-  if (!market.active || !isBinaryMarket(market.info) || !market.outcomes?.length) return false
+export function isTargetBtcMarket(market: UnifiedMarket) {
+  if (!isBinaryMarket(market.info) || !market.outcomes?.length) return false
   if (binaryMarketIntervalSeconds(market) !== targetIntervalSeconds) return false
-  if (!market.base.toUpperCase().startsWith(`${targetAsset}-`)) return false
+  return market.base.toUpperCase().startsWith(`${targetAsset}-`)
+}
+
+export function targetMarketStatus(market: UnifiedMarket, nowSeconds: number): DashboardMarketStatus {
+  if (!isBinaryMarket(market.info)) return 'inactive'
 
   const tradingStart = Number(market.info.tradingStart)
   const expiry = Number(market.info.expiry)
+  if (!Number.isFinite(tradingStart) || !Number.isFinite(expiry)) return 'inactive'
+  if (nowSeconds < tradingStart) return market.active ? 'upcoming' : 'inactive'
+  if (nowSeconds >= expiry) return 'expired'
+  return market.active ? 'live' : 'inactive'
+}
 
-  return Number.isFinite(tradingStart) && Number.isFinite(expiry) && tradingStart <= nowSeconds && nowSeconds < expiry
+export function isLiveBtcMarket(market: UnifiedMarket, nowSeconds: number) {
+  return isTargetBtcMarket(market) && targetMarketStatus(market, nowSeconds) === 'live'
 }
 
 export function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
@@ -38,15 +53,77 @@ export function compareLiveMarkets(left: UnifiedMarket, right: UnifiedMarket) {
   return left.symbol.localeCompare(right.symbol)
 }
 
-export async function findCurrentLiveBtcMarket(exchange: SomniaMarkets) {
+function marketWindow(market: UnifiedMarket) {
+  if (!isBinaryMarket(market.info)) return { tradingStartSeconds: undefined, expirySeconds: undefined }
+
+  const tradingStartSeconds = Number(market.info.tradingStart)
+  const expirySeconds = Number(market.info.expiry)
+
+  return {
+    tradingStartSeconds: Number.isFinite(tradingStartSeconds) ? tradingStartSeconds : undefined,
+    expirySeconds: Number.isFinite(expirySeconds) ? expirySeconds : undefined,
+  }
+}
+
+export function toDashboardMarket(market: UnifiedMarket, nowSeconds: number): DashboardMarket {
+  const { tradingStartSeconds, expirySeconds } = marketWindow(market)
+
+  return {
+    id: market.id,
+    symbol: market.symbol,
+    status: targetMarketStatus(market, nowSeconds),
+    tradingStartSeconds,
+    expirySeconds,
+  }
+}
+
+function statusRank(status: DashboardMarketStatus) {
+  if (status === 'live') return 0
+  if (status === 'upcoming') return 1
+  if (status === 'expired') return 2
+  return 3
+}
+
+function compareDashboardMarkets(left: DashboardMarket, right: DashboardMarket) {
+  const rank = statusRank(left.status) - statusRank(right.status)
+  if (rank !== 0) return rank
+
+  if (left.status === 'expired') {
+    return (right.expirySeconds ?? 0) - (left.expirySeconds ?? 0)
+  }
+
+  const startDelta = (left.tradingStartSeconds ?? 0) - (right.tradingStartSeconds ?? 0)
+  if (startDelta !== 0) return startDelta
+
+  return (left.expirySeconds ?? 0) - (right.expirySeconds ?? 0) || left.symbol.localeCompare(right.symbol)
+}
+
+export function toDashboardMarkets(markets: UnifiedMarket[], nowSeconds = Math.floor(Date.now() / 1000)) {
+  const rows = markets.map((market) => toDashboardMarket(market, nowSeconds)).sort(compareDashboardMarkets)
+  const visible: DashboardMarket[] = []
+  let expired = 0
+
+  for (const market of rows) {
+    if (market.status === 'expired') {
+      if (expired >= dashboardExpiredMarketLimit) continue
+      expired += 1
+    }
+    visible.push(market)
+  }
+
+  return visible
+}
+
+export async function discoverTargetMarkets(exchange: SomniaMarkets): Promise<MarketDiscovery> {
   const registry = await exchange.loadMarkets(true)
   const nowSeconds = Math.floor(Date.now() / 1000)
+  const targets = Object.values(registry).filter(isTargetBtcMarket)
+  const current = targets.filter((market) => isLiveBtcMarket(market, nowSeconds)).sort(compareLiveMarkets)[0] ?? null
 
-  return (
-    Object.values(registry)
-      .filter((market) => isLiveBtcMarket(market, nowSeconds))
-      .sort(compareLiveMarkets)[0] ?? null
-  )
+  return {
+    current,
+    markets: toDashboardMarkets(targets, nowSeconds),
+  }
 }
 
 export function pickTradable(market: UnifiedMarket, outcome: Outcome) {

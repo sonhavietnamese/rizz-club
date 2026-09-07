@@ -3,6 +3,15 @@ import type { UnifiedMarket } from '@somnia-chain/markets-sdk'
 export type Outcome = 'YES' | 'NO'
 export type MarketValueSource = 'book' | 'fill' | 'last_price' | 'default'
 export type WatcherPhase = 'connecting' | 'waiting' | 'watching' | 'error'
+export type DashboardMarketStatus = 'live' | 'upcoming' | 'expired' | 'inactive'
+
+export type DashboardMarket = {
+  id: string
+  symbol: string
+  status: DashboardMarketStatus
+  tradingStartSeconds?: number
+  expirySeconds?: number
+}
 
 export type WatchResult =
   | { event: 'market_expired' }
@@ -37,6 +46,7 @@ export type WatcherSnapshot = {
   fallbackYes?: number
   fillCount: number
   fills: DashboardFill[]
+  markets?: DashboardMarket[]
   updatedAt?: number
 }
 

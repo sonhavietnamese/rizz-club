@@ -11,6 +11,7 @@ export const targetAsset = 'BTC'
 export const targetIntervalSeconds = 5 * 60
 export const marketFillLimit = 400
 export const dashboardFillLimit = 10
+export const dashboardExpiredMarketLimit = 6
 export const defaultQuoteDecimals = 6
 export const successorPollNearExpiryMs = 15_000
 export const successorPollHotMs = 1_000

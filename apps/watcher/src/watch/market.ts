@@ -1,5 +1,5 @@
 import { isBinaryMarket, SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { findCurrentLiveBtcMarket, pickTradable } from '../extract/discovery.ts'
+import { discoverTargetMarkets, pickTradable, type MarketDiscovery } from '../extract/discovery.ts'
 import { marketValues } from '../extract/values.ts'
 import { sleep, waitUntilAborted } from '../lib/async.ts'
 import { marketMeta, snapshotFromValue } from '../transform/snapshot.ts'
@@ -10,6 +10,7 @@ export async function waitForMarketSwitch(
   exchange: SomniaMarkets,
   currentMarket: UnifiedMarket,
   signal: AbortSignal,
+  onDiscovery?: (discovery: MarketDiscovery) => void,
 ): Promise<WatchResult | void> {
   while (!signal.aborted) {
     await sleep(successorPollMs(currentMarket), signal)
@@ -19,11 +20,13 @@ export async function waitForMarketSwitch(
       return { event: 'market_expired' }
     }
 
-    const nextMarket = await findCurrentLiveBtcMarket(exchange)
+    const discovery = await discoverTargetMarkets(exchange)
     if (signal.aborted) return
 
-    if (nextMarket && nextMarket.id !== currentMarket.id) {
-      return { event: 'market_changed', market: nextMarket }
+    onDiscovery?.(discovery)
+
+    if (discovery.current && discovery.current.id !== currentMarket.id) {
+      return { event: 'market_changed', market: discovery.current }
     }
   }
 }
@@ -78,6 +81,7 @@ export async function watchMarket(
   market: UnifiedMarket,
   onSnapshot: SnapshotListener,
   signal: AbortSignal,
+  onDiscovery?: (discovery: MarketDiscovery) => void,
 ) {
   const yesSymbol = pickTradable(market, 'YES')
   const noSymbol = pickTradable(market, 'NO')
@@ -102,7 +106,7 @@ export async function watchMarket(
   try {
     return await Promise.race<WatchResult | void>([
       watchMarketValue(exchange, market, onSnapshot, controller.signal),
-      waitForMarketSwitch(exchange, market, controller.signal),
+      waitForMarketSwitch(exchange, market, controller.signal, onDiscovery),
       waitUntilMarketExpiry(market, controller.signal),
     ])
   } finally {

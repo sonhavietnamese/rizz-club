@@ -94,6 +94,12 @@ export function formatUsd(value?: number) {
   return usdFormatter.format(value)
 }
 
+export function formatPercent(value?: number) {
+  if (value === undefined) return '--'
+
+  return `${(value * 100).toFixed(1)}%`
+}
+
 export function formatChange(value?: number, percent?: number) {
   if (value === undefined || percent === undefined) return '--'
 
