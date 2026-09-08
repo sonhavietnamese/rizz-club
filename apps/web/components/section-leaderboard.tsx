@@ -26,7 +26,14 @@ const profitColor = {
 function HeartbeatIcon() {
   return (
     <figure className="h-3 w-3">
-      <svg className="h-full w-full" width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        className="h-full w-full"
+        width="11"
+        height="11"
+        viewBox="0 0 11 11"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
         <path
           d="M0.5 6.60254H3.22727L4.59091 0.102539L6.40909 10.1025L7.77273 5.60254H10.5"
           stroke="#6A7374"
@@ -80,7 +87,7 @@ function LeaderboardRow({
       </div>
 
       <div className="flex flex-col items-start gap-2 py-1">
-        <div className="font-sans text-lg font-medium text-white/90">{item.name}</div>
+        <div className="font-sans font-medium text-white/90">{item.name}</div>
         <div className="mt-2 flex items-center justify-center gap-1">
           <HeartbeatIcon />
           <span className="font-sans text-xs font-medium text-[#6A7374]">{item.outcome}</span>
@@ -164,7 +171,11 @@ export default function SectionLeaderboard() {
       <motion.div layoutScroll className="min-h-0 flex-1 overflow-y-auto rounded-lg hide-scrollbar">
         {items.length === 0 ? (
           <p className="px-2 py-3 font-sans text-sm text-[#6A7374]">
-            {status === 'error' ? 'Could not load trades.' : status === 'loading' ? 'Syncing positions...' : 'Waiting for positions...'}
+            {status === 'error'
+              ? 'Could not load trades.'
+              : status === 'loading'
+                ? 'Syncing positions...'
+                : 'Waiting for positions...'}
           </p>
         ) : (
           <AnimatePresence mode="wait" initial={false}>

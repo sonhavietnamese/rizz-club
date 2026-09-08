@@ -3,19 +3,19 @@ import { cn } from 'cn'
 export default function SectionStatus() {
   return (
     <section className="section-panel font-sans flex-none p-2 gap-2 flex justify-between select-none">
-      <div className="p-2 px-2.5 bg-[#24362C] leading-none rounded-lg w-fit">
+      <div className="p-1 px-1.5 bg-[#24362C] leading-none rounded-lg w-fit">
         <span
           className={cn(
-            'text-[#74CC92] font-regular',
-            "before:content-[''] before:w-2.5 before:h-2.5 before:bg-[#74CC92] before:rounded-full before:inline-block before:mr-2",
+            'text-[#74CC92] font-regular text-sm',
+            "before:content-[''] before:w-2 before:h-2 before:bg-[#74CC92] before:rounded-full before:inline-block before:mr-1",
           )}
         >
           Stable 57 MS | 50 FPS
         </span>
       </div>
 
-      <div className="p-2 px-2.5 rounded-lg w-fit">
-        <span className={cn('text-[#6A7374] font-regular flex items-center gap-2')}>
+      <div className="p-1 px-1.5 rounded-lg w-fit">
+        <span className={cn('text-[#6A7374] font-regular text-sm flex items-center gap-2')}>
           <figure className="w-4 h-4">
             <svg
               width="14"

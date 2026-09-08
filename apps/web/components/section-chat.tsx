@@ -52,7 +52,9 @@ function chatIdentity(user: User | null) {
 
 function isSelfMessage(message: ChatMessage, user: User | null) {
   if (!user) return false
-  const keys = [user.wallet?.address, user.id].filter((value): value is string => Boolean(value)).map((value) => value.toLowerCase())
+  const keys = [user.wallet?.address, user.id]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase())
   return keys.includes(message.address.toLowerCase())
 }
 
@@ -95,7 +97,7 @@ function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
       className={`flex min-w-0 w-full ${isRight ? 'justify-end' : ''}`}
     >
       <div className={`flex min-w-0 max-w-full gap-4 ${isRight ? 'flex-row-reverse' : ''}`}>
-        <figure className="h-15 w-15 shrink-0 rounded-lg bg-[#ff00ff] p-[2px]">
+        <figure className="h-12 w-12 shrink-0 rounded-lg bg-[#ff00ff] p-[2px]">
           <Image
             src={item.avatar}
             alt={item.name}
@@ -106,7 +108,7 @@ function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
         </figure>
         <div className="relative min-w-0 w-fit max-w-full rounded-lg bg-[#3A3A3A] p-2 text-white/80">
           <BubbleTail side={item.side} />
-          <span className="block wrap-break-word break-words leading-[1.1]">{item.message}</span>
+          <span className="block wrap-break-word break-words leading-[1.1] text-sm">{item.message}</span>
         </div>
       </div>
     </motion.li>
