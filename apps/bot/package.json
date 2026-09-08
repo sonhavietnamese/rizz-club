@@ -8,7 +8,8 @@
     "wallets": "bun run src/scripts/wallets.ts",
     "faucet": "bun run src/scripts/faucet.ts",
     "chat": "bun run src/scripts/chat.ts",
-    "trade": "bun run src/scripts/trade.ts -- --interval 200 --limit 8 --batch 2"
+    "trade": "bun run src/scripts/trade.ts -- --interval 200 --limit 8 --batch 2",
+    "claim": "bun run src/scripts/claim.ts"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "^0.28.1",
