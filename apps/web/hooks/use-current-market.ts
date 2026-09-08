@@ -56,6 +56,14 @@ function marketExpirySeconds(market: UnifiedMarket | null) {
   return Number.isFinite(expiry) ? expiry : undefined
 }
 
+export function currentMarketIds(market: UnifiedMarket | null) {
+  if (!market) return []
+
+  const ids = [market.id]
+  if (isBinaryMarket(market.info)) ids.push(market.info.marketId)
+  return [...new Set(ids.map((id) => id.toLowerCase()))]
+}
+
 function useCurrentMarketLoader() {
   const exchange = useMemo(() => createDreamDexExchange(), [])
   const [market, setMarket] = useState<UnifiedMarket | null>(null)

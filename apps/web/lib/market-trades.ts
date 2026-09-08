@@ -21,7 +21,7 @@ export type MarketTrade = {
   taker?: string | null
 }
 
-function avatarFor(seed: string) {
+export function traderAvatar(seed: string) {
   let hash = 0
   for (const character of seed) {
     hash = (hash + character.charCodeAt(0)) % traderAvatars.length
@@ -33,12 +33,25 @@ function tradeTimeSeconds(t: number) {
   return t > 1e12 ? t / 1000 : t
 }
 
-function tradeSeriesId(trade: MarketTrade): 'yes' | 'no' | null {
-  if (trade.outcome === 'YES') return 'yes'
-  if (trade.outcome === 'NO') return 'no'
+export function marketTradeOutcome(trade: Pick<MarketTrade, 'outcome' | 'side' | 'kind'>): 'YES' | 'NO' | null {
+  if (trade.outcome === 'YES' || trade.outcome === 'NO') return trade.outcome
   const token = `${trade.side ?? ''} ${trade.kind ?? ''}`
-  if (token.includes('YES')) return 'yes'
-  if (token.includes('NO')) return 'no'
+  if (token.includes('YES')) return 'YES'
+  if (token.includes('NO')) return 'NO'
+  return null
+}
+
+export function marketTradeAction(trade: Pick<MarketTrade, 'side' | 'kind'>): 'buy' | 'sell' | null {
+  const token = `${trade.side ?? ''} ${trade.kind ?? ''}`
+  if (token.includes('SELL')) return 'sell'
+  if (token.includes('BUY')) return 'buy'
+  return null
+}
+
+function tradeSeriesId(trade: MarketTrade): 'yes' | 'no' | null {
+  const outcome = marketTradeOutcome(trade)
+  if (outcome === 'YES') return 'yes'
+  if (outcome === 'NO') return 'no'
   return null
 }
 
@@ -60,7 +73,7 @@ export function toTradeMarkers(trades: MarketTrade[]): LivelineMarker[] {
         id: trade.id,
         time,
         seriesId,
-        avatar: avatarFor(seed),
+        avatar: traderAvatar(seed),
         name: trade.taker ? formatAddress(trade.taker) : undefined,
       },
     ]

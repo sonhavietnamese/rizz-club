@@ -29,7 +29,7 @@ export default function Page() {
             <SectionDynamicIsland />
           </div>
 
-          <div id="right" className="flex flex-col gap-2">
+          <div id="right" className="flex min-h-0 flex-col gap-2 overflow-hidden">
             <SectionLeaderboard />
             <SectionAbility />
             <SectionHistory />
