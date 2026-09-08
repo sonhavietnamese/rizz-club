@@ -17,6 +17,7 @@ export function Liveline({
   data,
   value,
   series: seriesProp,
+  markers,
   theme = 'dark',
   color = '#3b82f6',
   window: windowSecs = 30,
@@ -226,6 +227,7 @@ export function Liveline({
     multiSeries,
     isMultiSeries,
     hiddenSeriesIds: hiddenSeries,
+    markers,
   })
 
   const cursorStyle = scrub ? cursor : 'default'

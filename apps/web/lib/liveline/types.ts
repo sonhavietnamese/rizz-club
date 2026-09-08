@@ -54,12 +54,24 @@ export interface LivelineSeries {
   label?: string
 }
 
+export interface LivelineMarker {
+  id: string
+  time: number
+  avatar: string
+  seriesId?: string
+  value?: number
+  name?: string
+}
+
 export interface LivelineProps {
   data: LivelinePoint[]
   value: number
 
   // Multi-series mode — when provided, overrides data/value/color
   series?: LivelineSeries[]
+
+  /** Trade / event markers drawn as avatars sitting on the line. */
+  markers?: LivelineMarker[]
 
   // Appearance
   theme?: ThemeMode

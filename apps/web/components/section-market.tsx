@@ -2,7 +2,7 @@
 
 import { useCurrentMarket } from '@/hooks/use-current-market'
 import { useMarketTimeseries, type MarketTimeseriesPoint } from '@/hooks/use-market-timeseries'
-import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
+import { Liveline, type LivelineMarker, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
 import {
   ensureDrawablePoints,
   formatChartTime,
@@ -23,6 +23,32 @@ const currentWindows: WindowOption[] = [
   { label: '5m', secs: defaultMarketWindowSeconds },
   { label: '1m', secs: 60 },
 ]
+
+const mockTraderAvatars = [
+  'https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg',
+  'https://i.pinimg.com/1200x/a5/65/6c/a5656c180fedac78f1f913abc7253015.jpg',
+  'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
+] as const
+
+const mockTrades: Array<{ offset: number; seriesId: 'yes' | 'no'; name: string; avatar: string }> = [
+  { offset: 10, seriesId: 'yes', name: 'Ava', avatar: mockTraderAvatars[0] },
+  { offset: 36, seriesId: 'no', name: 'Ken', avatar: mockTraderAvatars[1] },
+  { offset: 72, seriesId: 'yes', name: 'Rin', avatar: mockTraderAvatars[2] },
+  { offset: 118, seriesId: 'no', name: 'Jules', avatar: mockTraderAvatars[0] },
+  { offset: 168, seriesId: 'yes', name: 'Nico', avatar: mockTraderAvatars[1] },
+]
+
+function mockTradeMarkers(origin?: number): LivelineMarker[] {
+  if (origin == null || !Number.isFinite(origin)) return []
+
+  return mockTrades.map((trade) => ({
+    id: `mock-${trade.name}-${trade.offset}`,
+    time: origin + trade.offset,
+    seriesId: trade.seriesId,
+    avatar: trade.avatar,
+    name: trade.name,
+  }))
+}
 
 type MarketValueMode = 'current' | 'overview'
 
@@ -128,6 +154,7 @@ function MarketValueFeed() {
     { id: 'yes', label: 'YES', data: yesPoints, value: yesValue ?? 0.5, color: yesColor },
     { id: 'no', label: 'NO', data: noPoints, value: noValue ?? 0.5, color: noColor },
   ]
+  const tradeMarkers = useMemo(() => mockTradeMarkers(chartOrigin), [chartOrigin])
   const lastUpdateMs = latest?.t
   const feedStatus = isLoadingMarkets
     ? 'loading'
@@ -195,6 +222,7 @@ function MarketValueFeed() {
             theme="dark"
             window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
             origin={chartOrigin}
+            markers={tradeMarkers}
             windows={chartWindows}
             windowStyle="rounded"
             loading={Boolean(binaryMarket) && (isLoadingMarkets || status === 'loading')}

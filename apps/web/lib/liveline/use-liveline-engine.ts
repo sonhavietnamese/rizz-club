@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability, react-hooks/refs */
 import { useRef, useEffect, useCallback } from 'react'
-import type { LivelinePoint, LivelinePalette, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint } from './types'
+import type { LivelinePoint, LivelinePalette, LivelineMarker, Momentum, ReferenceLine, HoverPoint, Padding, ChartLayout, OrderbookData, DegenOptions, BadgeVariant, CandlePoint } from './types'
 import { lerp } from './math/lerp'
 import { computeRange } from './math/range'
 import { detectMomentum } from './math/momentum'
@@ -8,6 +8,7 @@ import { interpolateAtTime } from './math/interpolate'
 import { getDpr, applyDpr } from './canvas/dpr'
 import { drawFrame, drawCandleFrame, drawMultiFrame, FADE_EDGE_WIDTH } from './draw'
 import type { MultiSeriesEntry } from './draw'
+import { isNearLiveTip, type DrawnAvatar } from './draw/avatars'
 import { drawLoading } from './draw/loading'
 import { drawEmpty } from './draw/empty'
 import { createOrderbookState } from './draw/orderbook'
@@ -68,6 +69,7 @@ interface EngineConfig {
   }>
   isMultiSeries?: boolean
   hiddenSeriesIds?: Set<string>
+  markers?: LivelineMarker[]
 }
 
 interface BadgeEls {
@@ -102,6 +104,7 @@ const PAUSE_CATCHUP_SPEED = 0.08
 const PAUSE_CATCHUP_SPEED_FAST = 0.22
 const LOADING_ALPHA_SPEED = 0.14
 const SERIES_TOGGLE_SPEED = 0.10
+const MARKER_APPEAR_SPEED = 0.16
 
 // --- Candle-specific constants ---
 const CANDLE_LERP_SPEED = 0.25
@@ -146,6 +149,66 @@ function computeWindowEdges(now: number, windowSecs: number, buffer: number, ori
   }
   const rightEdge = now + windowSecs * buffer
   return { leftEdge: rightEdge - windowSecs, rightEdge, anchored: false }
+}
+
+function resolveDrawnAvatars(
+  markers: LivelineMarker[] | undefined,
+  appearMap: Map<string, number>,
+  layout: ChartLayout,
+  headTime: number,
+  liveX: number,
+  noMotion: boolean,
+  dt: number,
+  series: Array<{ id?: string; visible: LivelinePoint[]; palette: LivelinePalette; alpha?: number }>,
+): DrawnAvatar[] {
+  if (!markers || markers.length === 0 || series.length === 0) return []
+
+  const drawn: DrawnAvatar[] = []
+  const seen = new Set<string>()
+
+  for (const marker of markers) {
+    seen.add(marker.id)
+    const seriesEntry =
+      (marker.seriesId ? series.find((item) => item.id === marker.seriesId) : undefined) ?? series[0]
+    if (!seriesEntry || (seriesEntry.alpha ?? 1) < 0.01) {
+      appearMap.set(marker.id, noMotion ? 0 : lerp(appearMap.get(marker.id) ?? 0, 0, MARKER_APPEAR_SPEED, dt))
+      continue
+    }
+    if (marker.time > headTime || marker.time < layout.leftEdge || marker.time > layout.rightEdge) {
+      appearMap.set(marker.id, noMotion ? 0 : lerp(appearMap.get(marker.id) ?? 0, 0, MARKER_APPEAR_SPEED, dt))
+      continue
+    }
+
+    const value = marker.value ?? interpolateAtTime(seriesEntry.visible, marker.time)
+    if (value == null) continue
+
+    const x = layout.toX(marker.time)
+    const y = layout.toY(value)
+    if (isNearLiveTip(x, liveX)) {
+      appearMap.set(marker.id, noMotion ? 0 : lerp(appearMap.get(marker.id) ?? 0, 0, MARKER_APPEAR_SPEED, dt))
+      continue
+    }
+
+    const alreadyThere = marker.time <= headTime - 1.5
+    const current = appearMap.get(marker.id) ?? (alreadyThere ? 1 : 0)
+    const appear = noMotion ? 1 : lerp(current, 1, MARKER_APPEAR_SPEED, dt)
+    appearMap.set(marker.id, appear)
+
+    drawn.push({
+      x,
+      y,
+      color: seriesEntry.palette.line,
+      avatar: marker.avatar,
+      name: marker.name,
+      appear,
+    })
+  }
+
+  for (const key of appearMap.keys()) {
+    if (!seen.has(key)) appearMap.delete(key)
+  }
+
+  return drawn
 }
 
 /** Update window transition state, returning current display window and transition progress. */
@@ -616,6 +679,7 @@ export function useLivelineEngine(
   const scrubAmountRef = useRef(0) // 0 = not scrubbing, 1 = fully scrubbing
   const lastHoverRef = useRef<{ x: number; value: number; time: number } | null>(null)
   const lastHoverEntriesRef = useRef<{ color: string; label: string; value: number }[]>([])
+  const markerAppearRef = useRef(new Map<string, number>())
 
   // Reveal state (loading → chart morph)
   const chartRevealRef = useRef(0) // 0 = loading/empty, 1 = fully revealed
@@ -1600,7 +1664,7 @@ export function useLivelineEngine(
           if (range.max > globalMax) globalMax = range.max
         }
         // Always push to entries (drawMultiFrame skips via alpha)
-        seriesEntries.push({ visible, smoothValue: sv, palette: s.palette, label: s.label, alpha })
+        seriesEntries.push({ id: s.id, visible, smoothValue: sv, palette: s.palette, label: s.label, alpha })
       }
     }
 
@@ -1699,6 +1763,17 @@ export function useLivelineEngine(
       hoverEntries = lastHoverEntriesRef.current
     }
 
+    const avatars = resolveDrawnAvatars(
+      cfg.markers,
+      markerAppearRef.current,
+      layout,
+      headTime,
+      layout.toX(headTime),
+      noMotion,
+      dt,
+      seriesEntries,
+    )
+
     // Draw multi-series frame
     drawMultiFrame(ctx, layout, {
       series: seriesEntries,
@@ -1725,6 +1800,7 @@ export function useLivelineEngine(
       now_ms,
       primaryPalette: cfg.palette,
       fadeLeftEdge: !anchored,
+      avatars,
     })
 
     // During reverse morph (chart → loading/empty), overlay the empty text
@@ -1855,6 +1931,17 @@ export function useLivelineEngine(
       : 0
     const swingMagnitude = valRange > 0 ? Math.min(recentDelta / valRange, 1) : 0
 
+    const avatars = resolveDrawnAvatars(
+      cfg.markers,
+      markerAppearRef.current,
+      layout,
+      headTime,
+      layout.toX(headTime),
+      noMotion,
+      dt,
+      [{ visible, palette: cfg.palette }],
+    )
+
     // Draw canvas content (everything except badge)
     drawFrame(ctx, layout, cfg.palette, {
       visible,
@@ -1891,6 +1978,7 @@ export function useLivelineEngine(
       pauseProgress,
       now_ms,
       fadeLeftEdge: !anchored,
+      avatars,
     })
 
     // During morph (chart ↔ empty), overlay the gradient gap + text on

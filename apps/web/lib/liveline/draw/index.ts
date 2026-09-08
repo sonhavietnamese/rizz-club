@@ -19,6 +19,7 @@ import { drawOrderbook, type OrderbookState } from './orderbook'
 import { drawParticles, spawnOnSwing, type ParticleState } from './particles'
 import { drawCandlesticks, drawClosePrice, drawCandleCrosshair, drawLineModeCrosshair } from './candlestick'
 import { drawEmpty } from './empty'
+import { drawAvatars, type DrawnAvatar } from './avatars'
 
 // Constants
 const SHAKE_DECAY_RATE = 0.002
@@ -74,6 +75,7 @@ export interface DrawOptions {
   pauseProgress: number // 0 = playing, 1 = fully paused
   now_ms: number // performance.now() for breathing animation timing
   fadeLeftEdge?: boolean // erase the left of the line (default true; off when origin-anchored)
+  avatars?: DrawnAvatar[]
 }
 
 /**
@@ -249,6 +251,10 @@ export function drawFrame(
     ctx.restore()
   }
 
+  if (opts.avatars && opts.avatars.length > 0 && reveal > 0.3) {
+    drawAvatars(ctx, opts.avatars, reveal < 1 ? (reveal - 0.3) / 0.7 : 1)
+  }
+
   // 8. Crosshair — fade out well before reaching live dot
   if (opts.hoverX !== null && opts.hoverValue !== null && opts.hoverTime !== null && pts && pts.length > 0) {
     const lastPt = pts[pts.length - 1]
@@ -288,6 +294,7 @@ export function drawFrame(
 // ─── Multi-series draw orchestration ──────────────────────────────────────
 
 export interface MultiSeriesEntry {
+  id?: string
   visible: LivelinePoint[]
   smoothValue: number
   palette: LivelinePalette
@@ -321,6 +328,7 @@ export interface MultiSeriesDrawOptions {
   /** Primary palette (from first series) for grid/axis/crosshair colors */
   primaryPalette: LivelinePalette
   fadeLeftEdge?: boolean
+  avatars?: DrawnAvatar[]
 }
 
 /**
@@ -454,6 +462,10 @@ export function drawMultiFrame(ctx: CanvasRenderingContext2D, layout: ChartLayou
     ctx.fillStyle = fadeGrad
     ctx.fillRect(0, 0, layout.pad.left + FADE_EDGE_WIDTH, layout.h)
     ctx.restore()
+  }
+
+  if (opts.avatars && opts.avatars.length > 0 && reveal > 0.3) {
+    drawAvatars(ctx, opts.avatars, reveal < 1 ? (reveal - 0.3) / 0.7 : 1)
   }
 
   // 7. Multi-series crosshair — fade out near live dots (same logic as single-series)
