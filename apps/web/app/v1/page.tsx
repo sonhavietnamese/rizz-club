@@ -9,12 +9,14 @@ import SectionLeaderboard from '@/components/section-leaderboard'
 import SectionMarket from '@/components/section-market'
 import SectionProgress from '@/components/section-progress'
 import SectionStatus from '@/components/section-status'
+import { AbilityProvider } from '@/components/ability-provider'
 import { CurrentMarketProvider } from '@/hooks/use-current-market'
 
 export default function Page() {
   return (
     <CurrentMarketProvider>
-      <main className="w-screen h-screen bg-background relative p-2 flex flex-col gap-2">
+      <AbilityProvider>
+        <main className="w-screen h-screen bg-background relative p-2 flex flex-col gap-2">
         <SectionHeader />
         <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(400px,1fr)_3fr_minmax(400px,1fr)] gap-2">
           <div id="left" className="flex min-h-0 flex-col gap-2 overflow-hidden">
@@ -36,7 +38,8 @@ export default function Page() {
             <SectionAbout />
           </div>
         </div>
-      </main>
+        </main>
+      </AbilityProvider>
     </CurrentMarketProvider>
   )
 }

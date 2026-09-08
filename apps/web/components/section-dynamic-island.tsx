@@ -1,6 +1,8 @@
 'use client'
 
+import { useAbility } from '@/components/ability-provider'
 import { useTradeSetup } from '@/hooks/use-trade-setup'
+import { ABILITY_ACCENT } from '@/lib/ability'
 import {
   formatBalanceLine,
   islandStageFromSetup,
@@ -100,10 +102,85 @@ function IslandFrame({
   )
 }
 
+function IslandDropOverlay({
+  active,
+  hovering,
+  reduceMotion,
+}: {
+  active: boolean
+  hovering: boolean
+  reduceMotion: boolean
+}) {
+  return (
+    <AnimatePresence>
+      {active ? (
+        <motion.div
+          key="ability-drop"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
+          animate={
+            reduceMotion
+              ? { opacity: 1 }
+              : { opacity: 1, transform: hovering ? 'scale(1.015)' : 'scale(1)' }
+          }
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: hovering ? 'rgba(124, 92, 255, 0.28)' : 'rgba(124, 92, 255, 0.16)',
+            boxShadow: `inset 0 0 0 2px ${ABILITY_ACCENT}`,
+          }}
+        >
+          <p className="rounded-full bg-black/55 px-4 py-2 font-sans text-sm text-white">
+            {hovering ? 'Release to apply' : 'Drop the card here to apply effect'}
+          </p>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  )
+}
+
+function AppliedTag({
+  name,
+  onClear,
+  reduceMotion,
+}: {
+  name: string
+  onClear: () => void
+  reduceMotion: boolean
+}) {
+  return (
+    <motion.div
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px) scale(0.96)' }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'translateY(0px) scale(1)' }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px) scale(0.96)' }}
+      transition={{ duration: 0.2, ease: EASE_OUT }}
+      className="absolute right-5 top-0 z-20 -translate-y-[calc(100%-2px)]"
+    >
+      <div
+        className="flex items-center gap-1.5 rounded-t-md px-2.5 py-1 font-sans text-xs font-medium text-white"
+        style={{ backgroundColor: ABILITY_ACCENT }}
+      >
+        <span>{name}</span>
+        <button
+          type="button"
+          aria-label={`Remove ${name}`}
+          onClick={onClear}
+          className="flex size-4 items-center justify-center rounded-sm text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+            <path d="M1.5 1.5 6.5 6.5M6.5 1.5 1.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
 export default function SectionDynamicIsland() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const reduceMotion = useReducedMotion() ?? false
   const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund } = useTradeSetup()
+  const { islandRef, drag, overIsland, applied, clearApplied } = useAbility()
   const [zone, setZone] = useState<IslandZone>('information')
   const stage = islandStageFromSetup({
     authenticated,
@@ -149,8 +226,21 @@ export default function SectionDynamicIsland() {
     void fund(asset)
   }
 
+  const showDrop = Boolean(drag)
+
   return (
-    <section className="section-panel relative h-[180px] flex-none overflow-hidden p-0">
+    <section
+      ref={islandRef}
+      className="section-panel relative h-[180px] flex-none overflow-visible p-0"
+      style={applied ? { boxShadow: `0 0 0 2px ${ABILITY_ACCENT}` } : undefined}
+    >
+      <AnimatePresence>
+        {applied ? (
+          <AppliedTag key={applied.id} name={applied.name} onClear={clearApplied} reduceMotion={reduceMotion} />
+        ) : null}
+      </AnimatePresence>
+
+      <div className="relative h-full overflow-hidden rounded-2xl">
       {showVideo ? (
         <video
           ref={videoRef}
@@ -295,6 +385,9 @@ export default function SectionDynamicIsland() {
           </IslandFrame>
         ) : null}
       </AnimatePresence>
+
+        <IslandDropOverlay active={showDrop} hovering={overIsland} reduceMotion={reduceMotion} />
+      </div>
     </section>
   )
 }

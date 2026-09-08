@@ -28,7 +28,8 @@
     "react-fast-marquee": "^1.6.5",
     "viem": "^2.56.0",
     "wagmi": "^3.7.6",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

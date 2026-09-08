@@ -1,35 +1,20 @@
 'use client'
 
+import AbilityCardFace from '@/components/ability-card-face'
+import { useAbility } from '@/components/ability-provider'
+import { ABILITY_FRONT_COLOR, type AbilityCard as AbilityCardData } from '@/lib/ability'
+import { useAbilityFlippedStore } from '@/lib/ability-store'
 import { animate } from 'motion'
 import { motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
-const CARDS = [
-  {
-    id: 1,
-    image: '/card-001.png',
-  },
-  {
-    id: 2,
-    image: '/card-002.png',
-  },
-  {
-    id: 3,
-    image: '/card-003.png',
-  },
-  {
-    id: 4,
-    image: '/card-004.png',
-  },
-]
-
 const edgeThresholdPx = 1
 const SCROLL_DURATION_S = 0.2
 const DRAG_THRESHOLD_PX = 10
-const FRONT_COLOR = '#E8E4DC'
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 const FLIP_SPRING = { type: 'spring' as const, duration: 0.65, bounce: 0.16 }
+const LAYOUT_SPRING = { type: 'spring' as const, duration: 0.4, bounce: 0 }
 
 const fadeClassName =
   'pointer-events-none absolute inset-y-0 z-10 w-16 transition-opacity duration-200 [transition-timing-function:var(--ease-out)] motion-reduce:transition-none'
@@ -116,36 +101,88 @@ function EdgeArrow({
 
 function AbilityCard({
   card,
+  index,
   reduceMotion,
 }: {
-  card: (typeof CARDS)[number]
+  card: AbilityCardData
+  index: number
   reduceMotion: boolean
 }) {
-  const [revealed, setRevealed] = useState(false)
-  const pointerRef = useRef({ x: 0, y: 0, dragged: false })
+  const { beginDrag, drag, slotRefs } = useAbility()
+  const revealed = useAbilityFlippedStore((state) => state.flippedIds.includes(card.id))
+  const toggleFlipped = useAbilityFlippedStore((state) => state.toggleFlipped)
+  const pointerRef = useRef({ x: 0, y: 0, dragging: false, skipClick: false })
+  const itemRef = useRef<HTMLLIElement>(null)
+  const isGhost = drag?.card.id === card.id
+  const canInteract = !drag || isGhost
 
   const flip = () => {
-    if (pointerRef.current.dragged) return
-    setRevealed((current) => !current)
+    if (pointerRef.current.dragging || drag) return
+    toggleFlipped(card.id)
   }
 
   return (
-    <li className={`relative h-full shrink-0 [perspective:800px] ${revealed ? 'z-10' : ''}`}>
+    <motion.li
+      ref={(node) => {
+        itemRef.current = node
+        if (node) slotRefs.current.set(card.id, node)
+        else slotRefs.current.delete(card.id)
+      }}
+      layout={!reduceMotion}
+      initial={false}
+      transition={{ layout: LAYOUT_SPRING }}
+      className={`relative h-full shrink-0 [perspective:800px] ${revealed ? 'z-10' : ''} ${isGhost ? 'pointer-events-none invisible' : ''}`}
+    >
       <button
         type="button"
         aria-pressed={revealed}
-        aria-label={revealed ? `Hide card ${card.id}` : `Reveal card ${card.id}`}
+        aria-label={revealed ? `Hide ${card.name}` : `Reveal ${card.name}`}
+        disabled={!canInteract}
         onPointerDown={(event) => {
-          pointerRef.current = { x: event.clientX, y: event.clientY, dragged: false }
+          if (event.button !== 0) return
+          pointerRef.current = { x: event.clientX, y: event.clientY, dragging: false, skipClick: false }
+          if (revealed) event.currentTarget.setPointerCapture(event.pointerId)
         }}
         onPointerMove={(event) => {
-          if (pointerRef.current.dragged) return
+          if (event.buttons !== 1 || pointerRef.current.dragging || drag) return
           const dx = event.clientX - pointerRef.current.x
           const dy = event.clientY - pointerRef.current.y
-          if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) pointerRef.current.dragged = true
+          if (Math.hypot(dx, dy) <= DRAG_THRESHOLD_PX) return
+
+          pointerRef.current.dragging = true
+          pointerRef.current.skipClick = true
+          if (!revealed) return
+
+          const node = itemRef.current
+          if (!node) return
+          beginDrag({
+            card,
+            revealed: true,
+            rect: node.getBoundingClientRect(),
+            clientX: event.clientX,
+            clientY: event.clientY,
+            originIndex: index,
+          })
         }}
-        onClick={flip}
-        className="relative h-full aspect-[376/536] bg-transparent p-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] motion-reduce:transition-none"
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+          if (event.button !== 0) return
+          if (pointerRef.current.dragging || drag) return
+          pointerRef.current.skipClick = true
+          flip()
+        }}
+        onClick={() => {
+          if (pointerRef.current.skipClick) {
+            pointerRef.current.skipClick = false
+            return
+          }
+          flip()
+        }}
+        className={`relative h-full aspect-[376/536] touch-none bg-transparent p-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] motion-reduce:transition-none ${
+          revealed ? 'cursor-grab' : 'cursor-pointer'
+        }`}
       >
         {reduceMotion ? (
           <>
@@ -168,37 +205,29 @@ function AbilityCard({
               className={`absolute inset-0 rounded-[10px] transition-opacity duration-200 [transition-timing-function:var(--ease-out)] ${
                 revealed ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ backgroundColor: FRONT_COLOR }}
+              style={{ backgroundColor: ABILITY_FRONT_COLOR }}
             />
           </>
         ) : (
-          <>
-            <motion.span
-              className="relative block h-full w-full [transform-style:preserve-3d]"
-              initial={false}
-              animate={{ transform: revealed ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-              transition={FLIP_SPRING}
+          <motion.span
+            className="relative block h-full w-full [transform-style:preserve-3d]"
+            initial={false}
+            animate={{ transform: revealed ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+            transition={FLIP_SPRING}
+          >
+            <span className="absolute inset-0 [backface-visibility:hidden] [transform:translateZ(0.5px)]">
+              <AbilityCardFace card={card} revealed={false} />
+            </span>
+            <span
+              aria-hidden={!revealed}
+              className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(0.5px)]"
             >
-              <span className="absolute inset-0 [backface-visibility:hidden] [transform:translateZ(0.5px)]">
-                <Image
-                  draggable={false}
-                  src={card.image}
-                  alt=""
-                  width={376}
-                  height={536}
-                  className="h-full w-full object-cover"
-                />
-              </span>
-              <span
-                aria-hidden={!revealed}
-                className="absolute inset-0 rounded-[10px] [backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(0.5px)]"
-                style={{ backgroundColor: FRONT_COLOR }}
-              />
-            </motion.span>
-          </>
+              <AbilityCardFace card={card} revealed />
+            </span>
+          </motion.span>
         )}
       </button>
-    </li>
+    </motion.li>
   )
 }
 
@@ -206,6 +235,7 @@ export default function SectionAbility() {
   const scrollerRef = useRef<HTMLUListElement>(null)
   const playbackRef = useRef<ReturnType<typeof animate> | null>(null)
   const reduceMotion = useReducedMotion() ?? false
+  const { rack, drag } = useAbility()
   const [showLeftFade, setShowLeftFade] = useState(false)
   const [showRightFade, setShowRightFade] = useState(false)
 
@@ -269,13 +299,13 @@ export default function SectionAbility() {
       el.removeEventListener('touchstart', stopPlayback)
       observer.disconnect()
     }
-  }, [syncFades])
+  }, [rack, drag, syncFades])
 
   return (
     <section className="section-panel relative h-[180px] flex-none p-2">
       <ul ref={scrollerRef} className="relative flex h-full w-full gap-2 overflow-x-auto rounded-lg hide-scrollbar">
-        {CARDS.map((card) => (
-          <AbilityCard key={card.id} card={card} reduceMotion={reduceMotion} />
+        {rack.map((card, index) => (
+          <AbilityCard key={card.id} card={card} index={index} reduceMotion={reduceMotion} />
         ))}
       </ul>
 
@@ -292,8 +322,8 @@ export default function SectionAbility() {
         }`}
       />
 
-      <EdgeArrow side="left" visible={showLeftFade} onClick={() => scrollToHidden('left')} />
-      <EdgeArrow side="right" visible={showRightFade} onClick={() => scrollToHidden('right')} />
+      <EdgeArrow side="left" visible={showLeftFade && !drag} onClick={() => scrollToHidden('left')} />
+      <EdgeArrow side="right" visible={showRightFade && !drag} onClick={() => scrollToHidden('right')} />
     </section>
   )
 }
