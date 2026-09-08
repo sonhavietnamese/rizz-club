@@ -6,8 +6,8 @@ import {
   toLeaderboardItems,
   type LeaderboardHold,
   type LeaderboardItem,
-} from './leaderboard'
-import type { MarketTrade } from './market-trades'
+} from '../leaderboard'
+import type { MarketTrade } from '../market-trades'
 
 function trade(overrides: Partial<MarketTrade> = {}): MarketTrade {
   return {

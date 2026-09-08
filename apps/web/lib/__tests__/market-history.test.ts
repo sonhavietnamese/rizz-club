@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { historyOutcome, historyOutcomes, historySlotMs } from './market-history'
+import { historyOutcome, historyOutcomes, historySlotMs } from '../market-history'
 
 const openingVenue = '0x679795a0195a1b76cdebb7c51d74e058aee92919b8c3389af86ef24535e8a28c'
 const pricefeedVenue = '0x1a1e6821cde7d0159c0d293177871e09677b4e42307c7db3ba94f8648a5a050f'

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, toggleFlippedId } from './ability'
+import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, toggleFlippedId } from '../ability'
 
 describe('appendUnique', () => {
   test('appends a card that is not already in the rack', () => {

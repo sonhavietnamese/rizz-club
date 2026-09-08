@@ -7,7 +7,7 @@ import {
   traderIdentity,
   traderKey,
   type Trader,
-} from './traders'
+} from '../traders'
 
 function trader(overrides: Partial<Trader> = {}): Trader {
   return {

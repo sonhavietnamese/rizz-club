@@ -19,7 +19,7 @@ import {
   type TradeSetupDeps,
   type TradeSetupStatus,
   type TradeSetupUser,
-} from './trade-setup'
+} from '../trade-setup'
 
 const address = '0x1111111111111111111111111111111111111111'
 

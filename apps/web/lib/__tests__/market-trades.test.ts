@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { toTradeMarkers, type MarketTrade } from './market-trades'
+import { toTradeMarkers, type MarketTrade } from '../market-trades'
 
 function trade(overrides: Partial<MarketTrade> = {}): MarketTrade {
   return {
