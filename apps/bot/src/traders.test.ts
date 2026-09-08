@@ -12,32 +12,36 @@ const kira = {
 }
 
 describe('toTrader', () => {
-  test('uses the wallet display name and requested status', () => {
-    expect(toTrader(nova, 'online')).toEqual({
+  test('uses the wallet display name, requested status, and lastSeen', () => {
+    expect(toTrader(nova, 'online', 1_000)).toEqual({
       address: nova.address,
       name: 'nova',
       status: 'online',
+      lastSeen: 1_000,
     })
-    expect(toTrader(kira, 'offline')).toEqual({
+    expect(toTrader(kira, 'offline', 2_000)).toEqual({
       address: kira.address,
       name: 'kira',
       status: 'offline',
+      lastSeen: 2_000,
     })
   })
 })
 
 describe('traderUpdates', () => {
   test('keys each wallet under /traders by a safe address', () => {
-    expect(traderUpdates([nova, kira], 'online')).toEqual({
+    expect(traderUpdates([nova, kira], 'online', 1_000)).toEqual({
       [traderKey(nova.address)]: {
         address: nova.address,
         name: 'nova',
         status: 'online',
+        lastSeen: 1_000,
       },
       [traderKey(kira.address)]: {
         address: kira.address,
         name: 'kira',
         status: 'online',
+        lastSeen: 1_000,
       },
     })
   })
