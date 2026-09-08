@@ -1,12 +1,14 @@
 'use client'
 
+import { PreloadGate } from '@/components/preload-gate'
 import { env } from '@/env'
+import { CurrentMarketProvider } from '@/hooks/use-current-market'
 import { useTraderPresence } from '@/hooks/use-traders'
 import { config as wagmiConfig } from '@/lib/wagmi'
 import {
   PrivyProvider,
   usePrivy,
-  useSessionSigners,
+  useSigners,
   useUser,
   type LinkedAccountWithMetadata,
   type WalletWithMetadata,
@@ -33,7 +35,7 @@ function TraderPresence() {
 function WalletSessionSignerManager() {
   const { ready, authenticated, user } = usePrivy()
   const { refreshUser } = useUser()
-  const { addSessionSigners } = useSessionSigners()
+  const { addSigners } = useSigners()
   const attemptedWallets = useRef(new Set<string>())
 
   useEffect(() => {
@@ -45,7 +47,7 @@ function WalletSessionSignerManager() {
 
     attemptedWallets.current.add(wallet.address)
 
-    addSessionSigners({
+    addSigners({
       address: wallet.address,
       signers: [{ signerId: env.NEXT_PUBLIC_AUTHORIZATION_ID }],
     })
@@ -53,7 +55,7 @@ function WalletSessionSignerManager() {
       .catch((error) => {
         console.error('Failed to provision server signer for embedded wallet:', error)
       })
-  }, [addSessionSigners, authenticated, ready, refreshUser, user])
+  }, [addSigners, authenticated, ready, refreshUser, user])
 
   return null
 }
@@ -74,7 +76,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <WalletSessionSignerManager />
       <TraderPresence />
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={wagmiConfig}>{children}</WagmiProvider>
+        <WagmiProvider config={wagmiConfig}>
+          <CurrentMarketProvider>
+            <PreloadGate>{children}</PreloadGate>
+          </CurrentMarketProvider>
+        </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>
   )

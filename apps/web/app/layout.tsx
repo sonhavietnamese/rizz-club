@@ -1,5 +1,3 @@
-import LiveTabName from '@/components/live-tabname'
-import Providers from '@/components/providers'
 import '@/styles/globals.css'
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
@@ -29,12 +27,7 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geist.className} ${abcGravityItalic.variable} antialiased `}>
-        <Providers>
-          <LiveTabName />
-          {children}
-        </Providers>
-      </body>
+      <body className={`${geist.className} ${abcGravityItalic.variable} antialiased `}>{children}</body>
     </html>
   )
 }

@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 export default function Home() {
   const { ready, authenticated } = usePrivy()
 
-  if (!ready) return <div>Loading...</div>
+  if (!ready) return <main className="h-dvh bg-background" />
 
   if (authenticated) {
     return redirect('/me')
