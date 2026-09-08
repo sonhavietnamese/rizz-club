@@ -1,3 +1,5 @@
+export { errorMessage } from '@repo/shared/error'
+
 export function sleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve) => {
     if (signal?.aborted) {
@@ -29,6 +31,3 @@ export function waitUntilAborted(signal: AbortSignal) {
   })
 }
 
-export function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
-}

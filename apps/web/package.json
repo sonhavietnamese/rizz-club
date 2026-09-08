@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@repo/shared": "*",
     "@number-flow/react": "^0.6.2",
     "@privy-io/node": "^0.31.0",
     "@privy-io/react-auth": "^3.38.0",

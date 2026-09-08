@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/error'
 import privy, { authorizationContext } from '@/lib/privy'
 import { createDreamDexExchange } from '@/lib/dreamdex'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
@@ -18,10 +19,6 @@ type ClaimableOutcome = {
   label: 'YES' | 'NO'
   index: 0 | 1
   id: bigint
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 function uniqueMarketIds(marketIds: string[]) {

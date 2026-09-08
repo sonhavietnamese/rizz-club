@@ -1,6 +1,8 @@
-import type { LiveFill } from '@somnia-chain/markets-sdk'
 import { rawToHuman, rawToProbability } from '@/lib/units'
 import type { MarketTrade, Outcome } from '@/types'
+import type { LiveFill } from '@somnia-chain/markets-sdk'
+
+export { firebaseKey as tradeKey } from '@repo/shared/firebase-path'
 
 function asJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -18,12 +20,6 @@ export function tradeOutcome(side?: string | null, kind?: string | null): Outcom
   if (token.includes('YES')) return 'YES'
   if (token.includes('NO')) return 'NO'
   return null
-}
-
-const firebaseKeyForbidden = new Set(['.', '#', '$', '[', ']', '/'])
-
-export function tradeKey(id: string) {
-  return [...id].map((char) => (firebaseKeyForbidden.has(char) ? '_' : char)).join('')
 }
 
 export function toMarketTrade(

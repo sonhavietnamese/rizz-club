@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/error'
 import privy, { authorizationContext } from '@/lib/privy'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
 import { verifyMessage } from 'viem'
@@ -9,10 +10,6 @@ const signMessageBodySchema = z.object({
   wallet_id: z.string().min(1),
   message: z.string().min(1).max(2_000).optional(),
 })
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
-}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)

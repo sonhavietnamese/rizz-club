@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/error'
 import privy, { authorizationContext } from '@/lib/privy'
 import { createDreamDexExchange } from '@/lib/dreamdex'
 import {
@@ -88,10 +89,6 @@ function createPositionDebugTimer() {
   }
 
   return { wait, summary }
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 function isImmediateOrCancelNoFill(error: unknown) {

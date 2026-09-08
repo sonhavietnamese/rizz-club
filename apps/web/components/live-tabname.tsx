@@ -1,7 +1,7 @@
 'use client'
 
 import { createDreamDexExchange } from '@/lib/dreamdex'
-import { formatUsd } from '@/lib/utils'
+import { formatUsd } from '@/lib/format'
 import { SomniaMarketsProvider, useLivePrice } from '@somnia-chain/markets-sdk/react'
 import { useEffect, useMemo } from 'react'
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   formatTraderCount,
   isTraderOnline,
+  liveTraderHeartRate,
   onlineTraderCount,
   parseHeartRateBpm,
   parseTraders,
@@ -109,6 +110,17 @@ describe('traderHeartRateUpdate', () => {
   test('writes bpm and timestamp, or clears both fields', () => {
     expect(traderHeartRateUpdate(88, 1_000_000)).toEqual({ heartRate: 88, heartRateAt: 1_000_000 })
     expect(traderHeartRateUpdate(null)).toEqual({ heartRate: null, heartRateAt: null })
+  })
+})
+
+describe('liveTraderHeartRate', () => {
+  const now = 1_000_000
+
+  test('returns a live bpm and drops a stale reading', () => {
+    expect(liveTraderHeartRate({ heartRate: 84, heartRateAt: now - 1_000 }, now)).toBe(84)
+    expect(liveTraderHeartRate({ heartRate: 84, heartRateAt: now - 120_000 }, now)).toBeUndefined()
+    expect(liveTraderHeartRate({ heartRate: 72 }, now)).toBe(72)
+    expect(liveTraderHeartRate({}, now)).toBeUndefined()
   })
 })
 
@@ -243,5 +255,7 @@ describe('traderIdentity', () => {
       address: '0x2222222222222222222222222222222222222222',
       name: '0x2222...2222',
     })
+
+    expect(traderIdentity({}, 'you')).toEqual({ address: '', name: 'you' })
   })
 })

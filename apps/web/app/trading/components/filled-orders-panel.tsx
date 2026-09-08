@@ -1,6 +1,6 @@
 'use client'
 
-import { formatAddress, formatNumber, formatPercent } from './formatters'
+import { formatAddress, formatChartTime, formatNumber, formatPercent } from '@/lib/format'
 import { isBinaryMarket, toHuman, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { useLiveFills } from '@somnia-chain/markets-sdk/react'
 import { useMemo } from 'react'
@@ -27,12 +27,7 @@ function formatRawPercent(value: string, decimals: number) {
 function formatFillTime(value: string) {
   const seconds = Number(value)
   if (!Number.isFinite(seconds)) return '--'
-
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(seconds * 1000))
+  return formatChartTime(seconds)
 }
 
 function fillSideLabel(fill: LiveFill) {

@@ -1,8 +1,17 @@
 'use client'
 
-import { formatNumber, formatUpdateTime } from './formatters'
+import { formatNumber } from './formatters'
+import {
+  formatChange,
+  formatChartTime,
+  formatUsd,
+  livePriceToPoint,
+  normalizePricePoints,
+  priceStatusLabel,
+  tickToLivelinePoint,
+} from '@/lib/utils'
 import { Liveline, type LivelinePoint } from '@/lib/liveline'
-import { type LivePrice, type PriceFeedStatus, type PricePoint } from '@somnia-chain/markets-sdk'
+import { type LivePrice } from '@somnia-chain/markets-sdk'
 import {
   useLivePrice,
   useLivePriceFeedInfo,
@@ -20,62 +29,6 @@ const btcPriceWindows = [
   { label: '15m', secs: 900 },
   { label: '1h', secs: 3_600 },
 ]
-
-const usdFormatter = new Intl.NumberFormat('en', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-})
-
-function tickToLivelinePoint(tick: PricePoint): LivelinePoint {
-  return {
-    time: Math.floor(tick.blockTimestamp),
-    value: tick.price,
-  }
-}
-
-function livePriceToPoint(price: LivePrice): LivelinePoint {
-  return {
-    time: Math.floor(price.blockTimestamp),
-    value: price.price,
-  }
-}
-
-function normalizePricePoints(points: LivelinePoint[]) {
-  return points
-    .filter((point) => Number.isFinite(point.value) && point.value > 0)
-    .sort((left, right) => left.time - right.time)
-    .filter((point, index, sorted) => index === sorted.length - 1 || point.time !== sorted[index + 1].time)
-    .slice(-maxBtcPriceTicks)
-}
-
-function formatUsd(value?: number) {
-  if (value === undefined) return '--'
-
-  return usdFormatter.format(value)
-}
-
-function formatChange(value?: number, percent?: number) {
-  if (value === undefined || percent === undefined) return '--'
-
-  const sign = value >= 0 ? '+' : ''
-
-  return `${sign}${formatUsd(value)} (${sign}${(percent * 100).toFixed(2)}%)`
-}
-
-function formatChartTime(seconds: number) {
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(seconds * 1000))
-}
-
-function priceStatusLabel(status: PriceFeedStatus, lastUpdateMs?: number) {
-  if (status === 'live') return `Live ${formatUpdateTime(lastUpdateMs)}`
-  if (status === 'hydrating') return 'Syncing'
-  return 'Waiting'
-}
 
 function BtcLivelineChart({
   points,

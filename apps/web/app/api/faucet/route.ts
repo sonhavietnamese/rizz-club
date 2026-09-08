@@ -1,4 +1,5 @@
 import { env } from '@/env'
+import { errorMessage } from '@/lib/error'
 import { publicClient } from '@/lib/viem'
 import { SOMNIA_TESTNET_ADDRESSES } from '@somnia-chain/markets-sdk'
 import { somniaShannon } from '@somnia-chain/markets-sdk/chains'
@@ -93,10 +94,6 @@ const faucetBodySchema = z.object({
     return z.NEVER
   }
 })
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
-}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)

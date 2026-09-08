@@ -1,10 +1,11 @@
-import { formatAddress } from '@/lib/utils'
 import {
   marketTradeAction,
   marketTradeOutcome,
   traderAvatar,
   type MarketTrade,
 } from '@/lib/market-trades'
+import { formatAddress, formatCents, formatShares } from '@/lib/format'
+import { liveTraderHeartRate, traderKey, type Trader } from '@/lib/traders'
 
 const closedShares = 1e-8
 
@@ -25,6 +26,7 @@ export type LeaderboardItem = {
   shares: number
   avgPrice: number
   profit: number
+  heartRate?: number
 }
 
 type OpenPosition = {
@@ -144,14 +146,31 @@ export function toLeaderboardItems(trades: MarketTrade[], prices: LeaderboardPri
     .sort((left, right) => right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id))
 }
 
-export function formatShares(shares: number) {
-  if (Math.abs(shares - Math.round(shares)) < 0.05) return String(Math.round(shares))
-  return shares.toFixed(1)
+export function withTraderData(items: LeaderboardItem[], traders: readonly Trader[], now = Date.now()): LeaderboardItem[] {
+  if (items.length === 0 || traders.length === 0) return items
+
+  const byKey = new Map<string, Trader>()
+  for (const trader of traders) {
+    byKey.set(traderKey(trader.address), trader)
+  }
+
+  let changed = false
+  const next = items.map((item) => {
+    const trader = byKey.get(traderKey(item.trader))
+    if (!trader) return item
+
+    const name = trader.name || item.name
+    const heartRate = liveTraderHeartRate(trader, now)
+    if (name === item.name && heartRate === item.heartRate) return item
+
+    changed = true
+    return { ...item, name, heartRate }
+  })
+
+  return changed ? next : items
 }
 
-export function formatCents(price: number) {
-  return `${(price * 100).toFixed(1)}¢`
-}
+export { formatCents, formatShares }
 
 export const LEADERBOARD_FADE_S = 0.2
 export const LEADERBOARD_STAGGER_S = 0.05

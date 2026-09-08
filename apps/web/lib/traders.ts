@@ -1,9 +1,13 @@
-import { formatAddress } from '@/lib/utils'
+import { formatAddress } from '@/lib/format'
+import { ANONYMOUS_FIELD, PRESENCE_TTL_MS } from '@repo/shared/firebase-path'
 
-export const TRADERS_PATH = 'traders'
-export const ANONYMOUS_FIELD = 'anonymous'
-export const PRESENCE_TTL_MS = 45_000
-export const PRESENCE_HEARTBEAT_MS = 15_000
+export {
+  ANONYMOUS_FIELD,
+  PRESENCE_HEARTBEAT_MS,
+  PRESENCE_TTL_MS,
+  TRADERS_PATH,
+  traderKey,
+} from '@repo/shared/firebase-path'
 
 export type TraderIdentityInput = {
   id?: string | null
@@ -28,12 +32,6 @@ export type Trader = {
 export type TradersSnapshot = {
   traders: Trader[]
   anonymous: number
-}
-
-const firebaseKeyForbidden = new Set(['.', '#', '$', '[', ']', '/'])
-
-export function traderKey(id: string) {
-  return [...id.toLowerCase()].map((char) => (firebaseKeyForbidden.has(char) ? '_' : char)).join('')
 }
 
 export function isTraderStatus(value: unknown): value is TraderStatus {
@@ -90,6 +88,12 @@ export function traderHeartRateUpdate(bpm: number | null, at = Date.now()) {
   return { heartRate: bpm, heartRateAt: at }
 }
 
+export function liveTraderHeartRate(trader: Pick<Trader, 'heartRate' | 'heartRateAt'>, now = Date.now()) {
+  if (trader.heartRate == null) return undefined
+  if (trader.heartRateAt != null && !isFreshPresence(trader.heartRateAt, now)) return undefined
+  return trader.heartRate
+}
+
 function parseTrader(value: Trader): Trader {
   const record = value as Trader & { lastSeen?: unknown; sessions?: unknown; heartRate?: unknown; heartRateAt?: unknown }
   const lastSeen = typeof record.lastSeen === 'number' && Number.isFinite(record.lastSeen) ? record.lastSeen : undefined
@@ -141,13 +145,13 @@ export function formatTraderCount(count: number) {
   return `${count} ${count === 1 ? 'trader' : 'traders'}`
 }
 
-export function traderIdentity(user: TraderIdentityInput) {
+export function traderIdentity(user: TraderIdentityInput, fallback = 'trader') {
   const address = user.wallet?.address || user.id || ''
   const name =
     user.google?.name ??
     user.discord?.username ??
     user.email?.address ??
-    (address ? formatAddress(address) : 'trader')
+    (address ? formatAddress(address) : fallback)
 
   return { address, name }
 }

@@ -19,6 +19,7 @@ import {
   type TradingStatus,
 } from './components'
 import { createDreamDexExchange } from '@/lib/dreamdex'
+import { errorMessage } from '@/lib/error'
 import {
   isBinaryMarket,
   type UnifiedBalances,
@@ -67,10 +68,6 @@ type TradePositionDebugSummary = {
 type AsyncDebugTimer = {
   wait<T>(label: string, promise: Promise<T>): Promise<T>
   summary(): TradePositionDebugSummary
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 function apiErrorMessage(result: unknown, fallback: string) {

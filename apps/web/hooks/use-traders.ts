@@ -220,5 +220,6 @@ export function useTraders() {
     anonymous: snapshot.anonymous,
     online: onlineTraderCount(snapshot, now),
     status,
+    now,
   }
 }

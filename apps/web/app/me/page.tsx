@@ -9,6 +9,9 @@ import {
   type WalletWithMetadata,
 } from '@privy-io/react-auth'
 import { env } from '@/env'
+import { formatAddress, formatDate, formatDecimalAmount } from '@/lib/format'
+import { faucetErrorMessage } from '@/lib/trade-setup'
+import { traderIdentity } from '@/lib/traders'
 import { SOMNIA_TESTNET_ADDRESSES } from '@somnia-chain/markets-sdk'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -47,51 +50,11 @@ function valueFrom(account: LinkedAccountWithMetadata, key: string) {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-function formatAddress(address?: string | null) {
-  if (!address) return 'Not connected'
-
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
-
-function formatDate(value: User['createdAt']) {
-  return new Intl.DateTimeFormat('en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function formatTokenAmount(value?: string) {
-  if (!value) return '0'
-
-  const [whole, fraction = ''] = value.split('.')
-  const trimmedFraction = fraction.slice(0, 4).replace(/0+$/, '')
-
-  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole
-}
-
-function faucetErrorMessage(result: FaucetResult) {
-  if (Array.isArray(result.details) && result.details.length > 0) {
-    return result.details.join(', ')
-  }
-
-  if (typeof result.details === 'string') {
-    return result.details
-  }
-
-  return result.error ?? 'Faucet request failed'
-}
-
 const testUsdcAddress = SOMNIA_TESTNET_ADDRESSES.testUsdc as Address
 const erc20BalanceAbi = parseAbi(['function balanceOf(address account) view returns (uint256)'])
 
 function getDisplayName(user: User) {
-  return (
-    user.google?.name ??
-    user.discord?.username ??
-    user.email?.address ??
-    formatAddress(user.wallet?.address) ??
-    'Player'
-  )
+  return traderIdentity(user, 'Not connected').name
 }
 
 function getAccountTitle(account: LinkedAccountWithMetadata) {
@@ -197,14 +160,14 @@ export default function MePage() {
   const hasServerSigner = Boolean(serverWalletId)
   const balanceLabel = primaryWalletAddress
     ? balance
-      ? `${formatTokenAmount(formatUnits(balance.value, balance.decimals))} ${balance.symbol}`
+      ? `${formatDecimalAmount(formatUnits(balance.value, balance.decimals))} ${balance.symbol}`
       : isBalanceLoading
         ? 'Loading...'
         : 'Unavailable'
     : 'No wallet'
   const tusdcBalanceLabel = primaryWalletAddress
     ? typeof tusdcBalance === 'bigint'
-      ? `${formatTokenAmount(formatUnits(tusdcBalance, 6))} tUSDC`
+      ? `${formatDecimalAmount(formatUnits(tusdcBalance, 6))} tUSDC`
       : isTusdcBalanceLoading
         ? 'Loading...'
         : 'Unavailable'
@@ -353,7 +316,7 @@ export default function MePage() {
 
         <section className="grid gap-4 md:grid-cols-5">
           <DetailRow label="Privy ID" value={user.id} />
-          <DetailRow label="Primary Wallet" value={formatAddress(primaryWallet)} />
+          <DetailRow label="Primary Wallet" value={primaryWallet ? formatAddress(primaryWallet) : 'Not connected'} />
           <DetailRow label="STT Balance" value={balanceLabel} />
           <DetailRow label="tUSDC Balance" value={tusdcBalanceLabel} />
           <DetailRow label="Joined" value={formatDate(user.createdAt)} />

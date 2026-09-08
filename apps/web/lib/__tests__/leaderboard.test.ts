@@ -4,10 +4,12 @@ import {
   formatCents,
   formatShares,
   toLeaderboardItems,
+  withTraderData,
   type LeaderboardHold,
   type LeaderboardItem,
 } from '../leaderboard'
 import type { MarketTrade } from '../market-trades'
+import type { Trader } from '../traders'
 
 function trade(overrides: Partial<MarketTrade> = {}): MarketTrade {
   return {
@@ -131,6 +133,59 @@ describe('toLeaderboardItems', () => {
     )
 
     expect(Object.keys(byId(items))).toEqual(['0x1111111111111111111111111111111111111111:YES'])
+  })
+})
+
+describe('withTraderData', () => {
+  const now = 1_000_000
+  const address = '0x1111111111111111111111111111111111111111'
+
+  function roster(overrides: Partial<Trader> = {}): Trader {
+    return {
+      address,
+      name: 'nova',
+      status: 'online',
+      ...overrides,
+    }
+  }
+
+  test('overlays the roster name and a live heart rate', () => {
+    const [row] = toLeaderboardItems([trade()], { yes: 0.5 })
+    const [item] = withTraderData([row!], [roster({ heartRate: 84, heartRateAt: now - 1_000 })], now)
+
+    expect(item).toMatchObject({
+      trader: address,
+      name: 'nova',
+      heartRate: 84,
+    })
+  })
+
+  test('matches mixed-case wallet addresses', () => {
+    const [row] = toLeaderboardItems([trade()], { yes: 0.5 })
+    const [item] = withTraderData(
+      [row!],
+      [roster({ address: '0x1111111111111111111111111111111111111111'.toUpperCase(), name: 'kira' })],
+      now,
+    )
+
+    expect(item?.name).toBe('kira')
+  })
+
+  test('keeps the truncated address when the trader is unknown', () => {
+    const items = toLeaderboardItems([trade()], { yes: 0.5 })
+    const next = withTraderData(items, [roster({ address: '0x2222222222222222222222222222222222222222' })], now)
+
+    expect(next).toBe(items)
+    expect(next[0]?.name).toBe('0x1111...1111')
+    expect(next[0]?.heartRate).toBeUndefined()
+  })
+
+  test('drops a stale heart rate and still uses the roster name', () => {
+    const [row] = toLeaderboardItems([trade()], { yes: 0.5 })
+    const [item] = withTraderData([row!], [roster({ heartRate: 90, heartRateAt: now - 120_000 })], now)
+
+    expect(item?.name).toBe('nova')
+    expect(item?.heartRate).toBeUndefined()
   })
 })
 

@@ -3,7 +3,14 @@
 import { currentMarketIds, useCurrentMarket } from '@/hooks/use-current-market'
 import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
 import { useMarketTrades } from '@/hooks/use-market-trades'
-import { advanceLeaderboardHold, toLeaderboardItems, type LeaderboardHold, type LeaderboardItem } from '@/lib/leaderboard'
+import { useTraders } from '@/hooks/use-traders'
+import {
+  advanceLeaderboardHold,
+  toLeaderboardItems,
+  withTraderData,
+  type LeaderboardHold,
+  type LeaderboardItem,
+} from '@/lib/leaderboard'
 import { useMemo, useState } from 'react'
 
 const emptyHold: LeaderboardHold = { marketKey: '', items: [], epoch: 0 }
@@ -15,6 +22,7 @@ export function useLeaderboard() {
   const marketKey = marketIds.join('|')
   const { trades, status: tradesStatus } = useMarketTrades(marketIds)
   const { points, status: seriesStatus } = useMarketTimeseries(marketIds)
+  const { traders, now } = useTraders()
   const latest = points.at(-1)
   const yes = latest?.yes
   const no = latest?.no ?? (yes == null ? undefined : 1 - yes)
@@ -35,5 +43,7 @@ export function useLeaderboard() {
       ? 'error'
       : 'live'
 
-  return { items: next.hold.items, epoch: next.hold.epoch, frozen: next.frozen, status }
+  const items = useMemo(() => withTraderData(next.hold.items, traders, now), [next.hold.items, now, traders])
+
+  return { items, epoch: next.hold.epoch, frozen: next.frozen, status }
 }

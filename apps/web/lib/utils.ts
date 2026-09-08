@@ -1,9 +1,17 @@
 import type { CandlePoint, LivelinePoint } from '@/lib/liveline'
-import type { PriceFeedStatus, PricePoint, LivePrice } from '@somnia-chain/markets-sdk'
+import type { PricePoint, LivePrice } from '@somnia-chain/markets-sdk'
 
-export function formatAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
+export {
+  formatAddress,
+  formatChange,
+  formatChartTime,
+  formatGmt7Time,
+  formatPercent,
+  formatUpdateTime,
+  formatUsd,
+  priceStatusLabel,
+  usdFormatter,
+} from '@/lib/format'
 
 export const DISPLAY_NAME_MAX_LENGTH = 15
 
@@ -93,68 +101,6 @@ export function normalizePricePoints(points: LivelinePoint[]) {
     .sort((left, right) => left.time - right.time)
     .filter((point, index, sorted) => index === sorted.length - 1 || point.time !== sorted[index + 1].time)
     .slice(-MAX_PRICE_TICKS)
-}
-
-export const usdFormatter = new Intl.NumberFormat('en', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-})
-
-export function formatUsd(value?: number) {
-  if (value === undefined) return '--'
-
-  return usdFormatter.format(value)
-}
-
-export function formatPercent(value?: number) {
-  if (value === undefined) return '--'
-
-  return `${(value * 100).toFixed(1)}%`
-}
-
-export function formatChange(value?: number, percent?: number) {
-  if (value === undefined || percent === undefined) return '--'
-
-  const sign = value >= 0 ? '+' : ''
-
-  return `${sign}${formatUsd(value)} (${sign}${(percent * 100).toFixed(2)}%)`
-}
-
-export function formatChartTime(seconds: number) {
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(seconds * 1000))
-}
-
-export function formatUpdateTime(value?: number) {
-  if (value === undefined) return 'Waiting'
-
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(value))
-}
-
-const gmt7TimeFormatter = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-  timeZone: 'Asia/Ho_Chi_Minh',
-})
-
-export function formatGmt7Time(value: number = Date.now()) {
-  return `${gmt7TimeFormatter.format(new Date(value))} GMT+7`
-}
-
-export function priceStatusLabel(status: PriceFeedStatus, lastUpdateMs?: number) {
-  if (status === 'live') return `Live ${formatUpdateTime(lastUpdateMs)}`
-  if (status === 'hydrating') return 'Syncing'
-  return 'Waiting'
 }
 
 export function candleWidthForWindow(windowSecs: number) {

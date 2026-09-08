@@ -1,6 +1,6 @@
 'use client'
 
-import { formatGmt7Time } from '@/lib/utils'
+import { formatGmt7Time } from '@/lib/format'
 import { cn } from 'cn'
 import { useEffect, useState } from 'react'
 

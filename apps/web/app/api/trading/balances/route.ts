@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/error'
 import privy, { authorizationContext } from '@/lib/privy'
 import { createDreamDexExchange } from '@/lib/dreamdex'
 import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-auth'
@@ -9,10 +10,6 @@ export const runtime = 'nodejs'
 const balanceBodySchema = z.object({
   wallet_id: z.string().min(1),
 })
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
-}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)

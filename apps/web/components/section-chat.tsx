@@ -2,6 +2,9 @@
 
 import { CHAT_MAX_LENGTH, useChat, type ChatMessage } from '@/hooks/use-chat'
 import { resolveDisplayName } from '@/lib/display-name'
+import { formatGmt7Hm } from '@/lib/format'
+import { traderAvatar } from '@/lib/market-trades'
+import { traderIdentity } from '@/lib/traders'
 import { usePrivy, type User } from '@privy-io/react-auth'
 import { animate } from 'motion'
 import { motion, useReducedMotion } from 'motion/react'
@@ -17,51 +20,16 @@ type ChatItem = {
   t: number
 }
 
-const chatTimeFormatter = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-  timeZone: 'Asia/Ho_Chi_Minh',
-})
-
-function formatChatTime(t: number) {
-  if (!Number.isFinite(t)) return ''
-  return chatTimeFormatter.format(new Date(t))
-}
-
-const AVATARS = [
-  'https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg',
-  'https://i.pinimg.com/1200x/a5/65/6c/a5656c180fedac78f1f913abc7253015.jpg',
-  'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-] as const
-
 const NEAR_BOTTOM_PX = 48
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const ENTER_DURATION = 0.2
 
-function avatarFor(seed: string) {
-  let hash = 0
-  for (const character of seed) {
-    hash = (hash + character.charCodeAt(0)) % AVATARS.length
-  }
-  return AVATARS[hash] ?? AVATARS[0]
-}
-
-function formatAddress(address?: string | null) {
-  if (!address) return 'you'
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
-
-function chatName(user: User) {
-  return user.google?.name ?? user.discord?.username ?? user.email?.address ?? formatAddress(user.wallet?.address)
-}
-
 function chatIdentity(user: User | null) {
   if (!user) return null
-  const address = user.wallet?.address || user.id || ''
+  const identity = traderIdentity(user, 'you')
   return {
-    address,
-    name: resolveDisplayName(address, chatName(user)),
+    address: identity.address,
+    name: resolveDisplayName(identity.address, identity.name),
   }
 }
 
@@ -76,7 +44,7 @@ function isSelfMessage(message: ChatMessage, user: User | null) {
 function toChatItem(message: ChatMessage, user: User | null): ChatItem {
   return {
     id: message.id,
-    avatar: avatarFor(message.address || message.id),
+    avatar: traderAvatar(message.address || message.id),
     name: message.name,
     message: message.message,
     side: isSelfMessage(message, user) ? 'right' : 'left',
@@ -133,7 +101,7 @@ function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
               dateTime={new Date(item.t).toISOString()}
               className="shrink-0 font-sans text-xs tabular-nums text-[#6A7374]"
             >
-              {formatChatTime(item.t)}
+              {formatGmt7Hm(item.t)}
             </time>
           </div>
         </div>

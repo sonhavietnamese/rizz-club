@@ -1,12 +1,11 @@
 'use client'
 
 import { useMarketHistory } from '@/hooks/use-market-history'
+import { formatGmt7Hm } from '@/lib/format'
 import { type HistoryOutcome } from '@/lib/market-history'
+import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import { cn } from 'cn'
 import { useEffect, useMemo, useRef, useState } from 'react'
-
-const yesColor = '#2DD530'
-const noColor = '#F87171'
 
 type Point = {
   x: number
@@ -27,13 +26,6 @@ const boxSizeRatio = 0.82
 const maxBoxSize = 72
 const boxTopGap = 16
 const firstRowY = 36
-
-const slotLabelFormatter = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-  timeZone: 'Asia/Ho_Chi_Minh',
-})
 
 function roundedPathFromPoints(points: Point[], r: number) {
   if (points.length < 2) return ''
@@ -138,7 +130,7 @@ function generateTimeSlots(now: number): Item[] {
   for (let time = start; time <= end; time += stepMs) {
     slots.push({
       time,
-      label: slotLabelFormatter.format(time),
+      label: formatGmt7Hm(time),
       isCurrent: time === aligned,
       isPast: time < aligned,
       outcome: null,
@@ -298,7 +290,11 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
                         boxShadow: item.isCurrent ? 'inset 0 0 0 1px rgba(255,255,255,0.28)' : undefined,
                       }}
                       aria-label={
-                        item.outcome === 'Y' ? `${item.label} YES` : item.outcome === 'N' ? `${item.label} NO` : item.label
+                        item.outcome === 'Y'
+                          ? `${item.label} YES`
+                          : item.outcome === 'N'
+                            ? `${item.label} NO`
+                            : item.label
                       }
                     >
                       {item.outcome ? (
@@ -306,7 +302,7 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
                           className="font-abc-gravity-italic leading-none"
                           style={{
                             fontSize: boxSize * 0.46,
-                            color: item.outcome === 'Y' ? yesColor : noColor,
+                            color: item.outcome === 'Y' ? YES_COLOR : NO_COLOR,
                           }}
                         >
                           {item.outcome}

@@ -64,6 +64,19 @@ export function currentMarketIds(market: UnifiedMarket | null) {
   return [...new Set(ids.map((id) => id.toLowerCase()))]
 }
 
+export function marketWindowSeconds(market: UnifiedMarket | null, fallback = targetMarketIntervalSeconds) {
+  if (!market || !isBinaryMarket(market.info)) return fallback
+
+  const intervalSeconds = market.info.intervalSec ? Number(market.info.intervalSec) : Number.NaN
+  if (Number.isFinite(intervalSeconds) && intervalSeconds > 0) return intervalSeconds
+
+  const tradingStart = Number(market.info.tradingStart)
+  const expiry = Number(market.info.expiry)
+  if (!Number.isFinite(tradingStart) || !Number.isFinite(expiry)) return fallback
+
+  return Math.max(60, expiry - tradingStart)
+}
+
 function useCurrentMarketLoader() {
   const exchange = useMemo(() => createDreamDexExchange(), [])
   const [market, setMarket] = useState<UnifiedMarket | null>(null)

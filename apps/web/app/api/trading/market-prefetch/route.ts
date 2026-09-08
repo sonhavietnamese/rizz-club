@@ -1,3 +1,4 @@
+import { errorMessage } from '@/lib/error'
 import { createDreamDexExchange } from '@/lib/dreamdex'
 import {
   getCachedBinaryBookParams,
@@ -13,10 +14,6 @@ export const runtime = 'nodejs'
 const prefetchMarketBodySchema = z.object({
   market_id: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
 })
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
-}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)

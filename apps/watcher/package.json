@@ -9,6 +9,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/shared": "*",
     "@somnia-chain/markets-sdk": "^0.28.1",
     "@t3-oss/env-core": "^0.13.11",
     "firebase": "^12.18.0",

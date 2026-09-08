@@ -1,5 +1,5 @@
 import type { LivelineMarker } from '@/lib/liveline'
-import { formatAddress } from '@/lib/utils'
+import { formatAddress } from '@/lib/format'
 
 const traderAvatars = [
   'https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg',

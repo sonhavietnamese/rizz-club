@@ -1,16 +1,14 @@
 'use client'
 
 import { createDreamDexExchange } from '@/lib/dreamdex'
+import { formatChange, formatChartTime, formatUsd, priceStatusLabel } from '@/lib/format'
 import { Liveline } from '@/lib/liveline'
+import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import {
   candleWidthForWindow,
-  formatChange,
-  formatChartTime,
-  formatUsd,
   livePriceToPoint,
   normalizePricePoints,
   pointsToCandles,
-  priceStatusLabel,
   tickToLivelinePoint,
 } from '@/lib/utils'
 import {
@@ -58,42 +56,26 @@ function BtcPriceFeed() {
   const change = first && latestValue !== undefined ? latestValue - first.value : undefined
   const changePercent = change !== undefined && first && first.value !== 0 ? change / first.value : undefined
   const isLive = priceStatus === 'live'
-  const changeTone = change === undefined ? 'text-[#6A7374]' : change >= 0 ? 'text-[#2DD530]' : 'text-[#F87171]'
+  const changeTone = change === undefined ? '#6A7374' : change >= 0 ? YES_COLOR : NO_COLOR
 
   return (
-    <section className="section-panel flex min-h-0 flex-col overflow-hidden p-3">
-      <header className="mb-2 flex flex-none items-start justify-between gap-4 px-1">
-        <div className="min-w-0">
-          <p className="font-abc-gravity-italic text-[28px] leading-none text-white">BTC</p>
-          <p
-            className={cn(
-              'mt-2 font-sans text-sm',
-              isLive ? 'text-[#74CC92]' : 'text-[#6A7374]',
-              isLive &&
-                "before:mr-2 before:inline-block before:h-2.5 before:w-2.5 before:rounded-full before:bg-[#74CC92] before:content-['']",
-            )}
-          >
-            {priceStatusLabel(priceStatus, lastBtcPriceUpdate)}
-          </p>
-        </div>
-
+    <section className="section-panel flex min-h-0 flex-col overflow-hidden p-2 px-0 relative">
+      <header className="mb-2 flex flex-none items-start justify-between gap-4 absolute top-3 right-3">
         <div className="text-right">
           <p className="font-sans text-[28px] font-medium tabular-nums tracking-tight text-white">
             {formatUsd(latestValue)}
           </p>
           <p
-            className={cn(
-              'mt-2 font-sans text-sm tabular-nums transition-colors duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]',
-              changeTone,
-            )}
+            className="mt-2 font-sans text-sm tabular-nums transition-colors duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]"
+            style={{ color: changeTone }}
           >
             {formatChange(change, changePercent)}
           </p>
         </div>
       </header>
 
-      <div className="relative min-h-0 flex-1">
-        <div className="absolute inset-0 grid grid-rows-[auto_minmax(0,1fr)]">
+      <div className="relative min-h-0 flex-1 ">
+        <div className="absolute inset-0 grid w-full pr-2 grid-rows-[auto_minmax(0,1fr)]">
           <Liveline
             className="min-h-0"
             data={btcPricePoints}

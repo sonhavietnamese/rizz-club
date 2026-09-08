@@ -2,25 +2,25 @@
 
 import { useLeaderboard } from '@/hooks/use-leaderboard'
 import {
-  formatCents,
-  formatShares,
+  LEADERBOARD_FADE_S,
   leaderboardExitDuration,
   leaderboardStaggerDelay,
-  LEADERBOARD_FADE_S,
   type LeaderboardItem,
 } from '@/lib/leaderboard'
+import { formatCents, formatShares } from '@/lib/format'
+import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
+import markOrange from '@/public/mark-orange.png'
+import markPurple from '@/public/mark-purple.png'
 import NumberFlow from '@number-flow/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
 import { forwardRef } from 'react'
-import markOrange from '@/public/mark-orange.png'
-import markPurple from '@/public/mark-purple.png'
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 const profitColor = {
-  up: '#2DD530',
-  down: '#F87171',
+  up: YES_COLOR,
+  down: NO_COLOR,
 } as const
 
 function HeartbeatIcon() {
@@ -86,11 +86,13 @@ function LeaderboardRow({
         </figure>
       </div>
 
-      <div className="flex flex-col items-start gap-2 py-1">
+      <div className="flex flex-col items-start gap-2 py-2">
         <div className="font-sans font-medium text-white/90">{item.name}</div>
         <div className="mt-2 flex items-center justify-center gap-1">
           <HeartbeatIcon />
-          <span className="font-sans text-xs font-medium text-[#6A7374]">{item.outcome}</span>
+          <span className="font-sans text-xs font-medium tabular-nums text-[#6A7374]">
+            {item.heartRate == null ? '—' : `${item.heartRate} BPM`}
+          </span>
         </div>
       </div>
 
@@ -105,10 +107,11 @@ function LeaderboardRow({
           className="font-sans font-semibold tabular-nums"
           style={{ color: inProfit ? profitColor.up : profitColor.down }}
         >
+          {inProfit ? '+$' : '-$'}
           <NumberFlow
-            value={item.profit}
+            value={Math.abs(item.profit)}
             animated={!reduceMotion && !frozen}
-            format={{ style: 'currency', currency: 'USD', signDisplay: 'always', maximumFractionDigits: 2 }}
+            format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
             transformTiming={{ duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }}
             spinTiming={{ duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }}
             opacityTiming={{ duration: 150, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }}
@@ -167,7 +170,7 @@ export default function SectionLeaderboard() {
   const reduceMotion = useReducedMotion() ?? false
 
   return (
-    <section className="section-panel flex min-h-0 flex-1 flex-col gap-2 overflow-hidden select-none">
+    <section className="section-panel flex min-h-0 flex-1 flex-col gap-2 overflow-hidden select-none relative">
       <motion.div layoutScroll className="min-h-0 flex-1 overflow-y-auto rounded-lg hide-scrollbar">
         {items.length === 0 ? (
           <p className="px-2 py-3 font-sans text-sm text-[#6A7374]">
@@ -182,6 +185,8 @@ export default function SectionLeaderboard() {
             <LeaderboardList key={epoch} items={items} reduceMotion={reduceMotion} enter={epoch > 0} frozen={frozen} />
           </AnimatePresence>
         )}
+
+        <div className="pointer-events-none absolute w-full bottom-0 h-[50%] bg-gradient-to-t from-section-background to-transparent z-10"></div>
       </motion.div>
     </section>
   )

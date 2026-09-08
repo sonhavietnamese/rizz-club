@@ -1,43 +1,22 @@
 'use client'
 
-import { useCurrentMarket } from '@/hooks/use-current-market'
+import { currentMarketIds, marketWindowSeconds, useCurrentMarket } from '@/hooks/use-current-market'
 import { useMarketTimeseries, type MarketTimeseriesPoint } from '@/hooks/use-market-timeseries'
 import { useMarketTrades } from '@/hooks/use-market-trades'
+import { formatChartTime, formatPercent } from '@/lib/format'
 import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } from '@/lib/liveline'
 import { toTradeMarkers } from '@/lib/market-trades'
-import { ensureDrawablePoints, formatChartTime, formatPercent, holdLastValue, normalizePoints } from '@/lib/utils'
+import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
+import { ensureDrawablePoints, holdLastValue, normalizePoints } from '@/lib/utils'
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { useEffect, useMemo, useState } from 'react'
 
 const defaultMarketWindowSeconds = 5 * 60
-const yesColor = '#2DD530'
-const noColor = '#F87171'
 
 const currentWindows: WindowOption[] = [
   { label: '5m', secs: defaultMarketWindowSeconds },
   { label: '1m', secs: 60 },
 ]
-
-function marketWindowSeconds(market: UnifiedMarket | null) {
-  if (!market || !isBinaryMarket(market.info)) return defaultMarketWindowSeconds
-
-  const intervalSeconds = market.info.intervalSec ? Number(market.info.intervalSec) : Number.NaN
-  if (Number.isFinite(intervalSeconds) && intervalSeconds > 0) return intervalSeconds
-
-  const tradingStart = Number(market.info.tradingStart)
-  const expiry = Number(market.info.expiry)
-  if (!Number.isFinite(tradingStart) || !Number.isFinite(expiry)) return defaultMarketWindowSeconds
-
-  return Math.max(60, expiry - tradingStart)
-}
-
-function selectedMarketIds(market: UnifiedMarket | null) {
-  if (!market) return []
-
-  const ids = [market.id]
-  if (isBinaryMarket(market.info)) ids.push(market.info.marketId)
-  return [...new Set(ids.map((id) => id.toLowerCase()))]
-}
 
 function toYesPoints(points: MarketTimeseriesPoint[], nowSeconds: number, fallbackYes?: number, fromTime?: number) {
   const historyPoints = normalizePoints(
@@ -61,7 +40,7 @@ function MarketValueFeed() {
   const { market: selectedMarket, isLoading: isLoadingMarkets } = useCurrentMarket()
   const [nowSeconds, setNowSeconds] = useState(0)
   const binaryMarket = selectedMarket && isBinaryMarket(selectedMarket.info) ? selectedMarket.info : null
-  const marketIds = useMemo(() => selectedMarketIds(selectedMarket), [selectedMarket])
+  const marketIds = useMemo(() => currentMarketIds(selectedMarket), [selectedMarket])
   const { points, status } = useMarketTimeseries(marketIds)
   const { trades } = useMarketTrades(marketIds)
   const windowSeconds = marketWindowSeconds(selectedMarket)
@@ -85,8 +64,8 @@ function MarketValueFeed() {
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes
   const noValue = noPoints.at(-1)?.value ?? (fallbackYes === undefined ? undefined : 1 - fallbackYes)
   const series: LivelineSeries[] = [
-    { id: 'yes', label: 'YES', data: yesPoints, value: yesValue ?? 0.5, color: yesColor },
-    { id: 'no', label: 'NO', data: noPoints, value: noValue ?? 0.5, color: noColor },
+    { id: 'yes', label: 'YES', data: yesPoints, value: yesValue ?? 0.5, color: YES_COLOR },
+    { id: 'no', label: 'NO', data: noPoints, value: noValue ?? 0.5, color: NO_COLOR },
   ]
   const tradeMarkers = useMemo(() => toTradeMarkers(trades), [trades])
 
@@ -117,7 +96,7 @@ function MarketValueFeed() {
             data={yesPoints}
             value={yesValue ?? 0.5}
             series={binaryMarket ? series : []}
-            color={yesColor}
+            color={YES_COLOR}
             theme="dark"
             window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
             origin={chartOrigin}
@@ -135,7 +114,7 @@ function MarketValueFeed() {
                   : 'No live 5m market yet.'
             }
             referenceLine={{ value: 0.5, label: '50%' }}
-            yDomain={[-0.5, 1.5]}
+            yDomain={[-0.05, 1.05]}
             formatValue={formatPercent}
             formatTime={formatChartTime}
             lineWidth={3}

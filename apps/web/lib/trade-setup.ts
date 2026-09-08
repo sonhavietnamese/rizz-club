@@ -1,3 +1,5 @@
+import { errorMessage } from '@/lib/error'
+import { formatAddress, formatDecimalAmount } from '@/lib/format'
 import { formatUnits, parseEther, parseUnits } from 'viem'
 
 export const STT_MIN = parseEther('2')
@@ -120,24 +122,15 @@ export function faucetNeeds(balances: TradeSetupBalances) {
 }
 
 export function formatTokenAmount(value: bigint, decimals: number) {
-  const [whole, fraction = ''] = formatUnits(value, decimals).split('.')
-  const trimmedFraction = fraction.slice(0, 4).replace(/0+$/, '')
-  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole
+  return formatDecimalAmount(formatUnits(value, decimals))
 }
 
 export function formatBalanceLine(balances: TradeSetupBalances) {
   return `${formatTokenAmount(balances.stt, 18)} STT · ${formatTokenAmount(balances.tusdc, TUSDC_DECIMALS)} tUSDC`
 }
 
-export function shortAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
-
-export function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message
-  if (typeof error === 'string' && error.length > 0) return error
-  return 'Unknown error'
-}
+export { errorMessage }
+export { formatAddress as shortAddress }
 
 export function isRecoverableWalletError(error: unknown) {
   return /already|exist|duplicate/i.test(errorMessage(error))
@@ -352,7 +345,7 @@ function detailFor(
     return `${current} is below 50 tUSDC. Sending 50 tUSDC from the faucet.`
   }
 
-  const wallet = extra.address ? shortAddress(extra.address) : 'wallet ready'
+  const wallet = extra.address ? formatAddress(extra.address) : 'wallet ready'
   return funds ? `${wallet} · ${funds}` : `${wallet} is funded and ready.`
 }
 
