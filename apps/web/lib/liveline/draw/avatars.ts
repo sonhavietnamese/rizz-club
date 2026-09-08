@@ -16,20 +16,19 @@ type CacheEntry = { img: HTMLImageElement; status: 'loading' | 'ready' | 'error'
 const imageCache = new Map<string, CacheEntry>()
 
 function getAvatarImage(src: string): HTMLImageElement | null {
-  let entry = imageCache.get(src)
-  if (!entry) {
-    const img = new Image()
-    entry = { img, status: 'loading' }
-    img.onload = () => {
-      entry.status = 'ready'
-    }
-    img.onerror = () => {
-      entry.status = 'error'
-    }
-    img.src = src
-    imageCache.set(src, entry)
+  const cached = imageCache.get(src)
+  if (cached) return cached.status === 'ready' ? cached.img : null
+
+  const entry: CacheEntry = { img: new Image(), status: 'loading' }
+  entry.img.onload = () => {
+    entry.status = 'ready'
   }
-  return entry.status === 'ready' ? entry.img : null
+  entry.img.onerror = () => {
+    entry.status = 'error'
+  }
+  entry.img.src = src
+  imageCache.set(src, entry)
+  return null
 }
 
 function initialFor(name?: string) {
