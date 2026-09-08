@@ -4,6 +4,7 @@ import { closeFirebase } from '@/firebase'
 import { type IntervalOption } from '@/market'
 import { simulateTrades } from '@/trade'
 import { minTradeCost } from '@/trade/types'
+import { HEART_RATE_MS } from '@/traders'
 import { setTradersOffline, setTradersOnline } from '@/traders-store'
 import { errorMessage } from '@/lib/async'
 import { wallets } from '@/wallets'
@@ -33,6 +34,7 @@ const roster = wallets()
 console.log(
   `Orchestra · ${env.WALLET_COUNT} wallets${DRY_RUN ? ' [dry-run]' : ''}\n` +
     `  traders ${roster.length} → /traders\n` +
+    `  hearts  every ${HEART_RATE_MS}ms → /traders\n` +
     `  chat   every ~${CHAT.intervalMs}ms → /chat (limit ${CHAT_LIMIT})\n` +
     `  trade  BTC ${TRADE.window} · cost ${minTradeCost}–${TRADE.limit} · batch 1–${TRADE.batch} · pace ${TRADE.intervalMs}ms`,
 )
