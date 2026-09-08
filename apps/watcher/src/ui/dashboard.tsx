@@ -41,6 +41,7 @@ function useWatcher(interval: IntervalOption) {
     message: 'Connecting to DreamDex',
     fillCount: 0,
     fills: [],
+    trades: [],
     markets: [],
   })
   const [syncError, setSyncError] = useState<string>()
@@ -378,7 +379,7 @@ function SyncStatus({ error }: { error?: string }) {
     return <Text color={noColor}>rtb {error}</Text>
   }
 
-  return <Text color={muted}>rtb market</Text>
+  return <Text color={muted}>rtb market · trades</Text>
 }
 
 export function Dashboard({ interval }: { interval: IntervalOption }) {

@@ -31,6 +31,7 @@ export async function startWatcher(
     message: 'Connecting to DreamDex',
     fillCount: 0,
     fills: [],
+    trades: [],
     markets,
   }
 
@@ -49,6 +50,7 @@ export async function startWatcher(
     message: 'Connecting to DreamDex',
     fillCount: 0,
     fills: [],
+    trades: [],
   })
 
   while (!signal.aborted) {
@@ -72,6 +74,7 @@ export async function startWatcher(
             retryAt: Date.now() + marketRefreshMs,
             fillCount: 0,
             fills: [],
+            trades: [],
           })
           previousMarket = undefined
           await sleep(marketRefreshMs, signal)
@@ -105,6 +108,7 @@ export async function startWatcher(
         retryAt: Date.now() + reconnectDelayMs,
         fillCount: 0,
         fills: [],
+        trades: [],
       })
       await sleep(reconnectDelayMs, signal)
     } finally {

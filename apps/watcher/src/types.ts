@@ -28,6 +28,20 @@ export type DashboardFill = {
   cost?: number
 }
 
+export type MarketTrade = {
+  id: string
+  t: number | null
+  marketId: string | null
+  symbol: string | null
+  side: string | null
+  kind: string | null
+  outcome: Outcome | null
+  price: number | null
+  amount: number | null
+  cost: number | null
+  taker: string | null
+}
+
 export type WatcherSnapshot = {
   phase: WatcherPhase
   message?: string
@@ -46,6 +60,7 @@ export type WatcherSnapshot = {
   fallbackYes?: number
   fillCount: number
   fills: DashboardFill[]
+  trades: MarketTrade[]
   markets?: DashboardMarket[]
   updatedAt?: number
 }

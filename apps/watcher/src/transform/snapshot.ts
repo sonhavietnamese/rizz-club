@@ -1,29 +1,22 @@
-import { isBinaryMarket, type LiveFill, type UnifiedMarket } from '@somnia-chain/markets-sdk'
+import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 import { dashboardFillLimit, defaultQuoteDecimals } from '@/config'
 import { pickTradable } from '@/extract/discovery'
 import type { MarketValue } from '@/extract/values'
-import { rawToHuman, rawToProbability } from '@/lib/units'
-import type { DashboardFill, WatcherSnapshot } from '@/types'
+import type { DashboardFill, MarketTrade, WatcherSnapshot } from '@/types'
+import { toMarketTrades } from './trade'
 
-function fillTimestampMs(timestamp: string | undefined) {
-  if (!timestamp) return undefined
-  const seconds = Number(timestamp)
-  if (!Number.isFinite(seconds)) return undefined
-  return seconds * 1000
-}
-
-export function toDashboardFills(fills: LiveFill[], quoteDecimals: number, baseDecimals: number): DashboardFill[] {
-  return fills
+export function toDashboardFills(trades: MarketTrade[]): DashboardFill[] {
+  return trades
     .slice(-dashboardFillLimit)
     .reverse()
-    .map((fill) => ({
-      id: fill.id,
-      timestamp: fillTimestampMs(fill.timestamp),
-      side: fill.takerSide,
-      kind: fill.kind,
-      price: rawToProbability(fill.fillPrice, quoteDecimals),
-      amount: rawToHuman(fill.quantity, baseDecimals),
-      cost: rawToHuman(fill.quoteQuantity, quoteDecimals),
+    .map((trade) => ({
+      id: trade.id,
+      timestamp: trade.t ?? undefined,
+      side: trade.side ?? undefined,
+      kind: trade.kind ?? undefined,
+      price: trade.price ?? undefined,
+      amount: trade.amount ?? undefined,
+      cost: trade.cost ?? undefined,
     }))
 }
 
@@ -46,6 +39,7 @@ export function snapshotFromValue(market: UnifiedMarket, value: MarketValue): Wa
     ? (market.info.quoteDecimals ?? defaultQuoteDecimals)
     : defaultQuoteDecimals
   const baseDecimals = isBinaryMarket(market.info) ? market.info.baseDecimals : defaultQuoteDecimals
+  const trades = toMarketTrades(value.fills, decimals, baseDecimals, market.id, market.symbol)
 
   return {
     phase: 'watching',
@@ -57,7 +51,8 @@ export function snapshotFromValue(market: UnifiedMarket, value: MarketValue): Wa
     lastFillYes: value.lastFillYes,
     fallbackYes: value.fallbackYes,
     fillCount: value.fillCount,
-    fills: toDashboardFills(value.fills, decimals, baseDecimals),
+    fills: toDashboardFills(trades),
+    trades,
     updatedAt: Date.now(),
   }
 }
@@ -69,6 +64,7 @@ export function switchingSnapshot(previous: UnifiedMarket | undefined, message: 
     ...(previous ? marketMeta(previous) : {}),
     fillCount: 0,
     fills: [],
+    trades: [],
     updatedAt: Date.now(),
   }
 }

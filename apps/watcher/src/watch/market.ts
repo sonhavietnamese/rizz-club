@@ -98,6 +98,7 @@ export async function watchMarket(
     ...marketMeta(market),
     fillCount: 0,
     fills: [],
+    trades: [],
     updatedAt: Date.now(),
   })
 

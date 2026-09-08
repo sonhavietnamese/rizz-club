@@ -28,6 +28,7 @@ export const successorPollMsDefault = 3_000
 export const etlDebounceMs = 250
 export const etlHeartbeatMs = 1_000
 export const etlPath = 'market'
+export const etlTradesPath = 'trades'
 
 export function isIntervalOption(value: string): value is IntervalOption {
   return (intervalOptions as readonly string[]).includes(value)

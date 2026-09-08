@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref } from 'firebase/database'
-import { etlPath } from '@/config'
+import { etlPath, etlTradesPath } from '@/config'
 import { env } from '@/env'
 
 const app = initializeApp({
@@ -16,3 +16,4 @@ const app = initializeApp({
 
 export const database = getDatabase(app)
 export const marketRef = ref(database, etlPath)
+export const tradesRef = ref(database, etlTradesPath)
