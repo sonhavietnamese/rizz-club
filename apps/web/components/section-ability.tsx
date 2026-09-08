@@ -3,7 +3,7 @@
 import AbilityCardFace from '@/components/ability-card-face'
 import { useAbility } from '@/components/ability-provider'
 import { ABILITY_FRONT_COLOR, type AbilityCard as AbilityCardData } from '@/lib/ability'
-import { useAbilityFlippedStore } from '@/lib/ability-store'
+import { useAbilityFlippedStore } from '@/stores/ability'
 import { animate } from 'motion'
 import { motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
@@ -74,15 +74,7 @@ function ChevronIcon({ className }: { className?: string }) {
   )
 }
 
-function EdgeArrow({
-  side,
-  visible,
-  onClick,
-}: {
-  side: 'left' | 'right'
-  visible: boolean
-  onClick: () => void
-}) {
+function EdgeArrow({ side, visible, onClick }: { side: 'left' | 'right'; visible: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -99,15 +91,7 @@ function EdgeArrow({
   )
 }
 
-function AbilityCard({
-  card,
-  index,
-  reduceMotion,
-}: {
-  card: AbilityCardData
-  index: number
-  reduceMotion: boolean
-}) {
+function AbilityCard({ card, index, reduceMotion }: { card: AbilityCardData; index: number; reduceMotion: boolean }) {
   const { beginDrag, drag, slotRefs } = useAbility()
   const revealed = useAbilityFlippedStore((state) => state.flippedIds.includes(card.id))
   const toggleFlipped = useAbilityFlippedStore((state) => state.toggleFlipped)

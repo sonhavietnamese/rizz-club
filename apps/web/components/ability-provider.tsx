@@ -2,7 +2,7 @@
 
 import AbilityDragLayer from '@/components/ability-drag-layer'
 import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, type AbilityCard, type AbilityDrag } from '@/lib/ability'
-import { useAbilityFlippedStore } from '@/lib/ability-store'
+import { useAbilityFlippedStore } from '@/stores/ability'
 import { animate, type AnimationPlaybackControls } from 'motion'
 import { useMotionValue, useReducedMotion, useSpring } from 'motion/react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
