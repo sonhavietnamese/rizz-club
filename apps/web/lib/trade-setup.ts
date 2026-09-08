@@ -1,0 +1,322 @@
+import { formatUnits, parseEther, parseUnits } from 'viem'
+
+export const STT_MIN = parseEther('2')
+export const TUSDC_MIN = parseUnits('50', 6)
+export const STT_FAUCET_AMOUNT = '2'
+export const TUSDC_FAUCET_AMOUNT = '50'
+export const TUSDC_DECIMALS = 6
+
+export const TRADE_SETUP_STEPS = [
+  'connecting',
+  'creating_wallet',
+  'assigning_signer',
+  'checking_balances',
+  'funding_stt',
+  'funding_tusdc',
+  'ready',
+] as const
+
+export type TradeSetupStep = (typeof TRADE_SETUP_STEPS)[number]
+export type TradeSetupPhase = TradeSetupStep | 'idle' | 'error'
+export type FaucetAsset = 'STT' | 'tUSDC'
+
+export type TradeSetupWallet = {
+  address: string
+  id?: string | null
+  delegated?: boolean | null
+}
+
+export type TradeSetupAccount = {
+  type?: string
+  chainType?: string
+  walletClientType?: string
+  address?: string
+  id?: string | null
+  delegated?: boolean | null
+}
+
+export type TradeSetupUser = {
+  wallet?: { address?: string | null; id?: string | null; delegated?: boolean | null } | null
+  linkedAccounts?: TradeSetupAccount[]
+}
+
+export type TradeSetupBalances = {
+  stt: bigint
+  tusdc: bigint
+}
+
+export type TradeSetupStatus = {
+  step: TradeSetupPhase
+  title: string
+  detail: string
+  address?: string
+  stt?: bigint
+  tusdc?: bigint
+}
+
+export type TradeSetupDeps = {
+  getUser: () => TradeSetupUser | null
+  connect: () => Promise<TradeSetupUser>
+  createWallet: () => Promise<TradeSetupWallet>
+  assignSigner: (address: string) => Promise<void>
+  refreshUser: () => Promise<void>
+  getBalances: (address: string) => Promise<TradeSetupBalances>
+  faucet: (asset: FaucetAsset, amount: string, address: string) => Promise<void>
+}
+
+export const idleTradeSetupStatus: TradeSetupStatus = {
+  step: 'idle',
+  title: 'START TRADING',
+  detail: 'Sign in, create a wallet, and fund it to trade.',
+}
+
+const setupTitles: Record<TradeSetupStep, string> = {
+  connecting: 'CONNECTING',
+  creating_wallet: 'CREATING WALLET',
+  assigning_signer: 'ASSIGNING SIGNER',
+  checking_balances: 'CHECKING FUNDS',
+  funding_stt: 'FUNDING STT',
+  funding_tusdc: 'FUNDING TUSDC',
+  ready: 'READY TO TRADE',
+}
+
+export function isBusyTradeSetup(step: TradeSetupPhase) {
+  return step !== 'idle' && step !== 'ready' && step !== 'error'
+}
+
+export function isServerSignableWallet(account: TradeSetupAccount): account is TradeSetupAccount & { address: string } {
+  return (
+    account.type === 'wallet' &&
+    account.chainType === 'ethereum' &&
+    (account.walletClientType === 'privy' || account.walletClientType === 'privy-v2') &&
+    typeof account.address === 'string' &&
+    account.address.length > 0
+  )
+}
+
+export function tradeWallet(user: TradeSetupUser | null): TradeSetupWallet | null {
+  const linked = user?.linkedAccounts?.find(isServerSignableWallet)
+  if (linked) {
+    return { address: linked.address, id: linked.id ?? null, delegated: linked.delegated ?? null }
+  }
+
+  const address = user?.wallet?.address
+  if (!address) return null
+
+  return { address, id: user.wallet?.id ?? null, delegated: user.wallet?.delegated ?? null }
+}
+
+export function hasAssignedSigner(wallet: TradeSetupWallet) {
+  return Boolean(wallet.id) || wallet.delegated === true
+}
+
+export function faucetNeeds(balances: TradeSetupBalances) {
+  return {
+    stt: balances.stt < STT_MIN,
+    tusdc: balances.tusdc < TUSDC_MIN,
+  }
+}
+
+export function formatTokenAmount(value: bigint, decimals: number) {
+  const [whole, fraction = ''] = formatUnits(value, decimals).split('.')
+  const trimmedFraction = fraction.slice(0, 4).replace(/0+$/, '')
+  return trimmedFraction ? `${whole}.${trimmedFraction}` : whole
+}
+
+export function formatBalanceLine(balances: TradeSetupBalances) {
+  return `${formatTokenAmount(balances.stt, 18)} STT · ${formatTokenAmount(balances.tusdc, TUSDC_DECIMALS)} tUSDC`
+}
+
+export function shortAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+export function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'string' && error.length > 0) return error
+  return 'Unknown error'
+}
+
+export function isRecoverableWalletError(error: unknown) {
+  return /already|exist|duplicate/i.test(errorMessage(error))
+}
+
+export function faucetErrorMessage(result: { error?: string; details?: string | string[] }) {
+  if (Array.isArray(result.details) && result.details.length > 0) {
+    return result.details.join(', ')
+  }
+
+  if (typeof result.details === 'string' && result.details.length > 0) {
+    return result.details
+  }
+
+  return result.error ?? 'Faucet request failed'
+}
+
+export function tradeSetupProgress(step: TradeSetupPhase) {
+  if (step === 'idle' || step === 'error') return 0
+  if (step === 'connecting') return 1
+  if (step === 'creating_wallet') return 2
+  if (step === 'assigning_signer') return 3
+  if (step === 'checking_balances' || step === 'funding_stt' || step === 'funding_tusdc') return 4
+  return 5
+}
+
+export function tradeSetupStatus(
+  step: TradeSetupStep,
+  extra: {
+    address?: string
+    balances?: TradeSetupBalances
+    alreadyAuthenticated?: boolean
+    walletExists?: boolean
+    signerExists?: boolean
+  } = {},
+): TradeSetupStatus {
+  const balances = extra.balances
+  const status: TradeSetupStatus = {
+    step,
+    title: setupTitles[step],
+    detail: detailFor(step, extra),
+    address: extra.address,
+  }
+
+  if (balances) {
+    status.stt = balances.stt
+    status.tusdc = balances.tusdc
+  }
+
+  return status
+}
+
+export function failedTradeSetupStatus(error: unknown): TradeSetupStatus {
+  return {
+    step: 'error',
+    title: 'COULD NOT START',
+    detail: errorMessage(error),
+  }
+}
+
+export async function runTradeSetup(
+  deps: TradeSetupDeps,
+  onStatus: (status: TradeSetupStatus) => void,
+) {
+  onStatus(tradeSetupStatus('connecting', { alreadyAuthenticated: Boolean(deps.getUser()) }))
+
+  let user = deps.getUser()
+  if (!user) {
+    user = await wrap('Could not connect to Privy', deps.connect)
+  }
+
+  onStatus(tradeSetupStatus('creating_wallet', { walletExists: Boolean(tradeWallet(user)) }))
+  let wallet = tradeWallet(user)
+  if (!wallet) {
+    try {
+      wallet = await deps.createWallet()
+    } catch (error) {
+      await deps.refreshUser()
+      wallet = tradeWallet(deps.getUser())
+      if (!wallet) throw new Error(`Could not create a wallet. ${errorMessage(error)}`)
+    }
+    await deps.refreshUser()
+    user = deps.getUser() ?? user
+    wallet = tradeWallet(user) ?? wallet
+  }
+
+  onStatus(tradeSetupStatus('assigning_signer', { address: wallet.address, signerExists: hasAssignedSigner(wallet) }))
+  if (!hasAssignedSigner(wallet)) {
+    try {
+      await deps.assignSigner(wallet.address)
+    } catch (error) {
+      await deps.refreshUser()
+      wallet = tradeWallet(deps.getUser()) ?? wallet
+      if (!hasAssignedSigner(wallet) && !isRecoverableWalletError(error)) {
+        throw new Error(`Could not assign a trading signer. ${errorMessage(error)}`)
+      }
+    }
+    await deps.refreshUser()
+    wallet = tradeWallet(deps.getUser()) ?? wallet
+  }
+
+  onStatus(tradeSetupStatus('checking_balances', { address: wallet.address }))
+  let balances = await wrap('Could not read STT and tUSDC balances', () => deps.getBalances(wallet.address))
+  onStatus(tradeSetupStatus('checking_balances', { address: wallet.address, balances }))
+
+  const needs = faucetNeeds(balances)
+  if (needs.stt) {
+    onStatus(tradeSetupStatus('funding_stt', { address: wallet.address, balances }))
+    await wrap('STT faucet failed', () => deps.faucet('STT', STT_FAUCET_AMOUNT, wallet.address))
+  }
+
+  if (needs.tusdc) {
+    onStatus(tradeSetupStatus('funding_tusdc', { address: wallet.address, balances }))
+    await wrap('tUSDC faucet failed', () => deps.faucet('tUSDC', TUSDC_FAUCET_AMOUNT, wallet.address))
+  }
+
+  if (needs.stt || needs.tusdc) {
+    balances = await wrap('Could not confirm faucet balances', () => deps.getBalances(wallet.address))
+  }
+
+  const ready = tradeSetupStatus('ready', { address: wallet.address, balances })
+  onStatus(ready)
+  return {
+    address: wallet.address,
+    stt: balances.stt,
+    tusdc: balances.tusdc,
+  }
+}
+
+function detailFor(
+  step: TradeSetupStep,
+  extra: {
+    address?: string
+    balances?: TradeSetupBalances
+    alreadyAuthenticated?: boolean
+    walletExists?: boolean
+    signerExists?: boolean
+  },
+) {
+  const funds = extra.balances ? formatBalanceLine(extra.balances) : null
+
+  if (step === 'connecting') {
+    return extra.alreadyAuthenticated
+      ? 'Confirming your Privy session before preparing the wallet.'
+      : 'Open Privy to sign in. We will create a wallet next.'
+  }
+
+  if (step === 'creating_wallet') {
+    return extra.walletExists
+      ? 'Using your existing embedded wallet.'
+      : 'Provisioning an embedded Ethereum wallet for trading.'
+  }
+
+  if (step === 'assigning_signer') {
+    return extra.signerExists
+      ? 'Server signer is already assigned to this wallet.'
+      : 'Authorizing the app to sign trades for this wallet.'
+  }
+
+  if (step === 'checking_balances') {
+    return funds ? `Current balances: ${funds}.` : 'Reading STT and tUSDC on Somnia testnet.'
+  }
+
+  if (step === 'funding_stt') {
+    const current = extra.balances ? `${formatTokenAmount(extra.balances.stt, 18)} STT` : 'below 2 STT'
+    return `${current} is below 2 STT. Sending 2 STT from the faucet.`
+  }
+
+  if (step === 'funding_tusdc') {
+    const current = extra.balances ? `${formatTokenAmount(extra.balances.tusdc, TUSDC_DECIMALS)} tUSDC` : 'below 50 tUSDC'
+    return `${current} is below 50 tUSDC. Sending 50 tUSDC from the faucet.`
+  }
+
+  const wallet = extra.address ? shortAddress(extra.address) : 'wallet ready'
+  return funds ? `${wallet} · ${funds}` : `${wallet} is funded and ready.`
+}
+
+async function wrap<T>(prefix: string, run: () => Promise<T>) {
+  try {
+    return await run()
+  } catch (error) {
+    throw new Error(`${prefix}. ${errorMessage(error)}`)
+  }
+}

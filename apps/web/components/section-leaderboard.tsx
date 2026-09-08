@@ -71,17 +71,17 @@ function LeaderboardRow({
         layout: reduceMotion || frozen ? { duration: 0 } : { duration: 0.22, ease: EASE_IN_OUT },
         opacity: { ...fade, delay: enter ? stagger : 0 },
       }}
-      className="relative flex w-full gap-[10px] rounded-lg bg-background p-2"
+      className="relative flex w-full gap-[10px] rounded-xl bg-background p-2"
     >
       <div>
-        <figure className="aspect-square h-18 w-18 rounded bg-[#ff00ff] bg-cover bg-center p-[2px]">
+        <figure className="aspect-square h-15 w-15 rounded-lg bg-[#ff00ff] bg-cover bg-center p-[2px]">
           <Image
             draggable={false}
             src={item.avatar}
             alt={item.name}
             width={60}
             height={60}
-            className="h-full w-full rounded-sm object-cover"
+            className="h-full w-full rounded-lg object-cover"
           />
         </figure>
       </div>
@@ -100,7 +100,7 @@ function LeaderboardRow({
         </span>
       </div>
 
-      <div className="absolute right-2 bottom-2 z-10 h-fit w-fit rounded-lg bg-[#222426]/40 px-2 py-1.5 backdrop-blur-sm">
+      <div className="absolute right-2 bottom-2 z-10 h-fit w-fit rounded-lg bg-[#222426]/40 px-2 py-1 backdrop-blur-sm">
         <span
           className="font-sans font-semibold tabular-nums"
           style={{ color: inProfit ? profitColor.up : profitColor.down }}
