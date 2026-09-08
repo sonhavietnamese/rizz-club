@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { MarketTrade } from '../types.ts'
-import { toDashboardFills } from './snapshot.ts'
+import type { MarketTrade } from '../../types.ts'
+import { toDashboardFills } from '../snapshot.ts'
 
 function trade(id: string, price: number): MarketTrade {
   return {

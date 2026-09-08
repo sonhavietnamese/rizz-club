@@ -5,7 +5,7 @@ import {
   formatPnl,
   formatPosition,
   settlementResult,
-} from './result.ts'
+} from '../result.ts'
 
 const ids = { yesId: 1n, noId: 2n }
 

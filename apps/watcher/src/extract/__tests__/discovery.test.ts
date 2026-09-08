@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { dashboardExpiredMarketLimit } from '../config.ts'
-import { isLiveBtcMarket, isTargetBtcMarket, targetMarketStatus, toDashboardMarkets } from './discovery.ts'
+import { dashboardExpiredMarketLimit } from '../../config.ts'
+import { isLiveBtcMarket, isTargetBtcMarket, targetMarketStatus, toDashboardMarkets } from '../discovery.ts'
 
 function market({
   id,

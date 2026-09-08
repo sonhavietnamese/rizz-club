@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { LiveFill } from '@somnia-chain/markets-sdk'
-import { fillTimestampMs, toMarketTrade, tradeKey, tradeOutcome, unpublishedTrades } from './trade.ts'
+import { fillTimestampMs, toMarketTrade, tradeKey, tradeOutcome, unpublishedTrades } from '../trade.ts'
 
 function fill(overrides: Partial<LiveFill> = {}): LiveFill {
   return {

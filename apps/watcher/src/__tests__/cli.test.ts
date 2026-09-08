@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseWatcherArgs } from './cli.ts'
+import { parseWatcherArgs } from '../cli.ts'
 
 describe('parseWatcherArgs', () => {
   test('defaults to 15m', () => {

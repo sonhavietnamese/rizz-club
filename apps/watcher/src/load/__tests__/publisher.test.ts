@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { etlDebounceMs, etlHeartbeatMs } from '../config.ts'
-import type { MarketPoint, MarketTrade, WatcherSnapshot } from '../types.ts'
-import { createPublisher, type PublishStore, type PublisherClock } from './publisher.ts'
+import { etlDebounceMs, etlHeartbeatMs } from '../../config.ts'
+import type { MarketPoint, MarketTrade, WatcherSnapshot } from '../../types.ts'
+import { createPublisher, type PublishStore, type PublisherClock } from '../publisher.ts'
 
 function trade(overrides: Partial<MarketTrade> = {}): MarketTrade {
   return {

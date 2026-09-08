@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { oppositeOutcome, pickCost, pickIntent, tradeSide, walletBias } from './intent.ts'
-import { maxTradeCost, minTradeCost, resolveCostBounds, type BookPrices, type WalletPositions } from './types.ts'
+import { oppositeOutcome, pickCost, pickIntent, tradeSide, walletBias } from '../intent.ts'
+import { maxTradeCost, minTradeCost, resolveCostBounds, type BookPrices, type WalletPositions } from '../types.ts'
 
 const yesWallet = '0x0000000000000000000000000000000000000000'
 const noWallet = '0x0000000000000000000000000000000000000001'

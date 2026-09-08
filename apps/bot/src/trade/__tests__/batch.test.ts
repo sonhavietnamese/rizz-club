@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { BotWallet } from '../wallets.ts'
-import { pickBatch, pickBatchSize } from './batch.ts'
+import type { BotWallet } from '../../wallets.ts'
+import { pickBatch, pickBatchSize } from '../batch.ts'
 
 function wallet(index: number): BotWallet {
   const address = `0x${index.toString(16).padStart(40, '0')}` as `0x${string}`

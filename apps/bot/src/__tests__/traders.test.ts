@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { toTrader, traderKey, traderUpdates } from './traders'
+import { toTrader, traderKey, traderUpdates } from '../traders'
 
 const nova = {
   index: 0,

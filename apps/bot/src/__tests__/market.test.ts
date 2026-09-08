@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { UnifiedMarket } from '@somnia-chain/markets-sdk'
-import { compareLiveMarkets, isIntervalOption, isLiveBtcMarket } from './market.ts'
+import { compareLiveMarkets, isIntervalOption, isLiveBtcMarket } from '../market.ts'
 
 function market({
   id,

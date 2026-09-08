@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createPace, logNormal, nextBeat } from './pace.ts'
+import { createPace, logNormal, nextBeat } from '../pace.ts'
 
 function sequence(values: number[]) {
   let index = 0

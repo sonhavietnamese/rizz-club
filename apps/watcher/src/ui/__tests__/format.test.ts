@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCountdown, formatMarketTiming, formatSource, marketStatusLabel } from './format'
+import { formatCountdown, formatMarketTiming, formatSource, marketStatusLabel } from '../format'
 
 describe('formatCountdown', () => {
   test('formats remaining minutes and seconds', () => {
