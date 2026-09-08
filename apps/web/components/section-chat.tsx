@@ -1,6 +1,7 @@
 'use client'
 
 import { CHAT_MAX_LENGTH, useChat, type ChatMessage } from '@/hooks/use-chat'
+import { resolveDisplayName } from '@/lib/display-name'
 import { usePrivy, type User } from '@privy-io/react-auth'
 import { animate } from 'motion'
 import { motion, useReducedMotion } from 'motion/react'
@@ -57,9 +58,10 @@ function chatName(user: User) {
 
 function chatIdentity(user: User | null) {
   if (!user) return null
+  const address = user.wallet?.address || user.id || ''
   return {
-    address: user.wallet?.address || user.id,
-    name: chatName(user),
+    address,
+    name: resolveDisplayName(address, chatName(user)),
   }
 }
 

@@ -1,22 +1,25 @@
 'use client'
 
 import { useAbility } from '@/components/ability-provider'
+import { useDisplayName } from '@/hooks/use-display-name'
 import { useHeartRate } from '@/hooks/use-heart-rate'
 import { usePublishTraderHeartRate } from '@/hooks/use-traders'
 import { useTradeSetup } from '@/hooks/use-trade-setup'
 import { ABILITY_ACCENT } from '@/lib/ability'
 import {
+  canApplyAbilityOnIsland,
   formatBalanceLine,
   islandStageFromSetup,
   shortAddress,
   tradeSetupProgress,
   type FaucetAsset,
-  type IslandZone,
 } from '@/lib/trade-setup'
 import { traderIdentity } from '@/lib/traders'
+import { DISPLAY_NAME_MAX_LENGTH, sanitizeName } from '@/lib/utils'
+import { useIslandStore } from '@/stores/island'
 import NumberFlow from '@number-flow/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 const PLAYBACK_RATE = 0.5
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
@@ -67,9 +70,7 @@ function BpmReadout({
   size?: 'chip' | 'pane'
 }) {
   const valueClass =
-    size === 'pane'
-      ? 'font-abc-gravity-italic text-[28px] leading-none'
-      : 'font-sans text-xs font-medium tabular-nums'
+    size === 'pane' ? 'font-abc-gravity-italic text-[28px] leading-none' : 'font-sans text-xs font-medium tabular-nums'
 
   return (
     <span
@@ -123,7 +124,11 @@ function WearablePane({
           {heartRate.error ?? 'Could not connect to wearable.'}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <IslandButton onClick={() => void heartRate.connect()} busy={heartRate.busy} className="bg-white/15 text-white">
+          <IslandButton
+            onClick={() => void heartRate.connect()}
+            busy={heartRate.busy}
+            className="bg-white/15 text-white"
+          >
             Try again
           </IslandButton>
           <IslandButton
@@ -261,6 +266,83 @@ function IslandButton({
   )
 }
 
+function IslandName({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const skipCommit = useRef(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+
+  const startEdit = () => {
+    setDraft(name)
+    setEditing(true)
+  }
+
+  const commit = () => {
+    if (skipCommit.current) {
+      skipCommit.current = false
+      return
+    }
+
+    const next = sanitizeName(draft)
+    if (next) onSave(next)
+    else setDraft(name)
+    setEditing(false)
+  }
+
+  const cancel = () => {
+    skipCommit.current = true
+    setDraft(name)
+    setEditing(false)
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commit()
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancel()
+    }
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {editing ? (
+        <input
+          value={draft}
+          maxLength={DISPLAY_NAME_MAX_LENGTH}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoFocus
+          aria-label="Display name"
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => setDraft(sanitizeName(event.target.value))}
+          onBlur={commit}
+          onKeyDown={onKeyDown}
+          className="min-w-0 flex-1 border-b border-white/35 bg-transparent pb-0.5 font-abc-gravity-italic text-[22px] leading-none text-white caret-white outline-none"
+        />
+      ) : (
+        <p className="min-w-0 truncate font-abc-gravity-italic text-[22px] leading-none">{name}</p>
+      )}
+      {editing ? (
+        <span className="shrink-0 font-sans text-xs tabular-nums text-white/45">
+          {draft.length}/{DISPLAY_NAME_MAX_LENGTH}
+        </span>
+      ) : (
+        <button
+          type="button"
+          aria-label="Edit name"
+          onClick={startEdit}
+          className="shrink-0 font-sans text-xs text-white/55 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
+        >
+          Edit
+        </button>
+      )}
+    </div>
+  )
+}
+
 function IslandFrame({
   reduceMotion,
   stageKey,
@@ -287,33 +369,41 @@ function IslandFrame({
 function IslandDropOverlay({
   active,
   hovering,
+  locked,
   reduceMotion,
 }: {
   active: boolean
   hovering: boolean
+  locked: boolean
   reduceMotion: boolean
 }) {
+  const canDrop = !locked && hovering
+
   return (
     <AnimatePresence>
       {active ? (
         <motion.div
           key="ability-drop"
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
-          animate={
-            reduceMotion
-              ? { opacity: 1 }
-              : { opacity: 1, transform: hovering ? 'scale(1.015)' : 'scale(1)' }
-          }
+          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, transform: canDrop ? 'scale(1.015)' : 'scale(1)' }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
           transition={{ duration: 0.2, ease: EASE_OUT }}
           className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-2xl"
           style={{
-            backgroundColor: hovering ? 'rgba(124, 92, 255, 0.28)' : 'rgba(124, 92, 255, 0.16)',
-            boxShadow: `inset 0 0 0 2px ${ABILITY_ACCENT}`,
+            backgroundColor: locked
+              ? 'rgba(0, 0, 0, 0.55)'
+              : hovering
+                ? 'rgba(124, 92, 255, 0.28)'
+                : 'rgba(124, 92, 255, 0.16)',
+            boxShadow: locked ? 'inset 0 0 0 2px rgba(255, 255, 255, 0.35)' : `inset 0 0 0 2px ${ABILITY_ACCENT}`,
           }}
         >
-          <p className="rounded-full bg-black/55 px-4 py-2 font-sans text-sm text-white">
-            {hovering ? 'Release to apply' : 'Drop the card here to apply effect'}
+          <p className="max-w-[280px] rounded-full bg-black/55 px-4 py-2 text-center font-sans text-sm text-white">
+            {locked
+              ? 'Enter the trading zone to apply this effect'
+              : hovering
+                ? 'Release to apply'
+                : 'Drop the card here to apply effect'}
           </p>
         </motion.div>
       ) : null}
@@ -321,15 +411,7 @@ function IslandDropOverlay({
   )
 }
 
-function AppliedTag({
-  name,
-  onClear,
-  reduceMotion,
-}: {
-  name: string
-  onClear: () => void
-  reduceMotion: boolean
-}) {
+function AppliedTag({ name, onClear, reduceMotion }: { name: string; onClear: () => void; reduceMotion: boolean }) {
   return (
     <motion.div
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px) scale(0.96)' }}
@@ -365,7 +447,9 @@ export default function SectionDynamicIsland() {
   const heartRate = useHeartRate()
   usePublishTraderHeartRate(heartRate.bpm, heartRate.live)
   const { islandRef, drag, overIsland, applied, clearApplied } = useAbility()
-  const [zone, setZone] = useState<IslandZone>('information')
+  const zone = useIslandStore((state) => state.zone)
+  const setZone = useIslandStore((state) => state.setZone)
+  const syncFromSetup = useIslandStore((state) => state.syncFromSetup)
   const wasHeartRateLive = useRef(false)
   const stage = islandStageFromSetup({
     authenticated,
@@ -374,7 +458,18 @@ export default function SectionDynamicIsland() {
     address: status.address,
     settled,
   })
+
+  useLayoutEffect(() => {
+    syncFromSetup({
+      authenticated,
+      step: status.step,
+      address: status.address,
+      settled,
+    })
+  }, [authenticated, settled, status.address, status.step, syncFromSetup])
+
   const identity = user ? traderIdentity(user) : { address: status.address ?? '', name: 'Trader' }
+  const { name, save } = useDisplayName(identity.address, identity.name)
   const showVideo = stage === 'unconnected' || stage === 'preparing' || stage === 'error'
 
   useEffect(() => {
@@ -382,7 +477,7 @@ export default function SectionDynamicIsland() {
       setZone('information')
     }
     wasHeartRateLive.current = heartRate.live
-  }, [heartRate.live])
+  }, [heartRate.live, setZone])
 
   useEffect(() => {
     const video = videoRef.current
@@ -419,6 +514,7 @@ export default function SectionDynamicIsland() {
   }
 
   const showDrop = Boolean(drag)
+  const canApply = canApplyAbilityOnIsland(stage)
 
   return (
     <section
@@ -433,177 +529,177 @@ export default function SectionDynamicIsland() {
       </AnimatePresence>
 
       <div className="relative h-full overflow-hidden rounded-2xl">
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          className="absolute inset-0 size-full object-cover object-bottom motion-reduce:hidden"
-          src="https://v1.pinimg.com/videos/iht/expMp4/45/05/57/45055796afda511e5c057fa25102cae2_720w.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          aria-hidden
-        />
-      ) : null}
-
-      <AnimatePresence initial={false} mode="wait">
-        {stage === 'unconnected' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="unconnected">
-            <button
-              type="button"
-              onClick={() => {
-                setZone('information')
-                void start()
-              }}
-              disabled={!ready || busy}
-              aria-busy={busy}
-              className="max-w-[440px] rounded-2xl bg-black px-8 py-5 text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-wait"
-            >
-              <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
-            </button>
-          </IslandFrame>
+        {showVideo ? (
+          <video
+            ref={videoRef}
+            className="absolute inset-0 size-full object-cover object-bottom motion-reduce:hidden"
+            src="https://v1.pinimg.com/videos/iht/expMp4/45/05/57/45055796afda511e5c057fa25102cae2_720w.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden
+          />
         ) : null}
 
-        {stage === 'preparing' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="preparing">
-            <div className="flex max-w-[440px] flex-col items-center gap-2 rounded-2xl bg-black px-8 py-5 text-white">
-              <span className="flex items-center justify-center gap-3">
-                <Spinner reduceMotion={reduceMotion} />
-                <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
-              </span>
-              <span className="line-clamp-3 max-w-[360px] text-center font-sans text-[13px] leading-snug text-white/70">
-                {status.detail}
-              </span>
-              <SetupProgress step={status.step} />
-            </div>
-          </IslandFrame>
-        ) : null}
-
-        {stage === 'error' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="error">
-            <div className="flex max-w-[440px] flex-col items-center gap-3 rounded-2xl bg-black px-8 py-5 text-white">
-              <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
-              <span className="line-clamp-3 max-w-[360px] text-center font-sans text-[13px] leading-snug text-[#F87171]">
-                {status.detail}
-              </span>
-              <IslandButton
+        <AnimatePresence initial={false} mode="wait">
+          {stage === 'unconnected' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="unconnected">
+              <button
+                type="button"
                 onClick={() => {
                   setZone('information')
                   void start()
                 }}
                 disabled={!ready || busy}
-                busy={busy}
-                className="bg-white/15 text-white"
+                aria-busy={busy}
+                className="max-w-[440px] rounded-2xl px-8 py-5 text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-wait"
               >
-                Try again
-              </IslandButton>
-            </div>
-          </IslandFrame>
-        ) : null}
+                <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
+              </button>
+            </IslandFrame>
+          ) : null}
 
-        {stage === 'information' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="information">
-            <div className="flex h-full w-full flex-col justify-between rounded-xl bg-black/80 px-4 py-3 text-white">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-abc-gravity-italic text-[22px] leading-none">{identity.name}</p>
-                  <p className="mt-2 font-sans text-xs text-white/55">
-                    {status.address ? shortAddress(status.address) : identity.address || 'No wallet yet'}
-                  </p>
-                  {heartRate.live ? (
-                    <div className="mt-2">
-                      <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} size="pane" />
+          {stage === 'preparing' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="preparing">
+              <div className="flex max-w-[440px] flex-col items-center gap-2 rounded-2xl px-8 py-5 text-white">
+                <span className="flex items-center justify-center gap-3">
+                  <Spinner reduceMotion={reduceMotion} />
+                  <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
+                </span>
+                <span className="line-clamp-3 max-w-[360px] text-center font-sans text-[13px] leading-snug text-white/70">
+                  {status.detail}
+                </span>
+                <SetupProgress step={status.step} />
+              </div>
+            </IslandFrame>
+          ) : null}
+
+          {stage === 'error' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="error">
+              <div className="flex max-w-[440px] flex-col items-center gap-3 rounded-2xl px-8 py-5 text-white">
+                <span className="font-abc-gravity-italic text-[28px] leading-none">{status.title}</span>
+                <span className="line-clamp-3 max-w-[360px] text-center font-sans text-[13px] leading-snug text-[#F87171]">
+                  {status.detail}
+                </span>
+                <IslandButton
+                  onClick={() => {
+                    setZone('information')
+                    void start()
+                  }}
+                  disabled={!ready || busy}
+                  busy={busy}
+                  className="bg-white/15 text-white"
+                >
+                  Try again
+                </IslandButton>
+              </div>
+            </IslandFrame>
+          ) : null}
+
+          {stage === 'information' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="information">
+              <div className="flex h-full w-full flex-col justify-between rounded-xl px-4 py-3 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <IslandName name={name} onSave={save} />
+                    <p className="mt-2 font-sans text-xs text-white/55">
+                      {status.address ? shortAddress(status.address) : identity.address || 'No wallet yet'}
+                    </p>
+                    {heartRate.live ? (
+                      <div className="mt-2">
+                        <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} size="pane" />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <IslandButton onClick={() => setZone('wearable')} className="bg-white/10 text-white">
+                      Wearable
+                    </IslandButton>
+                    <IslandButton onClick={() => setZone('trading-zone')} className="bg-white text-black">
+                      Trade
+                    </IslandButton>
+                  </div>
+                </div>
+
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="font-sans text-sm tabular-nums text-white/90">
+                      {balances ? formatBalanceLine(balances) : 'Balances unavailable'}
+                    </p>
+                    {status.step === 'error' ? (
+                      <p className="mt-1 line-clamp-2 max-w-[280px] font-sans text-[12px] leading-snug text-[#F87171]">
+                        {status.detail}
+                      </p>
+                    ) : null}
+                  </div>
+                  {needs.stt || needs.tusdc || status.step === 'error' ? (
+                    <div className="flex shrink-0 gap-2">
+                      <IslandButton
+                        onClick={() => faucet('STT')}
+                        disabled={busy || !status.address}
+                        busy={busy && status.step === 'funding_stt'}
+                      >
+                        {busy && status.step === 'funding_stt' ? 'Funding STT' : 'Faucet STT'}
+                      </IslandButton>
+                      <IslandButton
+                        onClick={() => faucet('tUSDC')}
+                        disabled={busy || !status.address}
+                        busy={busy && status.step === 'funding_tusdc'}
+                      >
+                        {busy && status.step === 'funding_tusdc' ? 'Funding tUSDC' : 'Faucet tUSDC'}
+                      </IslandButton>
                     </div>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <IslandButton onClick={() => setZone('wearable')} className="bg-white/10 text-white">
-                    Wearable
-                  </IslandButton>
-                  <IslandButton onClick={() => setZone('trading-zone')} className="bg-white text-black">
-                    Trade
-                  </IslandButton>
-                </div>
               </div>
+            </IslandFrame>
+          ) : null}
 
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="font-sans text-sm tabular-nums text-white/90">
-                    {balances ? formatBalanceLine(balances) : 'Balances unavailable'}
-                  </p>
-                  {status.step === 'error' ? (
-                    <p className="mt-1 line-clamp-2 max-w-[280px] font-sans text-[12px] leading-snug text-[#F87171]">
-                      {status.detail}
-                    </p>
-                  ) : null}
-                </div>
-                {needs.stt || needs.tusdc || status.step === 'error' ? (
-                  <div className="flex shrink-0 gap-2">
-                    <IslandButton
-                      onClick={() => faucet('STT')}
-                      disabled={busy || !status.address}
-                      busy={busy && status.step === 'funding_stt'}
-                    >
-                      {busy && status.step === 'funding_stt' ? 'Funding STT' : 'Faucet STT'}
-                    </IslandButton>
-                    <IslandButton
-                      onClick={() => faucet('tUSDC')}
-                      disabled={busy || !status.address}
-                      busy={busy && status.step === 'funding_tusdc'}
-                    >
-                      {busy && status.step === 'funding_tusdc' ? 'Funding tUSDC' : 'Faucet tUSDC'}
-                    </IslandButton>
-                  </div>
-                ) : null}
+          {stage === 'trading-zone' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="trading-zone">
+              <div className="flex h-full w-full gap-2">
+                <IslandButton
+                  onClick={() => setZone('information')}
+                  className="flex h-full shrink-0 flex-col items-center justify-center gap-1.5 bg-white/10 px-3 text-white"
+                >
+                  Back
+                  {heartRate.live ? <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} /> : null}
+                </IslandButton>
+                <button
+                  type="button"
+                  className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#7C5CFF] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
+                >
+                  <span className="font-abc-gravity-italic text-[42px] leading-none">UP</span>
+                  <span className="mt-2 font-sans text-xs text-white/70">Buy YES</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#FF6A3D] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
+                >
+                  <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
+                  <span className="mt-2 font-sans text-xs text-white/70">Buy NO</span>
+                </button>
               </div>
-            </div>
-          </IslandFrame>
-        ) : null}
+            </IslandFrame>
+          ) : null}
 
-        {stage === 'trading-zone' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="trading-zone">
-            <div className="flex h-full w-full gap-2">
-              <IslandButton
-                onClick={() => setZone('information')}
-                className="flex h-full shrink-0 flex-col items-center justify-center gap-1.5 bg-white/10 px-3 text-white"
-              >
-                Back
-                {heartRate.live ? <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} /> : null}
-              </IslandButton>
-              <button
-                type="button"
-                className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#7C5CFF] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
-              >
-                <span className="font-abc-gravity-italic text-[42px] leading-none">UP</span>
-                <span className="mt-2 font-sans text-xs text-white/70">Buy YES</span>
-              </button>
-              <button
-                type="button"
-                className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#FF6A3D] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
-              >
-                <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
-                <span className="mt-2 font-sans text-xs text-white/70">Buy NO</span>
-              </button>
-            </div>
-          </IslandFrame>
-        ) : null}
+          {stage === 'wearable' ? (
+            <IslandFrame reduceMotion={reduceMotion} stageKey="wearable">
+              <div className="flex h-full w-full gap-2">
+                <IslandButton
+                  onClick={() => setZone('information')}
+                  className="h-full shrink-0 bg-white/10 px-3 text-white"
+                >
+                  Back
+                </IslandButton>
+                <WearablePane heartRate={heartRate} reduceMotion={reduceMotion} />
+              </div>
+            </IslandFrame>
+          ) : null}
+        </AnimatePresence>
 
-        {stage === 'wearable' ? (
-          <IslandFrame reduceMotion={reduceMotion} stageKey="wearable">
-            <div className="flex h-full w-full gap-2">
-              <IslandButton
-                onClick={() => setZone('information')}
-                className="h-full shrink-0 bg-white/10 px-3 text-white"
-              >
-                Back
-              </IslandButton>
-              <WearablePane heartRate={heartRate} reduceMotion={reduceMotion} />
-            </div>
-          </IslandFrame>
-        ) : null}
-      </AnimatePresence>
-
-        <IslandDropOverlay active={showDrop} hovering={overIsland} reduceMotion={reduceMotion} />
+        <IslandDropOverlay active={showDrop} hovering={overIsland} locked={!canApply} reduceMotion={reduceMotion} />
       </div>
     </section>
   )

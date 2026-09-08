@@ -1,5 +1,6 @@
 'use client'
 
+import { useDisplayName } from '@/hooks/use-display-name'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import {
   ANONYMOUS_FIELD,
@@ -12,7 +13,7 @@ import {
   traderKey,
 } from '@/lib/traders'
 import { onDisconnect, onValue, ref, remove, set, update } from 'firebase/database'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
 type TradersStatus = 'loading' | 'live' | 'error'
@@ -38,7 +39,10 @@ function getTabSessionId() {
 export function useTraderPresence() {
   const { ready, authenticated, user } = usePrivy()
   const address = user?.wallet?.address || user?.id || ''
-  const name = user ? traderIdentity(user).name : ''
+  const fallback = user ? traderIdentity(user).name : ''
+  const { name } = useDisplayName(address, fallback)
+  const nameRef = useRef(name)
+  nameRef.current = name
 
   useEffect(() => {
     if (!ready) return
@@ -65,7 +69,7 @@ export function useTraderPresence() {
       if (authenticated && address) {
         await update(traderRefFor(address), {
           address,
-          name: name || address,
+          name: nameRef.current || address,
           status: 'online',
           lastSeen: now,
           [`sessions/${sessionId}`]: now,
@@ -138,6 +142,14 @@ export function useTraderPresence() {
         await release?.()
       })
     }
+  }, [address, authenticated, ready])
+
+  useEffect(() => {
+    if (!ready || !authenticated || !address || !name) return
+
+    void update(traderRefFor(address), { name }).catch((error) => {
+      console.error('Failed to update trader name:', error)
+    })
   }, [address, authenticated, name, ready])
 }
 

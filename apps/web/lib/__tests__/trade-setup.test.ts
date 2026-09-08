@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { parseEther, parseUnits } from 'viem'
 import {
+  canApplyAbilityOnIsland,
   failedTradeSetupStatus,
   faucetErrorMessage,
   faucetNeeds,
@@ -302,6 +303,17 @@ describe('islandStageFromSetup', () => {
       }),
     ).toBe('information')
     expect(islandStageFromSetup({ authenticated: false, step: 'error', zone: 'information' })).toBe('error')
+  })
+})
+
+describe('canApplyAbilityOnIsland', () => {
+  test('only the trading zone accepts an ability drop', () => {
+    expect(canApplyAbilityOnIsland('trading-zone')).toBe(true)
+    expect(canApplyAbilityOnIsland('information')).toBe(false)
+    expect(canApplyAbilityOnIsland('wearable')).toBe(false)
+    expect(canApplyAbilityOnIsland('unconnected')).toBe(false)
+    expect(canApplyAbilityOnIsland('preparing')).toBe(false)
+    expect(canApplyAbilityOnIsland('error')).toBe(false)
   })
 })
 

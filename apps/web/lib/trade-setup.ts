@@ -183,6 +183,10 @@ export function islandStageFromSetup(input: {
   return 'preparing'
 }
 
+export function canApplyAbilityOnIsland(stage: IslandStage) {
+  return stage === 'trading-zone'
+}
+
 export function tradeSetupStatus(
   step: TradeSetupStep,
   extra: {

@@ -3,15 +3,18 @@
 import AbilityCardFace from '@/components/ability-card-face'
 import { useAbility } from '@/components/ability-provider'
 import { ABILITY_FRONT_COLOR, type AbilityCard as AbilityCardData } from '@/lib/ability'
+import { canApplyAbilityOnIsland } from '@/lib/trade-setup'
 import { useAbilityFlippedStore } from '@/stores/ability'
+import { useIslandStore } from '@/stores/island'
 import { animate } from 'motion'
-import { motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 const edgeThresholdPx = 1
 const SCROLL_DURATION_S = 0.2
 const DRAG_THRESHOLD_PX = 10
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 const FLIP_SPRING = { type: 'spring' as const, duration: 0.65, bounce: 0.16 }
 const LAYOUT_SPRING = { type: 'spring' as const, duration: 0.4, bounce: 0 }
@@ -215,13 +218,40 @@ function AbilityCard({ card, index, reduceMotion }: { card: AbilityCardData; ind
   )
 }
 
+function TradingZoneHintOverlay({ active, reduceMotion }: { active: boolean; reduceMotion: boolean }) {
+  return (
+    <AnimatePresence>
+      {active ? (
+        <motion.div
+          key="trading-zone-hint"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
+          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'scale(1)' }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.98)' }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            boxShadow: 'inset 0 0 0 2px rgba(255, 255, 255, 0.35)',
+          }}
+        >
+          <p className="max-w-[240px] rounded-full bg-black/55 px-4 py-2 text-center font-sans text-sm text-white">
+            Enter the trading zone to apply this effect
+          </p>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  )
+}
+
 export default function SectionAbility() {
   const scrollerRef = useRef<HTMLUListElement>(null)
   const playbackRef = useRef<ReturnType<typeof animate> | null>(null)
   const reduceMotion = useReducedMotion() ?? false
   const { rack, drag } = useAbility()
+  const stage = useIslandStore((state) => state.stage)
   const [showLeftFade, setShowLeftFade] = useState(false)
   const [showRightFade, setShowRightFade] = useState(false)
+  const showTradingZoneHint = Boolean(drag) && !canApplyAbilityOnIsland(stage)
 
   const syncFades = useCallback(() => {
     const el = scrollerRef.current
@@ -308,6 +338,7 @@ export default function SectionAbility() {
 
       <EdgeArrow side="left" visible={showLeftFade && !drag} onClick={() => scrollToHidden('left')} />
       <EdgeArrow side="right" visible={showRightFade && !drag} onClick={() => scrollToHidden('right')} />
+      <TradingZoneHintOverlay active={showTradingZoneHint} reduceMotion={reduceMotion} />
     </section>
   )
 }

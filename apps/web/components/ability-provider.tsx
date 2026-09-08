@@ -2,7 +2,9 @@
 
 import AbilityDragLayer from '@/components/ability-drag-layer'
 import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, type AbilityCard, type AbilityDrag } from '@/lib/ability'
+import { canApplyAbilityOnIsland } from '@/lib/trade-setup'
 import { useAbilityFlippedStore } from '@/stores/ability'
+import { useIslandStore } from '@/stores/island'
 import { animate, type AnimationPlaybackControls } from 'motion'
 import { useMotionValue, useReducedMotion, useSpring } from 'motion/react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -222,7 +224,10 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
         const originIndex = current.originIndex
         lean.set(0)
 
-        if (hitIsland(islandRef.current, event.clientX, event.clientY)) {
+        if (
+          hitIsland(islandRef.current, event.clientX, event.clientY) &&
+          canApplyAbilityOnIsland(useIslandStore.getState().stage)
+        ) {
           if (reduceMotion) {
             finishApply(card)
             return

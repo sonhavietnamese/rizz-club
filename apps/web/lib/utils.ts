@@ -5,6 +5,12 @@ export function formatAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
+export const DISPLAY_NAME_MAX_LENGTH = 15
+
+export function sanitizeName(name: string) {
+  return name.toLowerCase().replace(/\s/g, '').slice(0, DISPLAY_NAME_MAX_LENGTH)
+}
+
 export function normalizePoints(points: LivelinePoint[]) {
   return points
     .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value))
