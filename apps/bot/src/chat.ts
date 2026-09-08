@@ -1,4 +1,5 @@
 import { chatRef } from '@/firebase'
+import { displayName } from '@/traders'
 import { wallets, type BotWallet } from '@/wallets'
 import { get, limitToFirst, orderByKey, push, query, remove } from 'firebase/database'
 
@@ -17,24 +18,6 @@ const AVATARS = [
   'https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg',
   'https://i.pinimg.com/1200x/a5/65/6c/a5656c180fedac78f1f913abc7253015.jpg',
   'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-] as const
-
-const NAMES = [
-  'nova',
-  'kira',
-  'jax',
-  'mira',
-  'leo',
-  'sage',
-  'rex',
-  'nina',
-  'otto',
-  'ivy',
-  'zed',
-  'aria',
-  'kai',
-  'lux',
-  'rio',
 ] as const
 
 const LINES = [
@@ -96,10 +79,6 @@ function sleep(ms: number, signal?: AbortSignal) {
 
     signal?.addEventListener('abort', onAbort, { once: true })
   })
-}
-
-function displayName(wallet: BotWallet) {
-  return NAMES[wallet.index % NAMES.length] ?? wallet.address.slice(0, 6)
 }
 
 export async function buildChatMessage(wallet: BotWallet, text = pick(LINES)): Promise<ChatMessage> {

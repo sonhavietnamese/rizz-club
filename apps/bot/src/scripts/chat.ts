@@ -1,5 +1,7 @@
 import { CHAT_LIMIT, simulateChat } from '@/chat'
 import { closeFirebase } from '@/firebase'
+import { setTradersOffline, setTradersOnline } from '@/traders-store'
+import { wallets } from '@/wallets'
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -27,6 +29,7 @@ function parseArgs() {
 
 const { count, intervalMs, dryRun } = parseArgs()
 const controller = new AbortController()
+const roster = wallets()
 
 process.on('SIGINT', () => controller.abort())
 process.on('SIGTERM', () => controller.abort())
@@ -36,6 +39,7 @@ console.log(
 )
 
 try {
+  await setTradersOnline(roster, { dryRun })
   const sent = await simulateChat({
     count,
     intervalMs,
@@ -50,5 +54,6 @@ try {
     throw error
   }
 } finally {
+  await setTradersOffline(roster, { dryRun })
   await closeFirebase()
 }

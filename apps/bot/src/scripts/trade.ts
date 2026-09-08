@@ -1,8 +1,11 @@
+import { closeFirebase } from '@/firebase'
 import { defaultInterval, intervalOptions, isIntervalOption, type IntervalOption } from '@/market'
 import { simulateTrades } from '@/trade'
 import { defaultBatchSize, maxBatchSize } from '@/trade/batch'
 import { defaultPaceMs } from '@/trade/pace'
 import { maxTradeCost, minTradeCost } from '@/trade/types'
+import { setTradersOffline, setTradersOnline } from '@/traders-store'
+import { wallets } from '@/wallets'
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -54,6 +57,7 @@ function parseArgs() {
 
 const { count, intervalMs, window, limit, batch, dryRun } = parseArgs()
 const controller = new AbortController()
+const roster = wallets()
 
 process.on('SIGINT', () => controller.abort())
 process.on('SIGTERM', () => controller.abort())
@@ -63,6 +67,7 @@ console.log(
 )
 
 try {
+  await setTradersOnline(roster, { dryRun })
   const placed = await simulateTrades({
     count,
     intervalMs,
@@ -79,4 +84,7 @@ try {
   } else {
     throw error
   }
+} finally {
+  await setTradersOffline(roster, { dryRun })
+  await closeFirebase()
 }

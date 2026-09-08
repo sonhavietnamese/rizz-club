@@ -4,6 +4,8 @@ import { closeFirebase } from '@/firebase'
 import { type IntervalOption } from '@/market'
 import { simulateTrades } from '@/trade'
 import { minTradeCost } from '@/trade/types'
+import { setTradersOffline, setTradersOnline } from '@/traders-store'
+import { wallets } from '@/wallets'
 
 const DRY_RUN = false
 
@@ -26,8 +28,11 @@ let failure: unknown
 process.on('SIGINT', () => controller.abort())
 process.on('SIGTERM', () => controller.abort())
 
+const roster = wallets()
+
 console.log(
   `Orchestra · ${env.WALLET_COUNT} wallets${DRY_RUN ? ' [dry-run]' : ''}\n` +
+    `  traders ${roster.length} → /traders\n` +
     `  chat   every ~${CHAT.intervalMs}ms → /chat (limit ${CHAT_LIMIT})\n` +
     `  trade  BTC ${TRADE.window} · cost ${minTradeCost}–${TRADE.limit} · batch 1–${TRADE.batch} · pace ${TRADE.intervalMs}ms`,
 )
@@ -43,6 +48,9 @@ async function part(work: () => Promise<void>) {
 }
 
 try {
+  await setTradersOnline(roster, { dryRun: DRY_RUN })
+  console.log(`Traders online ${roster.length}`)
+
   await Promise.all([
     part(async () => {
       const sent = await simulateChat({
@@ -70,5 +78,6 @@ try {
   if (failure) throw failure
   if (controller.signal.aborted) console.log('Stopped')
 } finally {
+  await setTradersOffline(roster, { dryRun: DRY_RUN })
   await closeFirebase()
 }

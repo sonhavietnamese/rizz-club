@@ -15,6 +15,7 @@ const app = initializeApp({
 
 export const database = getDatabase(app)
 export const chatRef = ref(database, 'chat')
+export const tradersRef = ref(database, 'traders')
 
 export async function closeFirebase() {
   goOffline(database)
