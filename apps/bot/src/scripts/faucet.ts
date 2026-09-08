@@ -2,7 +2,7 @@ import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
 import { chain, createSignerClient, publicClient, tusdcAbi, tusdcAddress } from '@/chain'
 import { getFaucetAccount, wallets, type BotWallet } from '@/wallets'
 
-const STT_AMOUNT = parseEther('2')
+const STT_AMOUNT = parseEther('0.5')
 const TUSDC_DECIMALS = 6
 const TUSDC_AMOUNT = parseUnits('100', TUSDC_DECIMALS)
 const GAS_RESERVE = parseEther('0.5')
