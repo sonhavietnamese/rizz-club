@@ -13,6 +13,19 @@ type ChatItem = {
   name: string
   message: string
   side: 'left' | 'right'
+  t: number
+}
+
+const chatTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Ho_Chi_Minh',
+})
+
+function formatChatTime(t: number) {
+  if (!Number.isFinite(t)) return ''
+  return chatTimeFormatter.format(new Date(t))
 }
 
 const AVATARS = [
@@ -65,6 +78,7 @@ function toChatItem(message: ChatMessage, user: User | null): ChatItem {
     name: message.name,
     message: message.message,
     side: isSelfMessage(message, user) ? 'right' : 'left',
+    t: message.t,
   }
 }
 
@@ -108,7 +122,18 @@ function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
         </figure>
         <div className="relative min-w-0 w-fit max-w-full rounded-lg bg-[#3A3A3A] p-2 text-white/80">
           <BubbleTail side={item.side} />
-          <span className="block wrap-break-word break-words leading-[1.1] text-sm">{item.message}</span>
+          <div className="flex min-w-0 w-full items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate font-sans text-sm font-regular text-white/50">{item.name}</span>
+          </div>
+          <span className="mt-1 block wrap-break-word break-words text-sm leading-[1.1]">{item.message}</span>
+          <div className="mt-2 flex min-w-0 w-full items-end justify-end gap-3">
+            <time
+              dateTime={new Date(item.t).toISOString()}
+              className="shrink-0 font-sans text-xs tabular-nums text-[#6A7374]"
+            >
+              {formatChatTime(item.t)}
+            </time>
+          </div>
         </div>
       </div>
     </motion.li>
