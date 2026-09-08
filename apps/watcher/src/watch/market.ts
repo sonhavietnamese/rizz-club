@@ -21,13 +21,17 @@ export async function waitForMarketSwitch(
       return { event: 'market_expired' }
     }
 
-    const discovery = await discoverTargetMarkets(exchange, intervalSeconds)
-    if (signal.aborted) return
+    try {
+      const discovery = await discoverTargetMarkets(exchange, intervalSeconds)
+      if (signal.aborted) return
 
-    onDiscovery?.(discovery)
+      onDiscovery?.(discovery)
 
-    if (discovery.current && discovery.current.id !== currentMarket.id) {
-      return { event: 'market_changed', market: discovery.current }
+      if (discovery.current && discovery.current.id !== currentMarket.id) {
+        return { event: 'market_changed', market: discovery.current }
+      }
+    } catch {
+      // Indexer/registry blips should not tear down the live book subscription.
     }
   }
 }
