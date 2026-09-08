@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCents, formatShares, toLeaderboardItems, type LeaderboardItem } from './leaderboard'
+import {
+  advanceLeaderboardHold,
+  formatCents,
+  formatShares,
+  toLeaderboardItems,
+  type LeaderboardHold,
+  type LeaderboardItem,
+} from './leaderboard'
 import type { MarketTrade } from './market-trades'
 
 function trade(overrides: Partial<MarketTrade> = {}): MarketTrade {
@@ -132,5 +139,67 @@ describe('leaderboard formatters', () => {
     expect(formatShares(100)).toBe('100')
     expect(formatShares(12.34)).toBe('12.3')
     expect(formatCents(0.123)).toBe('12.3¢')
+  })
+})
+
+function item(id: string): LeaderboardItem {
+  return {
+    id,
+    trader: id,
+    name: id,
+    avatar: '',
+    outcome: 'YES',
+    side: 'up',
+    shares: 10,
+    avgPrice: 0.4,
+    profit: 1,
+  }
+}
+
+describe('advanceLeaderboardHold', () => {
+  const first: LeaderboardHold = {
+    marketKey: 'm1',
+    items: [item('alice')],
+    epoch: 0,
+  }
+
+  test('keeps the last board when the market ends', () => {
+    expect(advanceLeaderboardHold(first, '', [])).toEqual({ hold: first, frozen: true })
+  })
+
+  test('keeps the last board until the next market has a trade', () => {
+    expect(advanceLeaderboardHold(first, 'm2', [])).toEqual({ hold: first, frozen: true })
+  })
+
+  test('hands off and bumps epoch when the next market trades', () => {
+    const nextItems = [item('bob')]
+    expect(advanceLeaderboardHold(first, 'm2', nextItems)).toEqual({
+      hold: { marketKey: 'm2', items: nextItems, epoch: 1 },
+      frozen: false,
+    })
+  })
+
+  test('updates in place on the same market', () => {
+    const nextItems = [item('alice'), item('bob')]
+    expect(advanceLeaderboardHold(first, 'm1', nextItems)).toEqual({
+      hold: { marketKey: 'm1', items: nextItems, epoch: 0 },
+      frozen: false,
+    })
+  })
+
+  test('clears when the live market has no positions left', () => {
+    expect(advanceLeaderboardHold(first, 'm1', [])).toEqual({
+      hold: { marketKey: 'm1', items: [], epoch: 0 },
+      frozen: false,
+    })
+  })
+
+  test('reuses the empty hold instead of allocating another', () => {
+    const empty: LeaderboardHold = { marketKey: '', items: [], epoch: 0 }
+    const firstPass = advanceLeaderboardHold(empty, '', [])
+    const secondPass = advanceLeaderboardHold(firstPass.hold, '', [])
+
+    expect(firstPass).toEqual({ hold: empty, frozen: false })
+    expect(secondPass.hold).toBe(firstPass.hold)
   })
 })

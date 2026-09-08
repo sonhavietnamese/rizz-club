@@ -1,10 +1,18 @@
 'use client'
 
 import { useLeaderboard } from '@/hooks/use-leaderboard'
-import { formatCents, formatShares, type LeaderboardItem } from '@/lib/leaderboard'
+import {
+  formatCents,
+  formatShares,
+  leaderboardExitDuration,
+  leaderboardStaggerDelay,
+  LEADERBOARD_FADE_S,
+  type LeaderboardItem,
+} from '@/lib/leaderboard'
 import NumberFlow from '@number-flow/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
+import { forwardRef } from 'react'
 import markOrange from '@/public/mark-orange.png'
 import markPurple from '@/public/mark-purple.png'
 
@@ -29,18 +37,32 @@ function HeartbeatIcon() {
   )
 }
 
-function LeaderboardRow({ item, reduceMotion }: { item: LeaderboardItem; reduceMotion: boolean }) {
+function LeaderboardRow({
+  item,
+  index,
+  reduceMotion,
+  enter,
+  frozen,
+}: {
+  item: LeaderboardItem
+  index: number
+  reduceMotion: boolean
+  enter: boolean
+  frozen: boolean
+}) {
   const inProfit = item.profit >= 0
+  const stagger = leaderboardStaggerDelay(index, reduceMotion)
+  const fade = { duration: LEADERBOARD_FADE_S, ease: EASE_OUT }
 
   return (
     <motion.li
       layout="position"
-      initial={{ opacity: 0 }}
+      initial={enter ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, transition: { ...fade, delay: stagger } }}
       transition={{
-        layout: reduceMotion ? { duration: 0 } : { duration: 0.22, ease: EASE_IN_OUT },
-        opacity: { duration: 0.18, ease: EASE_OUT },
+        layout: reduceMotion || frozen ? { duration: 0 } : { duration: 0.22, ease: EASE_IN_OUT },
+        opacity: { ...fade, delay: enter ? stagger : 0 },
       }}
       className="relative flex w-full gap-[10px] rounded-lg bg-background p-2"
     >
@@ -78,7 +100,7 @@ function LeaderboardRow({ item, reduceMotion }: { item: LeaderboardItem; reduceM
         >
           <NumberFlow
             value={item.profit}
-            animated={!reduceMotion}
+            animated={!reduceMotion && !frozen}
             format={{ style: 'currency', currency: 'USD', signDisplay: 'always', maximumFractionDigits: 2 }}
             transformTiming={{ duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }}
             spinTiming={{ duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }}
@@ -101,8 +123,40 @@ function LeaderboardRow({ item, reduceMotion }: { item: LeaderboardItem; reduceM
   )
 }
 
+const LeaderboardList = forwardRef<
+  HTMLUListElement,
+  {
+    items: LeaderboardItem[]
+    reduceMotion: boolean
+    enter: boolean
+    frozen: boolean
+  }
+>(function LeaderboardList({ items, reduceMotion, enter, frozen, ...presence }, ref) {
+  return (
+    <motion.ul
+      ref={ref}
+      className="flex flex-col gap-2"
+      {...presence}
+      initial={false}
+      exit={{ opacity: 1 }}
+      transition={{ duration: leaderboardExitDuration(items.length, reduceMotion), ease: EASE_OUT }}
+    >
+      {items.map((item, index) => (
+        <LeaderboardRow
+          key={item.id}
+          item={item}
+          index={index}
+          reduceMotion={reduceMotion}
+          enter={enter}
+          frozen={frozen}
+        />
+      ))}
+    </motion.ul>
+  )
+})
+
 export default function SectionLeaderboard() {
-  const { items, status } = useLeaderboard()
+  const { items, epoch, frozen, status } = useLeaderboard()
   const reduceMotion = useReducedMotion() ?? false
 
   return (
@@ -113,13 +167,9 @@ export default function SectionLeaderboard() {
             {status === 'error' ? 'Could not load trades.' : status === 'loading' ? 'Syncing positions...' : 'Waiting for positions...'}
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            <AnimatePresence initial={false} mode="popLayout">
-              {items.map((item) => (
-                <LeaderboardRow key={item.id} item={item} reduceMotion={reduceMotion} />
-              ))}
-            </AnimatePresence>
-          </ul>
+          <AnimatePresence mode="wait" initial={false}>
+            <LeaderboardList key={epoch} items={items} reduceMotion={reduceMotion} enter={epoch > 0} frozen={frozen} />
+          </AnimatePresence>
         )}
       </motion.div>
     </section>

@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react'
 
 type TradesStatus = 'loading' | 'live' | 'error'
 
+const emptyTrades: MarketTrade[] = []
+
 export function useMarketTrades(marketIds: string[]) {
   const [trades, setTrades] = useState<MarketTrade[]>([])
   const [status, setStatus] = useState<TradesStatus>('loading')
@@ -42,7 +44,7 @@ export function useMarketTrades(marketIds: string[]) {
   }, [filterKey])
 
   return {
-    trades: filterKey ? trades : [],
+    trades: filterKey ? trades : emptyTrades,
     status: filterKey ? status : 'live',
   }
 }

@@ -152,3 +152,72 @@ export function formatShares(shares: number) {
 export function formatCents(price: number) {
   return `${(price * 100).toFixed(1)}¢`
 }
+
+export const LEADERBOARD_FADE_S = 0.2
+export const LEADERBOARD_STAGGER_S = 0.05
+
+export type LeaderboardHold = {
+  marketKey: string
+  items: LeaderboardItem[]
+  epoch: number
+}
+
+export function leaderboardStaggerDelay(index: number, reduceMotion: boolean) {
+  return reduceMotion ? 0 : index * LEADERBOARD_STAGGER_S
+}
+
+export function leaderboardExitDuration(count: number, reduceMotion: boolean) {
+  if (reduceMotion) return LEADERBOARD_FADE_S
+  return LEADERBOARD_FADE_S + Math.max(0, count - 1) * LEADERBOARD_STAGGER_S
+}
+
+function reuseHold(
+  current: LeaderboardHold | null,
+  next: LeaderboardHold,
+  frozen: boolean,
+): { hold: LeaderboardHold; frozen: boolean } {
+  if (
+    current &&
+    current.marketKey === next.marketKey &&
+    current.epoch === next.epoch &&
+    (current.items === next.items || (current.items.length === 0 && next.items.length === 0))
+  ) {
+    return { hold: current, frozen }
+  }
+
+  return { hold: next, frozen }
+}
+
+export function advanceLeaderboardHold(
+  current: LeaderboardHold | null,
+  marketKey: string,
+  liveItems: LeaderboardItem[],
+): { hold: LeaderboardHold; frozen: boolean } {
+  if (liveItems.length > 0 && marketKey) {
+    const handedOff = Boolean(current?.marketKey && current.marketKey !== marketKey && current.items.length > 0)
+    return reuseHold(
+      current,
+      {
+        marketKey,
+        items: liveItems,
+        epoch: (current?.epoch ?? 0) + (handedOff ? 1 : 0),
+      },
+      false,
+    )
+  }
+
+  const betweenMarkets = !marketKey || Boolean(current && current.marketKey !== marketKey)
+  if (betweenMarkets && current?.items.length) {
+    return { hold: current, frozen: true }
+  }
+
+  return reuseHold(
+    current,
+    {
+      marketKey,
+      items: liveItems,
+      epoch: current?.epoch ?? 0,
+    },
+    false,
+  )
+}
