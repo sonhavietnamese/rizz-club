@@ -18,8 +18,9 @@ import { formatUnits, parseUnits, type Hex } from 'viem'
 import { publicClient, tusdcAbi, tusdcAddress } from '@/chain'
 import { errorMessage } from '@/lib/async'
 import type { BotWallet } from '@/wallets'
+import type { MarketSnapshot } from './snapshot'
 import type { BookPrices, CostBounds, TradeIntent, TradeResult, WalletPositions } from './types'
-import { defaultCostBounds, resolveCostBounds } from './types'
+import { resolveCostBounds } from './types'
 
 const maxRetrySlippageBps = BigInt(1500)
 
@@ -101,7 +102,13 @@ export async function placeTrade(
   wallet: BotWallet,
   market: UnifiedMarket,
   intent: TradeIntent,
-  options: { dryRun?: boolean; slippagePercent?: number; cost?: Partial<CostBounds> } = {},
+  options: {
+    dryRun?: boolean
+    slippagePercent?: number
+    cost?: Partial<CostBounds>
+    snapshot?: MarketSnapshot
+    positions?: WalletPositions
+  } = {},
 ): Promise<TradeResult> {
   const costBounds = resolveCostBounds(options.cost)
   if (intent.cost <= costBounds.min || intent.cost > costBounds.limit) {
@@ -116,15 +123,16 @@ export async function placeTrade(
   exchange.setSigner({ account: wallet.account })
 
   const marketId = market.info.marketId
-  const onchain = await exchange.client.getMarketOnchain(marketId as Hex)
+  const onchain = options.snapshot?.onchain ?? (await exchange.client.getMarketOnchain(marketId as Hex))
   if (onchain.status !== 1) {
     throw new Error(`Market ${market.symbol} is not trading on-chain`)
   }
 
   const [bookParams, book, positions] = await Promise.all([
-    exchange.client.getBinaryBookParams(onchain.pool),
-    exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals }),
-    walletPositions(exchange, wallet.address, marketId, onchain.decimals),
+    options.snapshot?.bookParams ?? exchange.client.getBinaryBookParams(onchain.pool),
+    options.snapshot?.book ??
+      exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals }),
+    options.positions ?? walletPositions(exchange, wallet.address, marketId, onchain.decimals),
   ])
 
   const slippagePercent = options.slippagePercent ?? 2

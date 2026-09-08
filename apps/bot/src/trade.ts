@@ -1,12 +1,14 @@
 import { createDreamDexExchange } from '@/dreamdex'
 import { errorMessage, sleep } from '@/lib/async'
-import { defaultInterval, discoverCurrentMarket, type IntervalOption } from '@/market'
+import { defaultInterval, type IntervalOption } from '@/market'
+import { defaultBatchSize, loadPositions, pickBatch, pickBatchSize } from '@/trade/batch'
 import { pickIntent } from '@/trade/intent'
 import { createPace, defaultPaceMs, nextBeat } from '@/trade/pace'
-import { bookPrices, placeTrade, walletPositions } from '@/trade/place'
-import { defaultCostBounds, resolveCostBounds, type CostBounds, type TradeResult } from '@/trade/types'
+import { placeTrade } from '@/trade/place'
+import { createMarketTape, type MarketSnapshot } from '@/trade/snapshot'
+import { defaultCostBounds, resolveCostBounds, type CostBounds, type TradeResult, type WalletPositions } from '@/trade/types'
 import { wallets, type BotWallet } from '@/wallets'
-import { isBinaryMarket, type SomniaMarkets, type UnifiedMarket } from '@somnia-chain/markets-sdk'
+import { isBinaryMarket, type SomniaMarkets } from '@somnia-chain/markets-sdk'
 
 export type SimulateTradesOptions = {
   count?: number
@@ -14,13 +16,8 @@ export type SimulateTradesOptions = {
   dryRun?: boolean
   window?: IntervalOption
   cost?: Partial<CostBounds>
+  batch?: number
   signal?: AbortSignal
-}
-
-function pick<T>(items: readonly T[]) {
-  const item = items[Math.floor(Math.random() * items.length)]
-  if (item === undefined) throw new Error('Cannot pick from an empty list')
-  return item
 }
 
 function formatTrade(result: TradeResult) {
@@ -32,12 +29,17 @@ function formatWait(kind: string, waitMs: number) {
   return `  ${kind.padEnd(8, ' ')}  ${(waitMs / 1000).toFixed(1)}s`
 }
 
+function snapshotMarketId(snapshot: MarketSnapshot) {
+  return isBinaryMarket(snapshot.market.info) ? snapshot.market.info.marketId : snapshot.market.id
+}
+
 export async function simulateTrades({
   count,
   intervalMs = defaultPaceMs,
   dryRun = false,
   window = defaultInterval,
   cost,
+  batch = defaultBatchSize,
   signal,
 }: SimulateTradesOptions = {}) {
   const costBounds = resolveCostBounds(cost)
@@ -46,10 +48,22 @@ export async function simulateTrades({
     throw new Error('No generated wallets. Run `bun run generate-wallets` first.')
   }
 
-  const exchange = createDreamDexExchange()
+  const reader = createDreamDexExchange()
+  const writers = new Map<string, SomniaMarkets>()
+  const tape = createMarketTape(reader, window)
   const pace = createPace()
   let placed = 0
   let lastWallet: BotWallet | undefined
+
+  function writerFor(wallet: BotWallet) {
+    const key = wallet.address.toLowerCase()
+    const existing = writers.get(key)
+    if (existing) return existing
+
+    const writer = createDreamDexExchange({ account: wallet.account })
+    writers.set(key, writer)
+    return writer
+  }
 
   try {
     while (count === undefined || placed < count) {
@@ -63,43 +77,52 @@ export async function simulateTrades({
       if (signal?.aborted) break
       if (!beat.act) continue
 
-      const market = await discoverCurrentMarket(exchange, window)
-      if (!market || !isBinaryMarket(market.info)) {
+      const snapshot = await tape.current()
+      if (!snapshot) {
         console.log(`  waiting for a live BTC ${window} market`)
         continue
       }
 
-      const wallet = beat.reuseWallet && lastWallet ? lastWallet : pick(roster)
-      const attempt = await tradeOnce(exchange, wallet, market, dryRun, costBounds)
-      if (attempt) {
-        lastWallet = wallet
-        console.log(formatTrade(attempt))
+      const remaining = count === undefined ? batch : Math.min(batch, count - placed)
+      const group = pickBatch(roster, pickBatchSize(remaining), lastWallet, beat.reuseWallet)
+      const holdings = await loadPositions(
+        reader,
+        group.map((wallet) => wallet.address),
+        snapshotMarketId(snapshot),
+        snapshot.onchain.decimals,
+      )
+
+      const results = await Promise.all(
+        group.map((wallet, index) => {
+          const positions = holdings[index]
+          if (!positions) return Promise.resolve(undefined)
+          return tradeOne(writerFor(wallet), wallet, snapshot, positions, dryRun, costBounds)
+        }),
+      )
+
+      for (const [index, result] of results.entries()) {
+        if (!result) continue
+        lastWallet = group[index] ?? lastWallet
         placed += 1
       }
     }
 
     return placed
   } finally {
-    await exchange.close()
+    await Promise.all([reader.close(), ...[...writers.values()].map((writer) => writer.close())])
   }
 }
 
-async function tradeOnce(
-  exchange: SomniaMarkets,
+async function tradeOne(
+  writer: SomniaMarkets,
   wallet: BotWallet,
-  market: UnifiedMarket,
+  snapshot: MarketSnapshot,
+  positions: WalletPositions,
   dryRun: boolean,
   costBounds: CostBounds = defaultCostBounds,
 ): Promise<TradeResult | undefined> {
-  if (!isBinaryMarket(market.info)) return undefined
-
   try {
-    const onchain = await exchange.client.getMarketOnchain(market.info.marketId)
-    const [book, positions] = await Promise.all([
-      exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals }),
-      walletPositions(exchange, wallet.address, market.info.marketId, onchain.decimals),
-    ])
-    const intent = pickIntent(wallet.address, positions, bookPrices(book, onchain.decimals), Math.random, costBounds)
+    const intent = pickIntent(wallet.address, positions, snapshot.prices, Math.random, costBounds)
     if (!intent) {
       console.log(
         `  skip    ${wallet.address}  collateral ${positions.collateral.toFixed(2)}  need > ${costBounds.min} and ≤ ${costBounds.limit}`,
@@ -107,7 +130,14 @@ async function tradeOnce(
       return undefined
     }
 
-    return await placeTrade(exchange, wallet, market, intent, { dryRun, cost: costBounds })
+    const result = await placeTrade(writer, wallet, snapshot.market, intent, {
+      dryRun,
+      cost: costBounds,
+      snapshot,
+      positions,
+    })
+    console.log(formatTrade(result))
+    return result
   } catch (error) {
     console.error(`  fail    ${wallet.address}  ${errorMessage(error)}`)
     return undefined
