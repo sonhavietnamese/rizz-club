@@ -19,6 +19,8 @@ export const TRADE_SETUP_STEPS = [
 export type TradeSetupStep = (typeof TRADE_SETUP_STEPS)[number]
 export type TradeSetupPhase = TradeSetupStep | 'idle' | 'error'
 export type FaucetAsset = 'STT' | 'tUSDC'
+export type IslandStage = 'unconnected' | 'preparing' | 'information' | 'error' | 'trading-zone'
+export type IslandZone = Extract<IslandStage, 'information' | 'trading-zone'>
 
 export type TradeSetupWallet = {
   address: string
@@ -162,6 +164,25 @@ export function tradeSetupProgress(step: TradeSetupPhase) {
   return 5
 }
 
+export function islandStageFromSetup(input: {
+  authenticated: boolean
+  step: TradeSetupPhase
+  zone: IslandZone
+  address?: string
+  settled?: boolean
+}): IslandStage {
+  if (!input.authenticated) {
+    if (input.step === 'connecting') return 'preparing'
+    if (input.step === 'error') return 'error'
+    return 'unconnected'
+  }
+
+  if (input.settled && input.address) return input.zone
+  if (input.step === 'ready') return input.zone
+  if (input.step === 'error') return 'error'
+  return 'preparing'
+}
+
 export function tradeSetupStatus(
   step: TradeSetupStep,
   extra: {
@@ -188,11 +209,53 @@ export function tradeSetupStatus(
   return status
 }
 
-export function failedTradeSetupStatus(error: unknown): TradeSetupStatus {
+export function failedTradeSetupStatus(
+  error: unknown,
+  extra: { address?: string; balances?: TradeSetupBalances } = {},
+): TradeSetupStatus {
   return {
     step: 'error',
     title: 'COULD NOT START',
     detail: errorMessage(error),
+    address: extra.address,
+    stt: extra.balances?.stt,
+    tusdc: extra.balances?.tusdc,
+  }
+}
+
+export async function fundTradeWallet(
+  deps: Pick<TradeSetupDeps, 'getBalances' | 'faucet'>,
+  address: string,
+  onStatus: (status: TradeSetupStatus) => void,
+  asset?: FaucetAsset,
+) {
+  let balances = await wrap('Could not read STT and tUSDC balances', () => deps.getBalances(address))
+  onStatus(tradeSetupStatus('checking_balances', { address, balances }))
+
+  const needs = faucetNeeds(balances)
+  const fundStt = (!asset || asset === 'STT') && needs.stt
+  const fundTusdc = (!asset || asset === 'tUSDC') && needs.tusdc
+
+  if (fundStt) {
+    onStatus(tradeSetupStatus('funding_stt', { address, balances }))
+    await wrap('STT faucet failed', () => deps.faucet('STT', STT_FAUCET_AMOUNT, address))
+  }
+
+  if (fundTusdc) {
+    onStatus(tradeSetupStatus('funding_tusdc', { address, balances }))
+    await wrap('tUSDC faucet failed', () => deps.faucet('tUSDC', TUSDC_FAUCET_AMOUNT, address))
+  }
+
+  if (fundStt || fundTusdc) {
+    balances = await wrap('Could not confirm faucet balances', () => deps.getBalances(address))
+  }
+
+  const ready = tradeSetupStatus('ready', { address, balances })
+  onStatus(ready)
+  return {
+    address,
+    stt: balances.stt,
+    tusdc: balances.tusdc,
   }
 }
 
@@ -238,31 +301,7 @@ export async function runTradeSetup(
   }
 
   onStatus(tradeSetupStatus('checking_balances', { address: wallet.address }))
-  let balances = await wrap('Could not read STT and tUSDC balances', () => deps.getBalances(wallet.address))
-  onStatus(tradeSetupStatus('checking_balances', { address: wallet.address, balances }))
-
-  const needs = faucetNeeds(balances)
-  if (needs.stt) {
-    onStatus(tradeSetupStatus('funding_stt', { address: wallet.address, balances }))
-    await wrap('STT faucet failed', () => deps.faucet('STT', STT_FAUCET_AMOUNT, wallet.address))
-  }
-
-  if (needs.tusdc) {
-    onStatus(tradeSetupStatus('funding_tusdc', { address: wallet.address, balances }))
-    await wrap('tUSDC faucet failed', () => deps.faucet('tUSDC', TUSDC_FAUCET_AMOUNT, wallet.address))
-  }
-
-  if (needs.stt || needs.tusdc) {
-    balances = await wrap('Could not confirm faucet balances', () => deps.getBalances(wallet.address))
-  }
-
-  const ready = tradeSetupStatus('ready', { address: wallet.address, balances })
-  onStatus(ready)
-  return {
-    address: wallet.address,
-    stt: balances.stt,
-    tusdc: balances.tusdc,
-  }
+  return fundTradeWallet(deps, wallet.address, onStatus)
 }
 
 function detailFor(

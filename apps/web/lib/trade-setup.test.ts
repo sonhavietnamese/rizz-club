@@ -6,8 +6,10 @@ import {
   faucetNeeds,
   formatBalanceLine,
   formatTokenAmount,
+  fundTradeWallet,
   hasAssignedSigner,
   idleTradeSetupStatus,
+  islandStageFromSetup,
   isBusyTradeSetup,
   runTradeSetup,
   shortAddress,
@@ -256,5 +258,60 @@ describe('runTradeSetup', () => {
 
     await expect(runTradeSetup(setup, () => {})).rejects.toThrow('Could not connect to Privy. Sign-in was cancelled.')
     expect(setup.calls).toEqual([])
+  })
+})
+
+describe('islandStageFromSetup', () => {
+  test('starts unconnected until Privy is in progress', () => {
+    expect(islandStageFromSetup({ authenticated: false, step: 'idle', zone: 'information' })).toBe('unconnected')
+    expect(islandStageFromSetup({ authenticated: false, step: 'connecting', zone: 'information' })).toBe('preparing')
+    expect(islandStageFromSetup({ authenticated: false, step: 'ready', zone: 'trading-zone' })).toBe('unconnected')
+  })
+
+  test('prepares automatically after a Privy session exists', () => {
+    expect(islandStageFromSetup({ authenticated: true, step: 'idle', zone: 'information' })).toBe('preparing')
+    expect(islandStageFromSetup({ authenticated: true, step: 'creating_wallet', zone: 'information' })).toBe(
+      'preparing',
+    )
+    expect(islandStageFromSetup({ authenticated: true, step: 'funding_stt', zone: 'information' })).toBe('preparing')
+  })
+
+  test('shows information when ready, or trading-zone when that pane is open', () => {
+    expect(islandStageFromSetup({ authenticated: true, step: 'ready', zone: 'information' })).toBe('information')
+    expect(islandStageFromSetup({ authenticated: true, step: 'ready', zone: 'trading-zone' })).toBe('trading-zone')
+  })
+
+  test('keeps a wallet on information after a faucet interrupt so funds can be retried', () => {
+    expect(
+      islandStageFromSetup({
+        authenticated: true,
+        step: 'error',
+        zone: 'information',
+        address: '0x1111111111111111111111111111111111111111',
+        settled: true,
+      }),
+    ).toBe('information')
+    expect(
+      islandStageFromSetup({
+        authenticated: true,
+        step: 'funding_stt',
+        zone: 'information',
+        address: '0x1111111111111111111111111111111111111111',
+        settled: true,
+      }),
+    ).toBe('information')
+    expect(islandStageFromSetup({ authenticated: false, step: 'error', zone: 'information' })).toBe('error')
+  })
+})
+
+describe('fundTradeWallet', () => {
+  test('only faucets the requested asset that is still below the minimum', async () => {
+    const setup = deps({
+      getBalances: async () => ({ stt: parseEther('0.4'), tusdc: parseUnits('12', 6) }),
+    })
+
+    await collect((onStatus) => fundTradeWallet(setup, address, onStatus, 'tUSDC'))
+
+    expect(setup.calls.filter((call) => call.startsWith('faucet'))).toEqual([`faucet:tUSDC:${address}`])
   })
 })
