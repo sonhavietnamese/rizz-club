@@ -21,6 +21,8 @@ export type Trader = {
   status: TraderStatus
   lastSeen?: number
   sessions?: Record<string, number>
+  heartRate?: number
+  heartRateAt?: number
 }
 
 export type TradersSnapshot = {
@@ -73,10 +75,28 @@ function parseAnonymous(value: unknown, now: number) {
   return Object.values(value as Record<string, unknown>).filter((at) => isFreshPresence(at, now)).length
 }
 
+export function parseHeartRateBpm(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  const bpm = Math.round(value)
+  if (bpm < 1 || bpm > 400) return undefined
+  return bpm
+}
+
+export function traderHeartRateUpdate(bpm: number | null, at = Date.now()) {
+  if (bpm == null) {
+    return { heartRate: null, heartRateAt: null }
+  }
+
+  return { heartRate: bpm, heartRateAt: at }
+}
+
 function parseTrader(value: Trader): Trader {
-  const record = value as Trader & { lastSeen?: unknown; sessions?: unknown }
+  const record = value as Trader & { lastSeen?: unknown; sessions?: unknown; heartRate?: unknown; heartRateAt?: unknown }
   const lastSeen = typeof record.lastSeen === 'number' && Number.isFinite(record.lastSeen) ? record.lastSeen : undefined
   const sessions = parseSessions(record.sessions)
+  const heartRate = parseHeartRateBpm(record.heartRate)
+  const heartRateAt =
+    typeof record.heartRateAt === 'number' && Number.isFinite(record.heartRateAt) ? record.heartRateAt : undefined
 
   return {
     address: value.address,
@@ -84,6 +104,8 @@ function parseTrader(value: Trader): Trader {
     status: value.status,
     ...(lastSeen != null ? { lastSeen } : {}),
     ...(sessions ? { sessions } : {}),
+    ...(heartRate != null ? { heartRate } : {}),
+    ...(heartRateAt != null ? { heartRateAt } : {}),
   }
 }
 

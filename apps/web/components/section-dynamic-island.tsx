@@ -1,6 +1,8 @@
 'use client'
 
 import { useAbility } from '@/components/ability-provider'
+import { useHeartRate } from '@/hooks/use-heart-rate'
+import { usePublishTraderHeartRate } from '@/hooks/use-traders'
 import { useTradeSetup } from '@/hooks/use-trade-setup'
 import { ABILITY_ACCENT } from '@/lib/ability'
 import {
@@ -12,12 +14,14 @@ import {
   type IslandZone,
 } from '@/lib/trade-setup'
 import { traderIdentity } from '@/lib/traders'
+import NumberFlow from '@number-flow/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 const PLAYBACK_RATE = 0.5
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const SETUP_LABELS = ['Connect', 'Wallet', 'Signer', 'Funds'] as const
+const BPM_TIMING = { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' } as const
 
 function Spinner({ reduceMotion }: { reduceMotion: boolean }) {
   return (
@@ -50,6 +54,184 @@ function SetupProgress({ step }: { step: ReturnType<typeof useTradeSetup>['statu
         Step {current} of {SETUP_LABELS.length}
       </span>
     </ol>
+  )
+}
+
+function BpmReadout({
+  bpm,
+  reduceMotion,
+  size = 'chip',
+}: {
+  bpm: number | null
+  reduceMotion: boolean
+  size?: 'chip' | 'pane'
+}) {
+  const valueClass =
+    size === 'pane'
+      ? 'font-abc-gravity-italic text-[28px] leading-none'
+      : 'font-sans text-xs font-medium tabular-nums'
+
+  return (
+    <span
+      className={
+        size === 'pane'
+          ? 'inline-flex items-end gap-1.5'
+          : 'inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 font-sans text-xs font-medium tabular-nums text-white'
+      }
+      style={size === 'pane' ? { fontVariantNumeric: 'tabular-nums', lineHeight: 0.85 } : undefined}
+    >
+      {bpm == null ? (
+        <span className={`${valueClass} text-white/45`}>—</span>
+      ) : (
+        <NumberFlow
+          value={bpm}
+          animated={!reduceMotion}
+          className={valueClass}
+          transformTiming={BPM_TIMING}
+          spinTiming={BPM_TIMING}
+          opacityTiming={{ duration: 150, easing: BPM_TIMING.easing }}
+        />
+      )}
+      <span className={size === 'pane' ? 'mb-0.5 font-sans text-xs text-white/55' : 'text-white/55'}>BPM</span>
+    </span>
+  )
+}
+
+function WearablePane({
+  heartRate,
+  reduceMotion,
+}: {
+  heartRate: ReturnType<typeof useHeartRate>
+  reduceMotion: boolean
+}) {
+  if (heartRate.status === 'unsupported') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center rounded-xl bg-black/80 px-6 text-center text-white">
+        <span className="font-abc-gravity-italic text-[28px] leading-none">HEART RATE</span>
+        <p className="mt-3 max-w-[280px] font-sans text-[13px] leading-snug text-white/70">
+          {heartRate.error ?? 'Heart rate needs Chrome or Edge.'}
+        </p>
+      </div>
+    )
+  }
+
+  if (heartRate.status === 'error') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-black/80 px-6 text-center text-white">
+        <span className="font-abc-gravity-italic text-[28px] leading-none">COULD NOT CONNECT</span>
+        <p className="line-clamp-3 max-w-[280px] font-sans text-[13px] leading-snug text-[#F87171]">
+          {heartRate.error ?? 'Could not connect to wearable.'}
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <IslandButton onClick={() => void heartRate.connect()} busy={heartRate.busy} className="bg-white/15 text-white">
+            Try again
+          </IslandButton>
+          <IslandButton
+            onClick={() => void heartRate.connect({ prompt: true })}
+            busy={heartRate.busy}
+            className="bg-white/10 text-white"
+          >
+            Pair a different device
+          </IslandButton>
+        </div>
+      </div>
+    )
+  }
+
+  if (heartRate.status === 'requesting' || heartRate.status === 'connecting') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl bg-black/80 px-6 text-white">
+        <span className="flex items-center justify-center gap-3">
+          <Spinner reduceMotion={reduceMotion} />
+          <span className="font-abc-gravity-italic text-[28px] leading-none">
+            {heartRate.status === 'requesting' ? 'PAIRING' : 'CONNECTING'}
+          </span>
+        </span>
+        <span className="font-sans text-[13px] leading-snug text-white/70">
+          {heartRate.status === 'requesting'
+            ? 'Pick a heart-rate monitor.'
+            : heartRate.remembered
+              ? `Reconnecting to ${heartRate.deviceName ?? 'your wearable'}.`
+              : 'Opening the heart-rate service.'}
+        </span>
+      </div>
+    )
+  }
+
+  if (heartRate.status === 'live') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-black/80 px-6 text-white">
+        <div className="flex items-end gap-2" style={{ fontVariantNumeric: 'tabular-nums', lineHeight: 0.85 }}>
+          {heartRate.bpm == null ? (
+            <span className="font-abc-gravity-italic text-[42px] leading-none text-white/45">—</span>
+          ) : (
+            <NumberFlow
+              value={heartRate.bpm}
+              animated={!reduceMotion}
+              className="font-abc-gravity-italic text-[42px] leading-none"
+              transformTiming={BPM_TIMING}
+              spinTiming={BPM_TIMING}
+              opacityTiming={{ duration: 150, easing: BPM_TIMING.easing }}
+            />
+          )}
+          <span className="mb-1 font-sans text-sm text-white/55">BPM</span>
+        </div>
+        <p className="font-sans text-xs text-white/55">{heartRate.deviceName ?? 'Wearable'}</p>
+        {heartRate.contact === 'not-detected' ? (
+          <p className="font-sans text-[12px] text-white/45">Place the sensor to read a pulse.</p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <IslandButton onClick={() => void heartRate.disconnect()} className="bg-white/15 text-white">
+            Disconnect
+          </IslandButton>
+          <IslandButton onClick={() => void heartRate.forget()} className="bg-white/10 text-white">
+            Forget
+          </IslandButton>
+        </div>
+      </div>
+    )
+  }
+
+  if (heartRate.remembered) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-black px-6 text-center text-white">
+        <button
+          type="button"
+          onClick={() => void heartRate.connect()}
+          disabled={heartRate.busy}
+          aria-busy={heartRate.busy}
+          className="flex flex-col items-center justify-center transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-wait"
+        >
+          <span className="font-abc-gravity-italic text-[28px] leading-none">RECONNECT</span>
+          <span className="mt-2 font-sans text-xs text-white/60">{heartRate.deviceName ?? 'Saved wearable'}</span>
+        </button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <IslandButton
+            onClick={() => void heartRate.connect({ prompt: true })}
+            busy={heartRate.busy}
+            className="bg-white/10 text-white"
+          >
+            Pair a different device
+          </IslandButton>
+          <IslandButton onClick={() => void heartRate.forget()} className="bg-white/10 text-white">
+            Forget
+          </IslandButton>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void heartRate.connect({ prompt: true })}
+      disabled={heartRate.busy}
+      aria-busy={heartRate.busy}
+      className="flex flex-1 flex-col items-center justify-center rounded-xl bg-black px-6 text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-wait"
+    >
+      <span className="font-abc-gravity-italic text-[28px] leading-none">CONNECT WEARABLE</span>
+      <span className="mt-2 font-sans text-xs text-white/60">BLE heart-rate monitor</span>
+    </button>
   )
 }
 
@@ -180,8 +362,11 @@ export default function SectionDynamicIsland() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const reduceMotion = useReducedMotion() ?? false
   const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund } = useTradeSetup()
+  const heartRate = useHeartRate()
+  usePublishTraderHeartRate(heartRate.bpm, heartRate.live)
   const { islandRef, drag, overIsland, applied, clearApplied } = useAbility()
   const [zone, setZone] = useState<IslandZone>('information')
+  const wasHeartRateLive = useRef(false)
   const stage = islandStageFromSetup({
     authenticated,
     step: status.step,
@@ -191,6 +376,13 @@ export default function SectionDynamicIsland() {
   })
   const identity = user ? traderIdentity(user) : { address: status.address ?? '', name: 'Trader' }
   const showVideo = stage === 'unconnected' || stage === 'preparing' || stage === 'error'
+
+  useEffect(() => {
+    if (heartRate.live && !wasHeartRateLive.current) {
+      setZone('information')
+    }
+    wasHeartRateLive.current = heartRate.live
+  }, [heartRate.live])
 
   useEffect(() => {
     const video = videoRef.current
@@ -318,10 +510,20 @@ export default function SectionDynamicIsland() {
                   <p className="mt-2 font-sans text-xs text-white/55">
                     {status.address ? shortAddress(status.address) : identity.address || 'No wallet yet'}
                   </p>
+                  {heartRate.live ? (
+                    <div className="mt-2">
+                      <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} size="pane" />
+                    </div>
+                  ) : null}
                 </div>
-                <IslandButton onClick={() => setZone('trading-zone')} className="shrink-0 bg-white text-black">
-                  Trade
-                </IslandButton>
+                <div className="flex shrink-0 gap-2">
+                  <IslandButton onClick={() => setZone('wearable')} className="bg-white/10 text-white">
+                    Wearable
+                  </IslandButton>
+                  <IslandButton onClick={() => setZone('trading-zone')} className="bg-white text-black">
+                    Trade
+                  </IslandButton>
+                </div>
               </div>
 
               <div className="flex items-end justify-between gap-3">
@@ -363,9 +565,10 @@ export default function SectionDynamicIsland() {
             <div className="flex h-full w-full gap-2">
               <IslandButton
                 onClick={() => setZone('information')}
-                className="h-full shrink-0 bg-white/10 px-3 text-white"
+                className="flex h-full shrink-0 flex-col items-center justify-center gap-1.5 bg-white/10 px-3 text-white"
               >
                 Back
+                {heartRate.live ? <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} /> : null}
               </IslandButton>
               <button
                 type="button"
@@ -381,6 +584,20 @@ export default function SectionDynamicIsland() {
                 <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
                 <span className="mt-2 font-sans text-xs text-white/70">Buy NO</span>
               </button>
+            </div>
+          </IslandFrame>
+        ) : null}
+
+        {stage === 'wearable' ? (
+          <IslandFrame reduceMotion={reduceMotion} stageKey="wearable">
+            <div className="flex h-full w-full gap-2">
+              <IslandButton
+                onClick={() => setZone('information')}
+                className="h-full shrink-0 bg-white/10 px-3 text-white"
+              >
+                Back
+              </IslandButton>
+              <WearablePane heartRate={heartRate} reduceMotion={reduceMotion} />
             </div>
           </IslandFrame>
         ) : null}

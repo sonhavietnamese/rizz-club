@@ -276,9 +276,10 @@ describe('islandStageFromSetup', () => {
     expect(islandStageFromSetup({ authenticated: true, step: 'funding_stt', zone: 'information' })).toBe('preparing')
   })
 
-  test('shows information when ready, or trading-zone when that pane is open', () => {
+  test('shows information when ready, or trading-zone / wearable when that pane is open', () => {
     expect(islandStageFromSetup({ authenticated: true, step: 'ready', zone: 'information' })).toBe('information')
     expect(islandStageFromSetup({ authenticated: true, step: 'ready', zone: 'trading-zone' })).toBe('trading-zone')
+    expect(islandStageFromSetup({ authenticated: true, step: 'ready', zone: 'wearable' })).toBe('wearable')
   })
 
   test('keeps a wallet on information after a faucet interrupt so funds can be retried', () => {

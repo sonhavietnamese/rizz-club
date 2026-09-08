@@ -1,5 +1,5 @@
 import { createDreamDexExchange } from '@/dreamdex'
-import { errorMessage, sleep } from '@/lib/async'
+import { errorMessage, isAbortError, sleep } from '@/lib/async'
 import { defaultInterval, type IntervalOption } from '@/market'
 import { defaultBatchSize, loadPositions, pickBatch, pickBatchSize } from '@/trade/batch'
 import { pickIntent } from '@/trade/intent'
@@ -19,6 +19,8 @@ export type SimulateTradesOptions = {
   batch?: number
   signal?: AbortSignal
 }
+
+const INDEXER_RETRY_MS = 5_000
 
 function formatTrade(result: TradeResult) {
   const verb = result.dryRun ? 'dry' : result.txHash ? result.txHash.slice(0, 10) : 'sent'
@@ -69,41 +71,51 @@ export async function simulateTrades({
     while (count === undefined || placed < count) {
       if (signal?.aborted) break
 
-      const beat = nextBeat(pace, intervalMs)
-      if (beat.waitMs > 0) {
-        if (!beat.act) console.log(formatWait(beat.kind, beat.waitMs))
-        await sleep(beat.waitMs, signal)
-      }
-      if (signal?.aborted) break
-      if (!beat.act) continue
+      try {
+        const beat = nextBeat(pace, intervalMs)
+        if (beat.waitMs > 0) {
+          if (!beat.act) console.log(formatWait(beat.kind, beat.waitMs))
+          await sleep(beat.waitMs, signal)
+        }
+        if (signal?.aborted) break
+        if (!beat.act) continue
 
-      const snapshot = await tape.current()
-      if (!snapshot) {
-        console.log(`  waiting for a live BTC ${window} market`)
-        continue
-      }
+        const snapshot = await tape.current()
+        if (!snapshot) {
+          console.log(`  waiting for a live BTC ${window} market`)
+          continue
+        }
 
-      const remaining = count === undefined ? batch : Math.min(batch, count - placed)
-      const group = pickBatch(roster, pickBatchSize(remaining), lastWallet, beat.reuseWallet)
-      const holdings = await loadPositions(
-        reader,
-        group.map((wallet) => wallet.address),
-        snapshotMarketId(snapshot),
-        snapshot.onchain.decimals,
-      )
+        const remaining = count === undefined ? batch : Math.min(batch, count - placed)
+        const group = pickBatch(roster, pickBatchSize(remaining), lastWallet, beat.reuseWallet)
+        const holdings = await loadPositions(
+          reader,
+          group.map((wallet) => wallet.address),
+          snapshotMarketId(snapshot),
+          snapshot.onchain.decimals,
+        )
 
-      const results = await Promise.all(
-        group.map((wallet, index) => {
-          const positions = holdings[index]
-          if (!positions) return Promise.resolve(undefined)
-          return tradeOne(writerFor(wallet), wallet, snapshot, positions, dryRun, costBounds)
-        }),
-      )
+        const results = await Promise.all(
+          group.map((wallet, index) => {
+            const positions = holdings[index]
+            if (!positions) return Promise.resolve(undefined)
+            return tradeOne(writerFor(wallet), wallet, snapshot, positions, dryRun, costBounds)
+          }),
+        )
 
-      for (const [index, result] of results.entries()) {
-        if (!result) continue
-        lastWallet = group[index] ?? lastWallet
-        placed += 1
+        for (const [index, result] of results.entries()) {
+          if (!result) continue
+          lastWallet = group[index] ?? lastWallet
+          placed += 1
+        }
+      } catch (error) {
+        if (isAbortError(error, signal)) break
+        console.error(`  retry    ${errorMessage(error)}`)
+        try {
+          await sleep(INDEXER_RETRY_MS, signal)
+        } catch (retryError) {
+          if (isAbortError(retryError, signal)) break
+        }
       }
     }
 

@@ -22,3 +22,9 @@ export function sleep(ms: number, signal?: AbortSignal) {
 export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error'
 }
+
+export function isAbortError(error: unknown, signal?: AbortSignal) {
+  if (signal?.aborted) return true
+  if (typeof error === 'object' && error && 'name' in error && error.name === 'AbortError') return true
+  return error instanceof Error && /aborted/i.test(error.message)
+}

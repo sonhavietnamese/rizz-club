@@ -19,8 +19,8 @@ export const TRADE_SETUP_STEPS = [
 export type TradeSetupStep = (typeof TRADE_SETUP_STEPS)[number]
 export type TradeSetupPhase = TradeSetupStep | 'idle' | 'error'
 export type FaucetAsset = 'STT' | 'tUSDC'
-export type IslandStage = 'unconnected' | 'preparing' | 'information' | 'error' | 'trading-zone'
-export type IslandZone = Extract<IslandStage, 'information' | 'trading-zone'>
+export type IslandStage = 'unconnected' | 'preparing' | 'information' | 'error' | 'trading-zone' | 'wearable'
+export type IslandZone = Extract<IslandStage, 'information' | 'trading-zone' | 'wearable'>
 
 export type TradeSetupWallet = {
   address: string

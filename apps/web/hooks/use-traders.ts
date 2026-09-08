@@ -7,6 +7,7 @@ import {
   TRADERS_PATH,
   onlineTraderCount,
   parseTraders,
+  traderHeartRateUpdate,
   traderIdentity,
   traderKey,
 } from '@/lib/traders'
@@ -138,6 +139,40 @@ export function useTraderPresence() {
       })
     }
   }, [address, authenticated, name, ready])
+}
+
+export function usePublishTraderHeartRate(bpm: number | null, live: boolean) {
+  const { ready, authenticated, user } = usePrivy()
+  const address = user?.wallet?.address || user?.id || ''
+
+  useEffect(() => {
+    if (!ready || !authenticated || !address) return
+
+    const db = getFirebaseDatabase()
+    const traderRef = traderRefFor(address)
+    const disconnectHeartRate = onDisconnect(ref(db, `${TRADERS_PATH}/${traderKey(address)}/heartRate`))
+    const disconnectHeartRateAt = onDisconnect(ref(db, `${TRADERS_PATH}/${traderKey(address)}/heartRateAt`))
+
+    void Promise.all([disconnectHeartRate.remove(), disconnectHeartRateAt.remove()]).catch((error) => {
+      console.error('Failed to arm trader heart rate disconnect:', error)
+    })
+
+    return () => {
+      void disconnectHeartRate.cancel()
+      void disconnectHeartRateAt.cancel()
+      void update(traderRef, traderHeartRateUpdate(null)).catch((error) => {
+        console.error('Failed to clear trader heart rate:', error)
+      })
+    }
+  }, [address, authenticated, ready])
+
+  useEffect(() => {
+    if (!ready || !authenticated || !address) return
+
+    void update(traderRefFor(address), traderHeartRateUpdate(live ? bpm : null)).catch((error) => {
+      console.error('Failed to publish trader heart rate:', error)
+    })
+  }, [address, authenticated, bpm, live, ready])
 }
 
 export function useTraders() {

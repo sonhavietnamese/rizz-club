@@ -3,7 +3,9 @@ import {
   formatTraderCount,
   isTraderOnline,
   onlineTraderCount,
+  parseHeartRateBpm,
   parseTraders,
+  traderHeartRateUpdate,
   traderIdentity,
   traderKey,
   type Trader,
@@ -66,6 +68,18 @@ describe('parseTraders', () => {
     expect(parseTraders(undefined)).toEqual({ traders: [], anonymous: 0 })
   })
 
+  test('keeps a live heart rate on the trader row', () => {
+    expect(
+      parseTraders({
+        ok: trader({ heartRate: 84, heartRateAt: 1_000_000 }),
+      }).traders[0],
+    ).toEqual(trader({ heartRate: 84, heartRateAt: 1_000_000 }))
+  })
+
+  test('drops an out-of-range heart rate', () => {
+    expect(parseTraders({ ok: trader({ heartRate: 900 }) }).traders[0]?.heartRate).toBeUndefined()
+  })
+
   test('counts live anonymous sessions instead of a single counter', () => {
     const now = 1_000_000
     expect(
@@ -80,6 +94,21 @@ describe('parseTraders', () => {
         now,
       ).anonymous,
     ).toBe(2)
+  })
+})
+
+describe('parseHeartRateBpm', () => {
+  test('accepts a rounded bpm in a wearable range', () => {
+    expect(parseHeartRateBpm(72.4)).toBe(72)
+    expect(parseHeartRateBpm(0)).toBeUndefined()
+    expect(parseHeartRateBpm(null)).toBeUndefined()
+  })
+})
+
+describe('traderHeartRateUpdate', () => {
+  test('writes bpm and timestamp, or clears both fields', () => {
+    expect(traderHeartRateUpdate(88, 1_000_000)).toEqual({ heartRate: 88, heartRateAt: 1_000_000 })
+    expect(traderHeartRateUpdate(null)).toEqual({ heartRate: null, heartRateAt: null })
   })
 })
 

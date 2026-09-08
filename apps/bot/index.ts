@@ -5,6 +5,7 @@ import { type IntervalOption } from '@/market'
 import { simulateTrades } from '@/trade'
 import { minTradeCost } from '@/trade/types'
 import { setTradersOffline, setTradersOnline } from '@/traders-store'
+import { errorMessage } from '@/lib/async'
 import { wallets } from '@/wallets'
 
 const DRY_RUN = false
@@ -23,7 +24,6 @@ const TRADE = {
 }
 
 const controller = new AbortController()
-let failure: unknown
 
 process.on('SIGINT', () => controller.abort())
 process.on('SIGTERM', () => controller.abort())
@@ -37,13 +37,12 @@ console.log(
     `  trade  BTC ${TRADE.window} · cost ${minTradeCost}–${TRADE.limit} · batch 1–${TRADE.batch} · pace ${TRADE.intervalMs}ms`,
 )
 
-async function part(work: () => Promise<void>) {
+async function part(label: string, work: () => Promise<void>) {
   try {
     await work()
   } catch (error) {
     if (controller.signal.aborted) return
-    failure ??= error
-    controller.abort()
+    console.error(`${label} stopped. ${errorMessage(error)}`)
   }
 }
 
@@ -52,7 +51,7 @@ try {
   console.log(`Traders online ${roster.length}`)
 
   await Promise.all([
-    part(async () => {
+    part('chat', async () => {
       const sent = await simulateChat({
         count: CHAT.count,
         intervalMs: CHAT.intervalMs,
@@ -61,7 +60,7 @@ try {
       })
       console.log(`Sent ${sent} messages`)
     }),
-    part(async () => {
+    part('trade', async () => {
       const placed = await simulateTrades({
         count: TRADE.count,
         intervalMs: TRADE.intervalMs,
@@ -75,7 +74,6 @@ try {
     }),
   ])
 
-  if (failure) throw failure
   if (controller.signal.aborted) console.log('Stopped')
 } finally {
   await setTradersOffline(roster, { dryRun: DRY_RUN })
