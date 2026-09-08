@@ -1,19 +1,25 @@
 'use client'
 
 import AbilityDragLayer from '@/components/ability-drag-layer'
-import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, type AbilityCard, type AbilityDrag } from '@/lib/ability'
+import {
+  ABILITY_CARDS,
+  appendUnique,
+  dragLeanFromLag,
+  insertAt,
+  type AbilityCard,
+  type AbilityDrag,
+} from '@/lib/ability'
 import { canApplyAbilityOnIsland } from '@/lib/trade-setup'
 import { useAbilityFlippedStore } from '@/stores/ability'
 import { useIslandStore } from '@/stores/island'
-import { animate, type AnimationPlaybackControls } from 'motion'
-import { useMotionValue, useReducedMotion, useSpring } from 'motion/react'
+import { animate, frame, type AnimationPlaybackControls } from 'motion'
+import { useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const RETURN_SPRING = { type: 'spring' as const, duration: 0.5, bounce: 0.15 }
-const LEAN_SPRING = { stiffness: 150, damping: 9, mass: 1 }
+const FOLLOW_SPRING = { damping: 80, stiffness: 1000, restDelta: 0.001 }
 const APPLY_DURATION_S = 0.2
-const VELOCITY_SMOOTH = 0.45
 
 type AbilityContextValue = {
   rack: AbilityCard[]
@@ -47,14 +53,14 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
   const islandRef = useRef<HTMLElement | null>(null)
   const slotRefs = useRef(new Map<number, HTMLElement>())
   const grabRef = useRef({ x: 0, y: 0 })
-  const velocityRef = useRef({ t: 0, x: 0, y: 0, vx: 0, vy: 0, svx: 0, svy: 0 })
   const playbackRef = useRef<AnimationPlaybackControls[]>([])
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
+  const xPoint = useMotionValue(0)
+  const yPoint = useMotionValue(0)
+  const x = useSpring(xPoint, FOLLOW_SPRING)
+  const y = useSpring(yPoint, FOLLOW_SPRING)
   const lift = useMotionValue(1)
   const fade = useMotionValue(1)
-  const lean = useMotionValue(0)
-  const rotate = useSpring(lean, LEAN_SPRING)
+  const rotate = useTransform([xPoint, x], ([pointerX, cardX]) => dragLeanFromLag(Number(cardX) - Number(pointerX)))
   const [rack, setRack] = useState(ABILITY_CARDS)
   const [applied, setApplied] = useState<AbilityCard | null>(null)
   const [drag, setDrag] = useState<AbilityDrag | null>(null)
@@ -71,12 +77,21 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
     playbackRef.current = []
   }, [])
 
+  const jumpFollow = useCallback(
+    (nextX: number, nextY: number) => {
+      xPoint.jump(nextX)
+      yPoint.jump(nextY)
+      x.jump(nextX)
+      y.jump(nextY)
+    },
+    [x, xPoint, y, yPoint],
+  )
+
   const resetOverlay = useCallback(() => {
     lift.set(1)
     fade.set(1)
-    lean.jump(0)
-    rotate.jump(0)
-  }, [fade, lean, lift, rotate])
+    jumpFollow(xPoint.get(), yPoint.get())
+  }, [fade, jumpFollow, lift, xPoint, yPoint])
 
   const unbindPointer = useCallback(() => {
     unbindRef.current?.()
@@ -132,13 +147,11 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
       stopPlayback()
       unbindPointer()
       grabRef.current = { x: input.clientX - input.rect.left, y: input.clientY - input.rect.top }
-      velocityRef.current = { t: performance.now(), x: input.clientX, y: input.clientY, vx: 0, vy: 0, svx: 0, svy: 0 }
-      x.set(input.clientX - grabRef.current.x)
-      y.set(input.clientY - grabRef.current.y)
+      const startX = input.clientX - grabRef.current.x
+      const startY = input.clientY - grabRef.current.y
+      jumpFollow(startX, startY)
       lift.set(reduceMotion ? 1 : 1.06)
       fade.set(1)
-      lean.jump(0)
-      rotate.jump(0)
       returningRef.current = false
       setReturning(false)
       setOverIsland(hitIsland(islandRef.current, input.clientX, input.clientY))
@@ -155,61 +168,44 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
       setDrag(session)
       setRack((current) => current.filter((item) => item.id !== input.card.id))
 
-      const applyLean = (svx: number, svy: number) => {
-        if (reduceMotion || !dragRef.current) return
-        lean.set(
-          dragLeanDeg({
-            vx: svx,
-            vy: svy,
-            width: dragRef.current.width,
-            height: dragRef.current.height,
-            grabX: grabRef.current.x,
-            grabY: grabRef.current.y,
-          }),
-        )
-      }
-
-      let rafId = 0
-      let resting = false
-      const tick = (now: number) => {
-        if (!dragRef.current || returningRef.current) {
-          rafId = 0
+      const followPointer = (clientX: number, clientY: number) => {
+        const nextX = clientX - grabRef.current.x
+        const nextY = clientY - grabRef.current.y
+        if (reduceMotion) {
+          jumpFollow(nextX, nextY)
           return
         }
-
-        const previous = velocityRef.current
-        if (!reduceMotion && now - previous.t > 48) {
-          if (!resting) {
-            resting = true
-            applyLean(0, 0)
-          }
-        } else {
-          resting = false
-        }
-
-        rafId = requestAnimationFrame(tick)
+        frame.read(() => {
+          xPoint.set(nextX)
+          yPoint.set(nextY)
+        })
       }
-      rafId = requestAnimationFrame(tick)
 
       const onMove = (event: PointerEvent) => {
         if (!dragRef.current || returningRef.current) return
-        const nextX = event.clientX - grabRef.current.x
-        const nextY = event.clientY - grabRef.current.y
-        const now = performance.now()
-        const previous = velocityRef.current
-        const dt = now - previous.t
-        if (dt > 0) {
-          const vx = ((event.clientX - previous.x) / dt) * 1000
-          const vy = ((event.clientY - previous.y) / dt) * 1000
-          const svx = previous.svx + (vx - previous.svx) * VELOCITY_SMOOTH
-          const svy = previous.svy + (vy - previous.svy) * VELOCITY_SMOOTH
-          velocityRef.current = { t: now, x: event.clientX, y: event.clientY, vx, vy, svx, svy }
-          applyLean(svx, svy)
-        }
-        x.set(nextX)
-        y.set(nextY)
+        followPointer(event.clientX, event.clientY)
         const nextOver = hitIsland(islandRef.current, event.clientX, event.clientY)
         setOverIsland((current) => (current === nextOver ? current : nextOver))
+      }
+
+      const flyTo = (
+        targetX: number,
+        targetY: number,
+        velocityX: number,
+        velocityY: number,
+        transition: { type: 'spring'; duration: number; bounce: number } | { duration: number; ease: typeof EASE_OUT },
+      ) => {
+        const pairedX = animate(x, targetX, {
+          ...transition,
+          velocity: velocityX,
+          onUpdate: (latest) => xPoint.jump(latest),
+        })
+        const pairedY = animate(y, targetY, {
+          ...transition,
+          velocity: velocityY,
+          onUpdate: (latest) => yPoint.jump(latest),
+        })
+        return { pairedX, pairedY }
       }
 
       const onUp = (event: PointerEvent) => {
@@ -217,12 +213,13 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
         if (!current || returningRef.current) return
         unbindPointer()
 
-        const currentX = event.clientX - grabRef.current.x
-        const currentY = event.clientY - grabRef.current.y
-        const { vx, vy } = velocityRef.current
+        const currentX = x.get()
+        const currentY = y.get()
+        const velocityX = x.getVelocity()
+        const velocityY = y.getVelocity()
         const card = current.card
         const originIndex = current.originIndex
-        lean.set(0)
+        jumpFollow(currentX, currentY)
 
         if (
           hitIsland(islandRef.current, event.clientX, event.clientY) &&
@@ -239,8 +236,10 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
           const island = islandRef.current?.getBoundingClientRect()
           const targetX = island ? island.left + island.width / 2 - current.width / 2 : currentX
           const targetY = island ? island.top + island.height / 2 - current.height / 2 : currentY
-          const pairedX = animate(x, targetX, { duration: APPLY_DURATION_S, ease: EASE_OUT })
-          const pairedY = animate(y, targetY, { duration: APPLY_DURATION_S, ease: EASE_OUT })
+          const { pairedX, pairedY } = flyTo(targetX, targetY, velocityX, velocityY, {
+            duration: APPLY_DURATION_S,
+            ease: EASE_OUT,
+          })
           const liftPlayback = animate(lift, 0.94, { duration: APPLY_DURATION_S, ease: EASE_OUT })
           const fadePlayback = animate(fade, 0, { duration: APPLY_DURATION_S, ease: EASE_OUT })
           playbackRef.current = [pairedX, pairedY, liftPlayback, fadePlayback]
@@ -250,7 +249,6 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
 
         returningRef.current = true
         setReturning(true)
-        setOverIsland(false)
         setRack((items) => {
           if (items.some((item) => item.id === card.id)) return items
           return insertAt(items, originIndex, card)
@@ -265,14 +263,12 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
 
           const rect = slot.getBoundingClientRect()
           if (reduceMotion) {
-            x.set(rect.left)
-            y.set(rect.top)
+            jumpFollow(rect.left, rect.top)
             finishReturn(card, originIndex)
             return
           }
 
-          const pairedX = animate(x, rect.left, { ...RETURN_SPRING, velocity: vx })
-          const pairedY = animate(y, rect.top, { ...RETURN_SPRING, velocity: vy })
+          const { pairedX, pairedY } = flyTo(rect.left, rect.top, velocityX, velocityY, RETURN_SPRING)
           const liftPlayback = animate(lift, 1, { duration: 0.2, ease: EASE_OUT })
           playbackRef.current = [pairedX, pairedY, liftPlayback]
           void pairedX.then(() => finishReturn(card, originIndex))
@@ -288,11 +284,22 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
         window.removeEventListener('pointercancel', onUp)
-        if (rafId) cancelAnimationFrame(rafId)
-        rafId = 0
       }
     },
-    [fade, finishApply, finishReturn, lean, lift, reduceMotion, rotate, stopPlayback, unbindPointer, x, y],
+    [
+      fade,
+      finishApply,
+      finishReturn,
+      jumpFollow,
+      lift,
+      reduceMotion,
+      stopPlayback,
+      unbindPointer,
+      x,
+      xPoint,
+      y,
+      yPoint,
+    ],
   )
 
   const clearApplied = useCallback(() => {

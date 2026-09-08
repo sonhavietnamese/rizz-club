@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ABILITY_CARDS, appendUnique, dragLeanDeg, insertAt, toggleFlippedId } from '../ability'
+import { ABILITY_CARDS, appendUnique, dragLeanDeg, dragLeanFromLag, insertAt, toggleFlippedId } from '../ability'
 
 describe('appendUnique', () => {
   test('appends a card that is not already in the rack', () => {
@@ -24,7 +24,7 @@ describe('dragLeanDeg', () => {
   const topGrab = { width: 115, height: 164, grabX: 57.5, grabY: 24 }
 
   test('trails opposite a rightward swipe when held near the top', () => {
-    expect(dragLeanDeg({ ...topGrab, vx: 500, vy: 0 })).toBeLessThan(0)
+    expect(dragLeanDeg({ ...topGrab, vx: 500, vy: 0 })).toBeGreaterThan(0)
   })
 
   test('hangs near upright when held still at the top center', () => {
@@ -32,8 +32,23 @@ describe('dragLeanDeg', () => {
   })
 
   test('clamps extreme flicks', () => {
-    expect(dragLeanDeg({ ...topGrab, vx: 20000, vy: 0 })).toBe(-18)
-    expect(dragLeanDeg({ ...topGrab, vx: -20000, vy: 0 })).toBe(18)
+    expect(dragLeanDeg({ ...topGrab, vx: 20000, vy: 0 })).toBe(18)
+    expect(dragLeanDeg({ ...topGrab, vx: -20000, vy: 0 })).toBe(-18)
+  })
+})
+
+describe('dragLeanFromLag', () => {
+  test('tilts right when the card lags to the right of the pointer', () => {
+    expect(dragLeanFromLag(80)).toBeGreaterThan(0)
+  })
+
+  test('tilts left when the card lags to the left of the pointer', () => {
+    expect(dragLeanFromLag(-80)).toBeLessThan(0)
+  })
+
+  test('clamps extreme lag', () => {
+    expect(dragLeanFromLag(400)).toBe(18)
+    expect(dragLeanFromLag(-400)).toBe(-18)
   })
 })
 

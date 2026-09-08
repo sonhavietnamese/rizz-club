@@ -446,7 +446,7 @@ export default function SectionDynamicIsland() {
   const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund } = useTradeSetup()
   const heartRate = useHeartRate()
   usePublishTraderHeartRate(heartRate.bpm, heartRate.live)
-  const { islandRef, drag, overIsland, applied, clearApplied } = useAbility()
+  const { islandRef, drag, overIsland, applied, clearApplied, returning } = useAbility()
   const zone = useIslandStore((state) => state.zone)
   const setZone = useIslandStore((state) => state.setZone)
   const syncFromSetup = useIslandStore((state) => state.syncFromSetup)
@@ -513,7 +513,7 @@ export default function SectionDynamicIsland() {
     void fund(asset)
   }
 
-  const showDrop = Boolean(drag)
+  const showDrop = Boolean(drag) && !returning
   const canApply = canApplyAbilityOnIsland(stage)
 
   return (

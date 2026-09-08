@@ -247,11 +247,11 @@ export default function SectionAbility() {
   const scrollerRef = useRef<HTMLUListElement>(null)
   const playbackRef = useRef<ReturnType<typeof animate> | null>(null)
   const reduceMotion = useReducedMotion() ?? false
-  const { rack, drag } = useAbility()
+  const { rack, drag, returning } = useAbility()
   const stage = useIslandStore((state) => state.stage)
   const [showLeftFade, setShowLeftFade] = useState(false)
   const [showRightFade, setShowRightFade] = useState(false)
-  const showTradingZoneHint = Boolean(drag) && !canApplyAbilityOnIsland(stage)
+  const showTradingZoneHint = Boolean(drag) && !returning && !canApplyAbilityOnIsland(stage)
 
   const syncFades = useCallback(() => {
     const el = scrollerRef.current

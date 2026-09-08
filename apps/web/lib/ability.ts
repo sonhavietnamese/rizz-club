@@ -41,6 +41,11 @@ export function toggleFlippedId(ids: number[], id: number) {
 }
 
 export const DRAG_LEAN_MAX_DEG = 18
+export const DRAG_LEAN_FROM_LAG = 0.12
+
+export function dragLeanFromLag(lagX: number) {
+  return Math.max(-DRAG_LEAN_MAX_DEG, Math.min(DRAG_LEAN_MAX_DEG, lagX * DRAG_LEAN_FROM_LAG))
+}
 
 export function dragLeanDeg({
   vx,
@@ -63,6 +68,6 @@ export function dragLeanDeg({
     -6,
     Math.min(6, ((Math.atan2(comX, Math.max(comY, 24)) * 180) / Math.PI) * 0.15),
   )
-  const trail = (-comY * vx + comX * vy) * 0.00042
+  const trail = (comY * vx - comX * vy) * 0.00042
   return Math.max(-DRAG_LEAN_MAX_DEG, Math.min(DRAG_LEAN_MAX_DEG, hang + trail))
 }
