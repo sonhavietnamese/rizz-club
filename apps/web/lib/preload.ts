@@ -2,7 +2,7 @@ import { ABILITY_CARDS } from '@/lib/ability'
 import { TRADERS_PATH } from '@/lib/traders'
 
 export const PRELOAD_MIN_MS = 700
-export const PRELOAD_TIMEOUT_MS = 8_000
+export const PRELOAD_TIMEOUT_MS = 5_000
 export const PRELOAD_FADE_MS = 400
 export const PRELOAD_REDUCED_FADE_MS = 200
 
@@ -18,8 +18,37 @@ export const PRELOAD_IMAGE_URLS = [
 
 export type PreloadPhase = 'blocking' | 'exiting' | 'gone'
 
+export type PreloadStatusInput = {
+  privyReady: boolean
+  fontsReady: boolean
+  imagesReady: boolean
+  realtimeReady: boolean
+  marketReady: boolean
+  timedOut: boolean
+  phase: PreloadPhase
+}
+
+export const PRELOAD_STATUS = {
+  session: 'Restoring session',
+  type: 'Loading type',
+  art: 'Loading art',
+  live: 'Syncing live data',
+  market: 'Loading market',
+  ready: 'Ready',
+} as const
+
 export function preloadFadeMs(reduceMotion: boolean) {
   return reduceMotion ? PRELOAD_REDUCED_FADE_MS : PRELOAD_FADE_MS
+}
+
+export function preloadStatusLabel(input: PreloadStatusInput) {
+  if (input.phase === 'exiting' || input.phase === 'gone' || input.timedOut) return PRELOAD_STATUS.ready
+  if (!input.privyReady) return PRELOAD_STATUS.session
+  if (!input.fontsReady) return PRELOAD_STATUS.type
+  if (!input.imagesReady) return PRELOAD_STATUS.art
+  if (!input.realtimeReady) return PRELOAD_STATUS.live
+  if (!input.marketReady) return PRELOAD_STATUS.market
+  return PRELOAD_STATUS.ready
 }
 
 export function preloadCanReveal(input: {

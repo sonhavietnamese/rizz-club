@@ -11,6 +11,7 @@ import {
   PRELOAD_TIMEOUT_MS,
   preloadCanReveal,
   preloadFadeMs,
+  preloadStatusLabel,
   type PreloadPhase,
 } from '@/lib/preload'
 import { usePrivy } from '@privy-io/react-auth'
@@ -28,16 +29,16 @@ function preloadImage(url: string) {
   })
 }
 
-async function preloadBootAssets() {
+function preloadImages() {
+  return Promise.allSettled(PRELOAD_IMAGE_URLS.map(preloadImage))
+}
+
+async function preloadRealtime() {
   try {
     const db = getFirebaseDatabase()
-    await Promise.allSettled([
-      ...PRELOAD_IMAGE_URLS.map(preloadImage),
-      ...PRELOAD_REALTIME_PATHS.map((path) => get(ref(db, path))),
-      document.fonts.ready,
-    ])
+    await Promise.allSettled(PRELOAD_REALTIME_PATHS.map((path) => get(ref(db, path))))
   } catch {
-    // Boot assets are best-effort; the timeout still reveals the page.
+    // Boot data is best-effort; the timeout still reveals the page.
   }
 }
 
@@ -49,7 +50,9 @@ export function PreloadGate({ children }: { children: ReactNode }) {
   const reduceMotion = useReducedMotion() ?? false
   const fadeMs = preloadFadeMs(reduceMotion)
 
-  const [assetsSettled, setAssetsSettled] = useState(skip)
+  const [fontsReady, setFontsReady] = useState(skip)
+  const [imagesReady, setImagesReady] = useState(skip)
+  const [realtimeReady, setRealtimeReady] = useState(skip)
   const [minElapsed, setMinElapsed] = useState(skip)
   const [timedOut, setTimedOut] = useState(false)
   const [phase, setPhase] = useState<PreloadPhase>(skip ? 'gone' : 'blocking')
@@ -58,8 +61,15 @@ export function PreloadGate({ children }: { children: ReactNode }) {
     if (skip) return
 
     let cancelled = false
-    void preloadBootAssets().finally(() => {
-      if (!cancelled) setAssetsSettled(true)
+
+    void document.fonts.ready.finally(() => {
+      if (!cancelled) setFontsReady(true)
+    })
+    void preloadImages().finally(() => {
+      if (!cancelled) setImagesReady(true)
+    })
+    void preloadRealtime().finally(() => {
+      if (!cancelled) setRealtimeReady(true)
     })
 
     return () => {
@@ -79,16 +89,26 @@ export function PreloadGate({ children }: { children: ReactNode }) {
     }
   }, [skip])
 
+  const dataSettled = fontsReady && imagesReady && realtimeReady && !isLoading
   const canReveal = skip
     ? true
     : preloadCanReveal({
         privyReady: ready,
-        dataSettled: assetsSettled && !isLoading,
+        dataSettled,
         minElapsed,
         timedOut,
       })
   const nextPhase = advancePreloadPhase(phase, canReveal)
   if (nextPhase !== phase) setPhase(nextPhase)
+  const status = preloadStatusLabel({
+    privyReady: ready,
+    fontsReady,
+    imagesReady,
+    realtimeReady,
+    marketReady: !isLoading,
+    timedOut,
+    phase: nextPhase,
+  })
 
   useEffect(() => {
     if (phase !== 'exiting') return
@@ -119,7 +139,7 @@ export function PreloadGate({ children }: { children: ReactNode }) {
           role="status"
           aria-busy={blocking}
           aria-live="polite"
-          aria-label="Loading"
+          aria-label={status}
           className="fixed inset-0 z-[100]"
           style={{
             opacity: phase === 'blocking' ? 1 : 0,
@@ -129,7 +149,7 @@ export function PreloadGate({ children }: { children: ReactNode }) {
             transitionTimingFunction: 'var(--ease-out)',
           }}
         >
-          <PreloadScreen />
+          <PreloadScreen status={status} />
         </div>
       ) : null}
     </>

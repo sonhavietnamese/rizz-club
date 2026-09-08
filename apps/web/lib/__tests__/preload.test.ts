@@ -4,8 +4,10 @@ import {
   advancePreloadPhase,
   PRELOAD_IMAGE_URLS,
   PRELOAD_REALTIME_PATHS,
+  PRELOAD_STATUS,
   preloadCanReveal,
   preloadFadeMs,
+  preloadStatusLabel,
 } from '../preload'
 import { TRADERS_PATH } from '../traders'
 
@@ -36,6 +38,52 @@ describe('advancePreloadPhase', () => {
     expect(advancePreloadPhase('exiting', false)).toBe('exiting')
     expect(advancePreloadPhase('gone', true)).toBe('gone')
     expect(advancePreloadPhase('gone', false)).toBe('gone')
+  })
+})
+
+describe('preloadStatusLabel', () => {
+  const pending = {
+    privyReady: false,
+    fontsReady: false,
+    imagesReady: false,
+    realtimeReady: false,
+    marketReady: false,
+    timedOut: false,
+    phase: 'blocking' as const,
+  }
+
+  test('names the next unfinished step', () => {
+    expect(preloadStatusLabel(pending)).toBe(PRELOAD_STATUS.session)
+    expect(preloadStatusLabel({ ...pending, privyReady: true })).toBe(PRELOAD_STATUS.type)
+    expect(preloadStatusLabel({ ...pending, privyReady: true, fontsReady: true })).toBe(PRELOAD_STATUS.art)
+    expect(preloadStatusLabel({ ...pending, privyReady: true, fontsReady: true, imagesReady: true })).toBe(
+      PRELOAD_STATUS.live,
+    )
+    expect(
+      preloadStatusLabel({
+        ...pending,
+        privyReady: true,
+        fontsReady: true,
+        imagesReady: true,
+        realtimeReady: true,
+      }),
+    ).toBe(PRELOAD_STATUS.market)
+  })
+
+  test('reads ready once the board can open', () => {
+    expect(
+      preloadStatusLabel({
+        privyReady: true,
+        fontsReady: true,
+        imagesReady: true,
+        realtimeReady: true,
+        marketReady: true,
+        timedOut: false,
+        phase: 'blocking',
+      }),
+    ).toBe(PRELOAD_STATUS.ready)
+    expect(preloadStatusLabel({ ...pending, phase: 'exiting' })).toBe(PRELOAD_STATUS.ready)
+    expect(preloadStatusLabel({ ...pending, timedOut: true })).toBe(PRELOAD_STATUS.ready)
   })
 })
 

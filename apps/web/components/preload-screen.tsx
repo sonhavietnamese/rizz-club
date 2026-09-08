@@ -60,13 +60,16 @@ function Wordmark() {
   )
 }
 
-export function PreloadScreen() {
+export function PreloadScreen({ status }: { status: string }) {
   const reduceMotion = useReducedMotion() ?? false
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-background">
-      <figure className="absolute top-1/2 left-1/2 z-10 h-auto w-[300px] -translate-x-1/2 -translate-y-1/2">
+      <figure className="absolute top-1/2 left-1/2 z-10 flex w-[300px] -translate-x-1/2 -translate-y-1/2 flex-col items-center">
         <MascotMark />
+        <figcaption className="mt-6 whitespace-nowrap text-center font-sans text-sm tracking-[0.18em] text-[#E1E5E6]/65">
+          {status}
+        </figcaption>
       </figure>
 
       <section className="absolute z-0 h-full w-full space-y-4 overflow-hidden py-4" aria-hidden>
