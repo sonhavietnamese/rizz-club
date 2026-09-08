@@ -93,7 +93,7 @@ function IslandFrame({
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'translateY(0px) scale(1)' }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(-6px) scale(0.98)' }}
       transition={{ duration: 0.2, ease: EASE_OUT }}
-      className="absolute inset-0 z-10 flex items-center justify-center p-3"
+      className="absolute inset-0 z-10 flex items-center justify-center"
     >
       {children}
     </motion.div>
@@ -271,7 +271,10 @@ export default function SectionDynamicIsland() {
         {stage === 'trading-zone' ? (
           <IslandFrame reduceMotion={reduceMotion} stageKey="trading-zone">
             <div className="flex h-full w-full gap-2">
-              <IslandButton onClick={() => setZone('information')} className="h-full shrink-0 bg-white/10 px-3 text-white">
+              <IslandButton
+                onClick={() => setZone('information')}
+                className="h-full shrink-0 bg-white/10 px-3 text-white"
+              >
                 Back
               </IslandButton>
               <button
