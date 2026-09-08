@@ -9,7 +9,7 @@
     "faucet": "bun run src/scripts/faucet.ts",
     "chat": "bun run src/scripts/chat.ts",
     "trade": "bun run src/scripts/trade.ts -- --interval 200 --limit 8 --batch 2",
-    "claim": "bun run src/scripts/claim.ts"
+    "claim": "bun run src/scripts/claim.ts -- --all"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "^0.28.1",
