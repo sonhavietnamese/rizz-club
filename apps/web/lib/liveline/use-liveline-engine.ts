@@ -491,12 +491,17 @@ function updateBadgeDOM(
 
 function computeCandleRange(
   candles: CandlePoint[],
+  referenceValue?: number,
 ): { min: number; max: number } {
   let min = Infinity
   let max = -Infinity
   for (const c of candles) {
     if (c.low < min) min = c.low
     if (c.high > max) max = c.high
+  }
+  if (referenceValue !== undefined && Number.isFinite(referenceValue)) {
+    if (referenceValue < min) min = referenceValue
+    if (referenceValue > max) max = referenceValue
   }
   if (!isFinite(min) || !isFinite(max)) return { min: 99, max: 101 }
   const range = max - min
@@ -587,6 +592,7 @@ function updateCandleWindowTransition(
   liveCandle: CandlePoint | undefined,
   candleWidth: number,
   buffer: number,
+  referenceValue?: number,
 ): { windowSecs: number; windowTransProgress: number } {
   if (wt.to !== targetWindowSecs) {
     wt.from = displayWindow
@@ -606,7 +612,7 @@ function updateCandleWindowTransition(
       targetVisible.push(liveCandle)
     }
     if (targetVisible.length > 0) {
-      const tr = computeCandleRange(targetVisible)
+      const tr = computeCandleRange(targetVisible, referenceValue)
       wt.rangeToMin = tr.min
       wt.rangeToMax = tr.max
     }
@@ -1132,7 +1138,7 @@ export function useLivelineEngine(
         }
         if (rawLive) targetVis.push(rawLive)
         if (targetVis.length > 0) {
-          const tr = computeCandleRange(targetVis)
+          const tr = computeCandleRange(targetVis, cfg.referenceLine?.value)
           cwt.rangeToMin = tr.min
           cwt.rangeToMax = tr.max
         } else {
@@ -1171,6 +1177,7 @@ export function useLivelineEngine(
         cfg.windowSecs, transition, displayWindowRef.current,
         displayMinRef.current, displayMaxRef.current,
         now_ms, now, effectiveCandles, rawLive, candleWidthSecs, candleBuffer,
+        cfg.referenceLine?.value,
       )
       displayWindowRef.current = windowResult.windowSecs
       const windowSecs = windowResult.windowSecs
@@ -1297,7 +1304,7 @@ export function useLivelineEngine(
       // (room for wicks it doesn't use) but that's an acceptable trade-off.
       const chartW = w - pad.left - pad.right
       const computed = effectiveVisible.length > 0
-        ? computeCandleRange(effectiveVisible)
+        ? computeCandleRange(effectiveVisible, cfg.referenceLine?.value)
         : { min: displayMinRef.current, max: displayMaxRef.current }
 
       const rangeResult = updateCandleRange(
@@ -1502,6 +1509,7 @@ export function useLivelineEngine(
         // loading→live (where loadingAlpha starts at ~1), while still
         // allowing smooth fade-out during empty→live (loadingAlpha is 0).
         showEmptyOverlay: !(cfg.loading ?? false) && loadingAlpha < 0.01,
+        referenceLine: cfg.referenceLine,
       })
 
       // Badge in candle mode — only when in line mode (lineModeProg > 0.5)

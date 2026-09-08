@@ -1,4 +1,5 @@
 import type { CandlePoint, LivelinePoint } from '@/lib/liveline'
+import { BTC_PRICE_TICKS } from '@/lib/btc'
 import type { PricePoint, LivePrice } from '@somnia-chain/markets-sdk'
 
 export {
@@ -93,14 +94,12 @@ export function livePriceToPoint(price: LivePrice): LivelinePoint {
   }
 }
 
-const MAX_PRICE_TICKS = 1_000
-
 export function normalizePricePoints(points: LivelinePoint[]) {
   return points
     .filter((point) => Number.isFinite(point.value) && point.value > 0)
     .sort((left, right) => left.time - right.time)
     .filter((point, index, sorted) => index === sorted.length - 1 || point.time !== sorted[index + 1].time)
-    .slice(-MAX_PRICE_TICKS)
+    .slice(-BTC_PRICE_TICKS)
 }
 
 export function candleWidthForWindow(windowSecs: number) {

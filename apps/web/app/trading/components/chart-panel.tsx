@@ -1,16 +1,9 @@
 'use client'
 
-import { formatNumber } from './formatters'
-import {
-  formatChange,
-  formatChartTime,
-  formatUsd,
-  livePriceToPoint,
-  normalizePricePoints,
-  priceStatusLabel,
-  tickToLivelinePoint,
-} from '@/lib/utils'
+import { BTC_ASSET, BTC_COLOR, BTC_PRICE_TICKS, BTC_PRICE_WINDOWS } from '@/lib/btc'
+import { formatChange, formatChartTime, formatUsd, priceStatusLabel } from '@/lib/format'
 import { Liveline, type LivelinePoint } from '@/lib/liveline'
+import { livePriceToPoint, normalizePricePoints, tickToLivelinePoint } from '@/lib/utils'
 import { type LivePrice } from '@somnia-chain/markets-sdk'
 import {
   useLivePrice,
@@ -19,16 +12,9 @@ import {
   useWatchPrice,
 } from '@somnia-chain/markets-sdk/react'
 import { useMemo } from 'react'
+import { formatNumber } from './formatters'
 
-const btcPriceAsset = 'BTC'
-const maxBtcPriceTicks = 1_000
-
-const btcPriceWindows = [
-  { label: '1m', secs: 60 },
-  { label: '5m', secs: 300 },
-  { label: '15m', secs: 900 },
-  { label: '1h', secs: 3_600 },
-]
+const defaultWindowSecs = BTC_PRICE_WINDOWS[0]?.secs ?? 60
 
 function BtcLivelineChart({
   points,
@@ -47,10 +33,10 @@ function BtcLivelineChart({
       <Liveline
         data={points}
         value={value}
-        color="#F7931A"
+        color={BTC_COLOR}
         theme="light"
-        window={btcPriceWindows[0].secs}
-        windows={btcPriceWindows}
+        window={defaultWindowSecs}
+        windows={BTC_PRICE_WINDOWS}
         windowStyle="rounded"
         loading={isLoading}
         emptyText="Waiting for BTC price..."
@@ -67,10 +53,10 @@ function BtcLivelineChart({
 }
 
 export function ChartPanel() {
-  const priceStatus = useWatchPrice(btcPriceAsset)
-  const btcPrice = useLivePrice(btcPriceAsset)
-  const feedInfo = useLivePriceFeedInfo(btcPriceAsset)
-  const btcPriceTicks = useLivePriceTicks(btcPriceAsset, maxBtcPriceTicks)
+  const priceStatus = useWatchPrice(BTC_ASSET)
+  const btcPrice = useLivePrice(BTC_ASSET)
+  const feedInfo = useLivePriceFeedInfo(BTC_ASSET)
+  const btcPriceTicks = useLivePriceTicks(BTC_ASSET, BTC_PRICE_TICKS)
   const btcPricePoints = useMemo(() => {
     const points = btcPriceTicks.map(tickToLivelinePoint)
     if (btcPrice) points.push(livePriceToPoint(btcPrice))

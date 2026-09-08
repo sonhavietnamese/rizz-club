@@ -12,7 +12,7 @@ type CurrentMarketState = {
 const CurrentMarketContext = createContext<CurrentMarketState | null>(null)
 
 const liveMarketRefreshMs = 5_000
-const targetMarketIntervalSeconds = 5 * 60
+export const TARGET_MARKET_INTERVAL_SECONDS = 5 * 60
 
 function binaryMarketIntervalSeconds(market: UnifiedMarket) {
   if (!isBinaryMarket(market.info)) return null
@@ -29,7 +29,7 @@ function binaryMarketIntervalSeconds(market: UnifiedMarket) {
 
 function isLiveTargetMarket(market: UnifiedMarket, nowSeconds: number) {
   if (!market.active || !isBinaryMarket(market.info) || !market.outcomes?.length) return false
-  if (binaryMarketIntervalSeconds(market) !== targetMarketIntervalSeconds) return false
+  if (binaryMarketIntervalSeconds(market) !== TARGET_MARKET_INTERVAL_SECONDS) return false
 
   const tradingStart = Number(market.info.tradingStart)
   const expiry = Number(market.info.expiry)
@@ -64,7 +64,7 @@ export function currentMarketIds(market: UnifiedMarket | null) {
   return [...new Set(ids.map((id) => id.toLowerCase()))]
 }
 
-export function marketWindowSeconds(market: UnifiedMarket | null, fallback = targetMarketIntervalSeconds) {
+export function marketWindowSeconds(market: UnifiedMarket | null, fallback = TARGET_MARKET_INTERVAL_SECONDS) {
   if (!market || !isBinaryMarket(market.info)) return fallback
 
   const intervalSeconds = market.info.intervalSec ? Number(market.info.intervalSec) : Number.NaN

@@ -1,6 +1,11 @@
 'use client'
 
-import { currentMarketIds, marketWindowSeconds, useCurrentMarket } from '@/hooks/use-current-market'
+import {
+  currentMarketIds,
+  marketWindowSeconds,
+  TARGET_MARKET_INTERVAL_SECONDS,
+  useCurrentMarket,
+} from '@/hooks/use-current-market'
 import { useMarketTimeseries, type MarketTimeseriesPoint } from '@/hooks/use-market-timeseries'
 import { useMarketTrades } from '@/hooks/use-market-trades'
 import { formatChartTime, formatPercent } from '@/lib/format'
@@ -8,13 +13,11 @@ import { Liveline, type LivelinePoint, type LivelineSeries, type WindowOption } 
 import { toTradeMarkers } from '@/lib/market-trades'
 import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import { ensureDrawablePoints, holdLastValue, normalizePoints } from '@/lib/utils'
-import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
+import { isBinaryMarket } from '@somnia-chain/markets-sdk'
 import { useEffect, useMemo, useState } from 'react'
 
-const defaultMarketWindowSeconds = 5 * 60
-
 const currentWindows: WindowOption[] = [
-  { label: '5m', secs: defaultMarketWindowSeconds },
+  { label: '5m', secs: TARGET_MARKET_INTERVAL_SECONDS },
   { label: '1m', secs: 60 },
 ]
 
@@ -70,18 +73,28 @@ function MarketValueFeed() {
   const tradeMarkers = useMemo(() => toTradeMarkers(trades), [trades])
 
   return (
-    <section className="section-panel relative flex min-h-0 flex-col overflow-hidden p-3">
+    <section className="section-panel relative flex min-h-0 flex-col overflow-hidden px-0">
       <header className="absolute top-3 right-3 flex flex-none items-start justify-between gap-4 px-1">
         <div className="flex items-start gap-6 text-right">
           <div>
-            <p className="font-sans text-sm text-[#2DD530]">YES</p>
-            <p className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight text-[#2DD530]">
+            <p className="font-sans text-sm" style={{ color: YES_COLOR }}>
+              YES
+            </p>
+            <p
+              className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight"
+              style={{ color: YES_COLOR }}
+            >
               {formatPercent(yesValue)}
             </p>
           </div>
           <div>
-            <p className="font-sans text-sm text-[#F87171]">NO</p>
-            <p className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight text-[#F87171]">
+            <p className="font-sans text-sm" style={{ color: NO_COLOR }}>
+              NO
+            </p>
+            <p
+              className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight"
+              style={{ color: NO_COLOR }}
+            >
               {formatPercent(noValue)}
             </p>
           </div>
@@ -98,7 +111,7 @@ function MarketValueFeed() {
             series={binaryMarket ? series : []}
             color={YES_COLOR}
             theme="dark"
-            window={chartWindows[0]?.secs ?? defaultMarketWindowSeconds}
+            window={chartWindows[0]?.secs ?? TARGET_MARKET_INTERVAL_SECONDS}
             origin={chartOrigin}
             markers={tradeMarkers}
             windows={chartWindows}
@@ -114,10 +127,10 @@ function MarketValueFeed() {
                   : 'No live 5m market yet.'
             }
             referenceLine={{ value: 0.5, label: '50%' }}
-            yDomain={[-0.05, 1.05]}
+            yDomain={[-0.05, 1.08]}
             formatValue={formatPercent}
             formatTime={formatChartTime}
-            lineWidth={3}
+            lineWidth={5}
             smoothCurve={false}
             badgeVariant="minimal"
           />

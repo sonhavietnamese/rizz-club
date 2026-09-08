@@ -1,8 +1,11 @@
 'use client'
 
+import { useCurrentMarket } from '@/hooks/use-current-market'
+import { BTC_ASSET, BTC_COLOR, BTC_PRICE_TICKS, BTC_PRICE_WINDOWS } from '@/lib/btc'
 import { createDreamDexExchange } from '@/lib/dreamdex'
-import { formatChange, formatChartTime, formatUsd, priceStatusLabel } from '@/lib/format'
+import { formatChange, formatChartTime, formatUsd } from '@/lib/format'
 import { Liveline } from '@/lib/liveline'
+import { interpolateAtTime } from '@/lib/liveline/math/interpolate'
 import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import {
   candleWidthForWindow,
@@ -11,34 +14,19 @@ import {
   pointsToCandles,
   tickToLivelinePoint,
 } from '@/lib/utils'
-import {
-  SomniaMarketsProvider,
-  useLivePrice,
-  useLivePriceFeedInfo,
-  useLivePriceTicks,
-  useWatchPrice,
-} from '@somnia-chain/markets-sdk/react'
-import { cn } from 'cn'
+import { isBinaryMarket } from '@somnia-chain/markets-sdk'
+import { SomniaMarketsProvider, useLivePrice, useLivePriceTicks, useWatchPrice } from '@somnia-chain/markets-sdk/react'
 import { useMemo, useState } from 'react'
 
-const btcPriceAsset = 'BTC'
-const maxBtcPriceTicks = 1_000
-const btcOrange = '#F7931A'
-
-const btcPriceWindows = [
-  { label: '1m', secs: 60 },
-  { label: '5m', secs: 300 },
-  { label: '15m', secs: 900 },
-  { label: '1h', secs: 3_600 },
-]
+const defaultWindowSecs = BTC_PRICE_WINDOWS[0]?.secs ?? 60
 
 function BtcPriceFeed() {
+  const { market } = useCurrentMarket()
   const [chartMode, setChartMode] = useState<'line' | 'candle'>('line')
-  const [windowSecs, setWindowSecs] = useState(btcPriceWindows[0].secs)
-  const priceStatus = useWatchPrice(btcPriceAsset)
-  const btcPrice = useLivePrice(btcPriceAsset)
-  const feedInfo = useLivePriceFeedInfo(btcPriceAsset)
-  const btcPriceTicks = useLivePriceTicks(btcPriceAsset, maxBtcPriceTicks)
+  const [windowSecs, setWindowSecs] = useState(defaultWindowSecs)
+  const priceStatus = useWatchPrice(BTC_ASSET)
+  const btcPrice = useLivePrice(BTC_ASSET)
+  const btcPriceTicks = useLivePriceTicks(BTC_ASSET, BTC_PRICE_TICKS)
   const btcPricePoints = useMemo(() => {
     const points = btcPriceTicks.map(tickToLivelinePoint)
     if (btcPrice) points.push(livePriceToPoint(btcPrice))
@@ -49,13 +37,23 @@ function BtcPriceFeed() {
     () => pointsToCandles(btcPricePoints, candleWidth),
     [btcPricePoints, candleWidth],
   )
-  const lastBtcPriceUpdate = feedInfo?.updatedAtMs ?? (btcPrice ? btcPrice.blockTimestamp * 1000 : undefined)
+  const marketOpenPrice = useMemo(() => {
+    if (!market || !isBinaryMarket(market.info)) return undefined
+
+    const tradingStart = Number(market.info.tradingStart)
+    if (!Number.isFinite(tradingStart)) return undefined
+
+    return interpolateAtTime(btcPricePoints, tradingStart) ?? undefined
+  }, [btcPricePoints, market])
+  const marketReferenceLine = useMemo(
+    () => (marketOpenPrice == null ? undefined : { value: marketOpenPrice, label: formatUsd(marketOpenPrice) }),
+    [marketOpenPrice],
+  )
   const isLoadingBtcPrice = priceStatus === 'hydrating' && btcPricePoints.length === 0
   const first = btcPricePoints.at(0)
   const latestValue = btcPrice?.price ?? btcPricePoints.at(-1)?.value
   const change = first && latestValue !== undefined ? latestValue - first.value : undefined
   const changePercent = change !== undefined && first && first.value !== 0 ? change / first.value : undefined
-  const isLive = priceStatus === 'live'
   const changeTone = change === undefined ? '#6A7374' : change >= 0 ? YES_COLOR : NO_COLOR
 
   return (
@@ -80,10 +78,10 @@ function BtcPriceFeed() {
             className="min-h-0"
             data={btcPricePoints}
             value={latestValue ?? 0}
-            color={btcOrange}
+            color={BTC_COLOR}
             theme="dark"
             window={windowSecs}
-            windows={btcPriceWindows}
+            windows={BTC_PRICE_WINDOWS}
             onWindowChange={setWindowSecs}
             windowStyle="rounded"
             mode="candle"
@@ -98,6 +96,7 @@ function BtcPriceFeed() {
             emptyText="Waiting for BTC price..."
             formatValue={formatUsd}
             formatTime={formatChartTime}
+            referenceLine={marketReferenceLine}
             valueMomentumColor
             exaggerate
             badgeVariant="minimal"

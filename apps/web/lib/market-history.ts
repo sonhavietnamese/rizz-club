@@ -1,4 +1,6 @@
-export const HISTORY_ASSET = 'BTC'
+import { BTC_ASSET } from '@/lib/btc'
+
+export const HISTORY_ASSET = BTC_ASSET
 export const HISTORY_INTERVAL_SECONDS = 5 * 60
 export const HISTORY_PAGE_SIZE = 48
 export const HISTORY_MIXED_PAGE_SIZE = 96

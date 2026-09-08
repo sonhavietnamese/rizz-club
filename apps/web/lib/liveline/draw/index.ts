@@ -551,6 +551,7 @@ export interface CandleDrawOptions {
   emptyText?: string
   loadingAlpha: number
   showEmptyOverlay: boolean // true only when collapsing to empty (not loading, not forward morph)
+  referenceLine?: ReferenceLine
 }
 
 /**
@@ -587,7 +588,15 @@ export function drawCandleFrame(
     return t * t * (3 - 2 * t)
   }
 
-  // 1. Grid — fades in (25%–60% of reveal)
+  // 1. Reference line (behind everything) — fades with reveal
+  if (opts.referenceLine && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    drawReferenceLine(ctx, layout, palette, opts.referenceLine)
+    ctx.restore()
+  }
+
+  // 2. Grid — fades in (25%–60% of reveal)
   const gridAlpha = revealRamp(0.25, 0.6)
   if (opts.showGrid && gridAlpha > 0.01) {
     ctx.save()
@@ -596,7 +605,7 @@ export function drawCandleFrame(
     ctx.restore()
   }
 
-  // 2. Line — morph line that transforms from loading squiggly into data.
+  // 3. Line — morph line that transforms from loading squiggly into data.
   //    Returns pts for dot position.
   let linePts: [number, number][] | undefined
   if (lp > 0.01 && opts.lineVisible.length >= 2) {
