@@ -1,3 +1,5 @@
+export { errorMessage } from '@repo/shared/error'
+
 export function sleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
@@ -17,10 +19,6 @@ export function sleep(ms: number, signal?: AbortSignal) {
 
     signal?.addEventListener('abort', onAbort, { once: true })
   })
-}
-
-export function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 export function isAbortError(error: unknown, signal?: AbortSignal) {

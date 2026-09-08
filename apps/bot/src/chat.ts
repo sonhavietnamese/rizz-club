@@ -1,4 +1,5 @@
 import { chatRef } from '@/firebase'
+import { sleep } from '@/lib/async'
 import { displayName } from '@/traders'
 import { wallets, type BotWallet } from '@/wallets'
 import { get, limitToFirst, orderByKey, push, query, remove } from 'firebase/database'
@@ -58,27 +59,6 @@ function pick<T>(items: readonly T[]) {
   const item = items[Math.floor(Math.random() * items.length)]
   if (item === undefined) throw new Error('Cannot pick from an empty list')
   return item
-}
-
-function sleep(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason ?? new Error('Aborted'))
-      return
-    }
-
-    const timeout = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-
-    function onAbort() {
-      clearTimeout(timeout)
-      reject(signal?.reason ?? new Error('Aborted'))
-    }
-
-    signal?.addEventListener('abort', onAbort, { once: true })
-  })
 }
 
 export async function buildChatMessage(wallet: BotWallet, text = pick(LINES)): Promise<ChatMessage> {

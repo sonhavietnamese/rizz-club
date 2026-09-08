@@ -1,5 +1,6 @@
 import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
 import { chain, createSignerClient, publicClient, tusdcAbi, tusdcAddress } from '@/chain'
+import { errorMessage } from '@/lib/async'
 import { getFaucetAccount, wallets, type BotWallet } from '@/wallets'
 
 const STT_AMOUNT = parseEther('0.5')
@@ -20,10 +21,6 @@ function parseArgs() {
     dryRun: args.includes('--dry-run'),
     force: args.includes('--force'),
   }
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown error'
 }
 
 async function tokenBalance(address: `0x${string}`) {

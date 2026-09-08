@@ -1,7 +1,7 @@
+import { PRESENCE_HEARTBEAT_MS, TRADERS_PATH, traderKey } from '@repo/shared/firebase-path'
 import type { BotWallet } from '@/wallets'
 
-export const TRADERS_PATH = 'traders'
-export const PRESENCE_HEARTBEAT_MS = 15_000
+export { PRESENCE_HEARTBEAT_MS, TRADERS_PATH, traderKey }
 export const HEART_RATE_MS = 2_000
 
 export type TraderStatus = 'online' | 'offline'
@@ -32,12 +32,6 @@ const NAMES = [
   'lux',
   'rio',
 ] as const
-
-const firebaseKeyForbidden = new Set(['.', '#', '$', '[', ']', '/'])
-
-export function traderKey(id: string) {
-  return [...id.toLowerCase()].map((char) => (firebaseKeyForbidden.has(char) ? '_' : char)).join('')
-}
 
 export function displayName(wallet: Pick<BotWallet, 'index' | 'address'>) {
   return NAMES[wallet.index % NAMES.length] ?? wallet.address.slice(0, 6)

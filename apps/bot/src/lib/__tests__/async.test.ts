@@ -20,6 +20,6 @@ describe('isAbortError', () => {
 describe('errorMessage', () => {
   test('reads an Error message or falls back', () => {
     expect(errorMessage(new Error('boom'))).toBe('boom')
-    expect(errorMessage('nope')).toBe('Unknown error')
+    expect(errorMessage('nope')).toBe('nope')
   })
 })
