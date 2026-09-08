@@ -16,20 +16,20 @@ export default function Page() {
     <CurrentMarketProvider>
       <main className="w-screen h-screen bg-background relative p-2 flex flex-col gap-2">
         <SectionHeader />
-        <div className="grid min-h-0 w-full flex-1 grid-cols-5 gap-2">
-          <div className="col-span-1 flex min-h-0 flex-col gap-2 overflow-hidden">
+        <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(400px,1fr)_3fr_minmax(400px,1fr)] gap-2">
+          <div id="left" className="flex min-h-0 flex-col gap-2 overflow-hidden">
             <SectionChat />
             <SectionProgress />
             <SectionStatus />
           </div>
 
-          <div className="col-span-3 flex flex-col gap-2">
+          <div id="center" className="flex flex-col gap-2">
             <SectionBtcPrice />
             <SectionMarket />
             <SectionDynamicIsland />
           </div>
 
-          <div className="col-span-1 flex flex-col gap-2">
+          <div id="right" className="flex flex-col gap-2">
             <SectionLeaderboard />
             <SectionAbility />
             <SectionHistory />
