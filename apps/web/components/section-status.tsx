@@ -1,6 +1,11 @@
+'use client'
+
+import { useTraders } from '@/hooks/use-traders'
+import { formatTraderCount } from '@/lib/traders'
 import { cn } from 'cn'
 
 export default function SectionStatus() {
+  const { online } = useTraders()
   return (
     <section className="section-panel font-sans flex-none p-2 gap-2 flex justify-between select-none">
       <div className="p-1 px-1.5 bg-[#24362C] leading-none rounded-lg w-fit">
@@ -55,7 +60,7 @@ export default function SectionStatus() {
               />
             </svg>
           </figure>
-          180 traders
+          {formatTraderCount(online)}
         </span>
       </div>
     </section>

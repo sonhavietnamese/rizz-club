@@ -1,6 +1,7 @@
 'use client'
 
 import { env } from '@/env'
+import { useTraderPresence } from '@/hooks/use-traders'
 import { config as wagmiConfig } from '@/lib/wagmi'
 import {
   PrivyProvider,
@@ -22,6 +23,11 @@ function isServerSignableWallet(account: LinkedAccountWithMetadata): account is 
     account.chainType === 'ethereum' &&
     (account.walletClientType === 'privy' || account.walletClientType === 'privy-v2')
   )
+}
+
+function TraderPresence() {
+  useTraderPresence()
+  return null
 }
 
 function WalletSessionSignerManager() {
@@ -66,6 +72,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       }}
     >
       <WalletSessionSignerManager />
+      <TraderPresence />
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>{children}</WagmiProvider>
       </QueryClientProvider>
