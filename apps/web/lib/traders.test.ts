@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   formatTraderCount,
+  isTraderOnline,
   onlineTraderCount,
   parseTraders,
   traderIdentity,
@@ -64,20 +65,122 @@ describe('parseTraders', () => {
     expect(parseTraders(null)).toEqual({ traders: [], anonymous: 0 })
     expect(parseTraders(undefined)).toEqual({ traders: [], anonymous: 0 })
   })
+
+  test('counts live anonymous sessions instead of a single counter', () => {
+    const now = 1_000_000
+    expect(
+      parseTraders(
+        {
+          anonymous: {
+            tabA: now - 1_000,
+            tabB: now - 2_000,
+            stale: now - 120_000,
+          },
+        },
+        now,
+      ).anonymous,
+    ).toBe(2)
+  })
+})
+
+describe('isTraderOnline', () => {
+  const now = 1_000_000
+
+  test('keeps a tab online when status was flipped offline but a session is still live', () => {
+    expect(
+      isTraderOnline(
+        trader({
+          status: 'offline',
+          lastSeen: now - 5_000,
+          sessions: { tabA: now - 5_000 },
+        }),
+        now,
+      ),
+    ).toBe(true)
+  })
+
+  test('stays online when one of two tab sessions drops', () => {
+    expect(
+      isTraderOnline(
+        trader({
+          status: 'online',
+          lastSeen: now - 2_000,
+          sessions: { tabA: now - 40_000, tabB: now - 2_000 },
+        }),
+        now,
+      ),
+    ).toBe(true)
+  })
+
+  test('treats a reconnect window as online via lastSeen even if sessions were cleared', () => {
+    expect(
+      isTraderOnline(
+        trader({
+          status: 'offline',
+          lastSeen: now - 8_000,
+          sessions: {},
+        }),
+        now,
+      ),
+    ).toBe(true)
+  })
+
+  test('expires a trader whose lastSeen and sessions are stale', () => {
+    expect(
+      isTraderOnline(
+        trader({
+          status: 'online',
+          lastSeen: now - 120_000,
+          sessions: { tabA: now - 120_000 },
+        }),
+        now,
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('onlineTraderCount', () => {
-  test('sums online roster traders with the anonymous counter', () => {
+  const now = 1_000_000
+
+  test('sums live presence with the anonymous counter', () => {
     expect(
-      onlineTraderCount({
-        traders: [
-          trader(),
-          trader({ address: '0x2', name: 'kira', status: 'offline' }),
-          trader({ address: '0x3', name: 'jax', status: 'online' }),
-        ],
-        anonymous: 5,
-      }),
+      onlineTraderCount(
+        {
+          traders: [
+            trader({ lastSeen: now - 1_000, sessions: { a: now - 1_000 } }),
+            trader({ address: '0x2', name: 'kira', status: 'offline' }),
+            trader({ address: '0x3', name: 'jax', status: 'online', lastSeen: now - 1_000 }),
+          ],
+          anonymous: 5,
+        },
+        now,
+      ),
     ).toBe(7)
+  })
+
+  test('does not drop a signed-in tab that still has a live session', () => {
+    expect(
+      onlineTraderCount(
+        {
+          traders: [
+            trader({
+              status: 'offline',
+              lastSeen: now - 3_000,
+              sessions: { tab1: now - 3_000 },
+            }),
+            trader({
+              address: '0x2',
+              name: 'kira',
+              status: 'online',
+              lastSeen: now - 3_000,
+              sessions: { tab2: now - 3_000 },
+            }),
+          ],
+          anonymous: 0,
+        },
+        now,
+      ),
+    ).toBe(2)
   })
 })
 

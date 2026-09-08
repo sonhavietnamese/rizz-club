@@ -1,7 +1,12 @@
 'use client'
 
+import { useMarketHistory } from '@/hooks/use-market-history'
+import { type HistoryOutcome } from '@/lib/market-history'
 import { cn } from 'cn'
 import { useEffect, useMemo, useRef, useState } from 'react'
+
+const yesColor = '#2DD530'
+const noColor = '#F87171'
 
 type Point = {
   x: number
@@ -117,6 +122,7 @@ type Item = {
   label: string
   isCurrent: boolean
   isPast: boolean
+  outcome: HistoryOutcome | null
 }
 
 function startOfHourGmt7(ms: number) {
@@ -135,6 +141,7 @@ function generateTimeSlots(now: number): Item[] {
       label: slotLabelFormatter.format(time),
       isCurrent: time === aligned,
       isPast: time < aligned,
+      outcome: null,
     })
   }
 
@@ -268,11 +275,7 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
                 const x = itemX(colIndex, rowIndex, colWidth, itemInsetX)
 
                 return (
-                  <div
-                    key={item.time}
-                    data-current={item.isCurrent ? 'true' : undefined}
-                    className="bg-amber-400 relative"
-                  >
+                  <div key={item.time} data-current={item.isCurrent ? 'true' : undefined} className="relative">
                     <div
                       className={cn(
                         'font-sans absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 bg-section-background p-2 text-sm whitespace-nowrap tabular-nums font-medium',
@@ -284,7 +287,7 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
                     </div>
 
                     <div
-                      className="absolute -translate-x-1/2"
+                      className="absolute flex -translate-x-1/2 items-center justify-center"
                       style={{
                         left: x,
                         top: rowY + boxTopGap,
@@ -294,7 +297,22 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
                         background: item.isCurrent ? '#525252' : item.isPast ? '#3a3a3a' : '#2a2a2a',
                         boxShadow: item.isCurrent ? 'inset 0 0 0 1px rgba(255,255,255,0.28)' : undefined,
                       }}
-                    />
+                      aria-label={
+                        item.outcome === 'Y' ? `${item.label} YES` : item.outcome === 'N' ? `${item.label} NO` : item.label
+                      }
+                    >
+                      {item.outcome ? (
+                        <span
+                          className="font-abc-gravity-italic leading-none"
+                          style={{
+                            fontSize: boxSize * 0.46,
+                            color: item.outcome === 'Y' ? yesColor : noColor,
+                          }}
+                        >
+                          {item.outcome}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 )
               })
@@ -309,7 +327,14 @@ function SerpentineTimeline({ items }: { items: Item[] }) {
 
 export default function SectionHistory() {
   const [now, setNow] = useState<number | null>(null)
-  const items = useMemo(() => (now == null ? [] : generateTimeSlots(now)), [now])
+  const { outcomes } = useMarketHistory()
+  const items = useMemo(() => {
+    if (now == null) return []
+    return generateTimeSlots(now).map((item) => ({
+      ...item,
+      outcome: item.isPast ? (outcomes[item.time] ?? null) : null,
+    }))
+  }, [now, outcomes])
 
   useEffect(() => {
     const tick = () => setNow(Date.now())
