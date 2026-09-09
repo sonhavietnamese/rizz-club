@@ -5,7 +5,10 @@ import { useDisplayName } from '@/hooks/use-display-name'
 import { useHeartRate } from '@/hooks/use-heart-rate'
 import { usePublishTraderHeartRate } from '@/hooks/use-traders'
 import { useTradeSetup } from '@/hooks/use-trade-setup'
+import { useTrading } from '@/hooks/use-trading'
 import { ABILITY_ACCENT } from '@/lib/ability'
+import { formatShares } from '@/lib/format'
+import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import {
   canApplyAbilityOnIsland,
   formatBalanceLine,
@@ -366,6 +369,109 @@ function IslandFrame({
   )
 }
 
+function TradingZonePane({
+  heartRate,
+  reduceMotion,
+  onBack,
+}: {
+  heartRate: ReturnType<typeof useHeartRate>
+  reduceMotion: boolean
+  onBack: () => void
+}) {
+  const {
+    status,
+    tradingOutcome,
+    isClaiming,
+    isLoadingPositions,
+    isLoadingMarket,
+    canTrade,
+    canTakeProfit,
+    canClaim,
+    yesPosition,
+    noPosition,
+    isTakingProfit,
+    placeTrade,
+    takeProfit,
+    claimRewards,
+  } = useTrading()
+
+  const statusTone =
+    status?.tone === 'error' ? 'text-[#F87171]' : status?.tone === 'success' ? 'text-white' : 'text-white/70'
+  const detail =
+    status?.message ??
+    (isLoadingMarket ? 'Loading live market...' : isLoadingPositions ? 'Syncing positions...' : '5 tUSDC per trade')
+
+  return (
+    <div className="flex h-full w-full gap-2 p-2">
+      <IslandButton
+        onClick={onBack}
+        className="flex h-full shrink-0 flex-col items-center justify-center gap-1.5 bg-white/10 px-3 text-white"
+      >
+        Back
+        {heartRate.live ? <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} /> : null}
+      </IslandButton>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate font-sans text-xs tabular-nums text-white/80">
+              <span style={{ color: YES_COLOR }}>YES {formatShares(yesPosition)}</span>
+              <span className="text-white/35"> · </span>
+              <span style={{ color: NO_COLOR }}>NO {formatShares(noPosition)}</span>
+            </p>
+            <p className={`mt-1 truncate font-sans text-[11px] ${statusTone}`} aria-live="polite">
+              {detail}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <IslandButton
+              onClick={() => void takeProfit()}
+              disabled={!canTakeProfit}
+              busy={isTakingProfit}
+              className="bg-white text-black"
+            >
+              {isTakingProfit ? 'Selling' : 'TP'}
+            </IslandButton>
+            <IslandButton
+              onClick={() => void claimRewards()}
+              disabled={!canClaim}
+              busy={isClaiming}
+              className="bg-white/15 text-white"
+            >
+              {isClaiming ? 'Claiming' : 'Claim'}
+            </IslandButton>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 gap-2">
+          <button
+            type="button"
+            onClick={() => void placeTrade('YES')}
+            disabled={!canTrade}
+            className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#7C5CFF] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="font-abc-gravity-italic text-[42px] leading-none">UP</span>
+            <span className="mt-2 font-sans text-xs text-white/70">
+              {tradingOutcome === 'YES' ? 'Buying...' : 'Buy YES'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void placeTrade('NO')}
+            disabled={!canTrade}
+            className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#FF6A3D] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
+            <span className="mt-2 font-sans text-xs text-white/70">
+              {tradingOutcome === 'NO' ? 'Buying...' : 'Buy NO'}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function IslandDropOverlay({
   active,
   hovering,
@@ -443,7 +549,7 @@ function AppliedTag({ name, onClear, reduceMotion }: { name: string; onClear: ()
 export default function SectionDynamicIsland() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const reduceMotion = useReducedMotion() ?? false
-  const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund } = useTradeSetup()
+  const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund, refresh } = useTradeSetup()
   const heartRate = useHeartRate()
   usePublishTraderHeartRate(heartRate.bpm, heartRate.live)
   const { islandRef, drag, overIsland, applied, clearApplied, returning } = useAbility()
@@ -633,24 +739,34 @@ export default function SectionDynamicIsland() {
                       </p>
                     ) : null}
                   </div>
-                  {needs.stt || needs.tusdc || status.step === 'error' ? (
-                    <div className="flex shrink-0 gap-2">
-                      <IslandButton
-                        onClick={() => faucet('STT')}
-                        disabled={busy || !status.address}
-                        busy={busy && status.step === 'funding_stt'}
-                      >
-                        {busy && status.step === 'funding_stt' ? 'Funding STT' : 'Faucet STT'}
-                      </IslandButton>
-                      <IslandButton
-                        onClick={() => faucet('tUSDC')}
-                        disabled={busy || !status.address}
-                        busy={busy && status.step === 'funding_tusdc'}
-                      >
-                        {busy && status.step === 'funding_tusdc' ? 'Funding tUSDC' : 'Faucet tUSDC'}
-                      </IslandButton>
-                    </div>
-                  ) : null}
+                  <div className="flex shrink-0 gap-2">
+                    <IslandButton
+                      onClick={() => void refresh()}
+                      disabled={busy || !status.address}
+                      busy={busy && status.step === 'checking_balances'}
+                      className="bg-white/10 text-white"
+                    >
+                      {busy && status.step === 'checking_balances' ? 'Refreshing' : 'Refresh'}
+                    </IslandButton>
+                    {needs.stt || needs.tusdc || status.step === 'error' ? (
+                      <>
+                        <IslandButton
+                          onClick={() => faucet('STT')}
+                          disabled={busy || !status.address}
+                          busy={busy && status.step === 'funding_stt'}
+                        >
+                          {busy && status.step === 'funding_stt' ? 'Funding STT' : 'Faucet STT'}
+                        </IslandButton>
+                        <IslandButton
+                          onClick={() => faucet('tUSDC')}
+                          disabled={busy || !status.address}
+                          busy={busy && status.step === 'funding_tusdc'}
+                        >
+                          {busy && status.step === 'funding_tusdc' ? 'Funding tUSDC' : 'Faucet tUSDC'}
+                        </IslandButton>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </IslandFrame>
@@ -658,29 +774,11 @@ export default function SectionDynamicIsland() {
 
           {stage === 'trading-zone' ? (
             <IslandFrame reduceMotion={reduceMotion} stageKey="trading-zone">
-              <div className="flex h-full w-full gap-2">
-                <IslandButton
-                  onClick={() => setZone('information')}
-                  className="flex h-full shrink-0 flex-col items-center justify-center gap-1.5 bg-white/10 px-3 text-white"
-                >
-                  Back
-                  {heartRate.live ? <BpmReadout bpm={heartRate.bpm} reduceMotion={reduceMotion} /> : null}
-                </IslandButton>
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#7C5CFF] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
-                >
-                  <span className="font-abc-gravity-italic text-[42px] leading-none">UP</span>
-                  <span className="mt-2 font-sans text-xs text-white/70">Buy YES</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#FF6A3D] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
-                >
-                  <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
-                  <span className="mt-2 font-sans text-xs text-white/70">Buy NO</span>
-                </button>
-              </div>
+              <TradingZonePane
+                heartRate={heartRate}
+                reduceMotion={reduceMotion}
+                onBack={() => setZone('information')}
+              />
             </IslandFrame>
           ) : null}
 

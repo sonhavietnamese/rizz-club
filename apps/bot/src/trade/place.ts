@@ -20,7 +20,7 @@ import { errorMessage } from '@/lib/async'
 import type { BotWallet } from '@/wallets'
 import type { MarketSnapshot } from './snapshot'
 import type { BookPrices, CostBounds, TradeIntent, TradeResult, WalletPositions } from './types'
-import { resolveCostBounds } from './types'
+import { assertTradeCost, resolveCostBounds } from './types'
 
 const maxRetrySlippageBps = BigInt(1500)
 
@@ -80,6 +80,7 @@ export async function walletPositions(
     yes: pnl ? humanAmount(pnl.balanceYes, decimals) : 0,
     no: pnl ? humanAmount(pnl.balanceNo, decimals) : 0,
     collateral,
+    unrealizedPnl: pnl ? humanAmount(pnl.unrealizedPnl, decimals) : undefined,
   }
 }
 
@@ -111,11 +112,7 @@ export async function placeTrade(
   } = {},
 ): Promise<TradeResult> {
   const costBounds = resolveCostBounds(options.cost)
-  if (intent.cost <= costBounds.min || intent.cost > costBounds.limit) {
-    throw new Error(
-      `Trade cost must be more than ${costBounds.min} and at most ${costBounds.limit}, got ${intent.cost}`,
-    )
-  }
+  assertTradeCost(intent, costBounds)
   if (!isBinaryMarket(market.info)) {
     throw new Error(`Market ${market.symbol} is not a binary market`)
   }
@@ -229,5 +226,6 @@ function tradeResult(
     filled: humanAmount(filledRaw, onchain.decimals),
     txHash: order?.hash,
     dryRun,
+    exit: intent.exit,
   }
 }

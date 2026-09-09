@@ -9,6 +9,7 @@ import {
   formatTokenAmount,
   fundTradeWallet,
   hasAssignedSigner,
+  refreshTradeBalances,
   idleTradeSetupStatus,
   islandStageFromSetup,
   isBusyTradeSetup,
@@ -326,5 +327,23 @@ describe('fundTradeWallet', () => {
     await collect((onStatus) => fundTradeWallet(setup, address, onStatus, 'tUSDC'))
 
     expect(setup.calls.filter((call) => call.startsWith('faucet'))).toEqual([`faucet:tUSDC:${address}`])
+  })
+})
+
+describe('refreshTradeBalances', () => {
+  test('rereads STT and tUSDC without calling the faucet', async () => {
+    const setup = deps()
+
+    const { result, steps } = await collect((onStatus) =>
+      refreshTradeBalances(setup, address, onStatus, { stt: parseEther('1'), tusdc: parseUnits('10', 6) }),
+    )
+
+    expect(result).toEqual({
+      address,
+      stt: parseEther('3'),
+      tusdc: parseUnits('80', 6),
+    })
+    expect(setup.calls).toEqual(['getBalances'])
+    expect(steps).toEqual(['checking_balances', 'ready'])
   })
 })

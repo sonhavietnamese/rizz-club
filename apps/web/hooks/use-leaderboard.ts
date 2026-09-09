@@ -2,11 +2,13 @@
 
 import { currentMarketIds, useCurrentMarket } from '@/hooks/use-current-market'
 import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
+import { useMarketCloses } from '@/hooks/use-market-closes'
 import { useMarketTrades } from '@/hooks/use-market-trades'
 import { useTraders } from '@/hooks/use-traders'
 import {
   advanceLeaderboardHold,
   toLeaderboardItems,
+  withCloseExits,
   withTraderData,
   type LeaderboardHold,
   type LeaderboardItem,
@@ -21,14 +23,15 @@ export function useLeaderboard() {
   const marketIds = useMemo(() => currentMarketIds(market), [market])
   const marketKey = marketIds.join('|')
   const { trades, status: tradesStatus } = useMarketTrades(marketIds)
+  const { closes, status: closesStatus } = useMarketCloses(marketIds)
   const { points, status: seriesStatus } = useMarketTimeseries(marketIds)
   const { traders, now } = useTraders()
   const latest = points.at(-1)
   const yes = latest?.yes
   const no = latest?.no ?? (yes == null ? undefined : 1 - yes)
   const liveItems = useMemo(
-    () => (marketKey ? toLeaderboardItems(trades, { yes, no }) : emptyItems),
-    [marketKey, no, trades, yes],
+    () => (marketKey ? withCloseExits(toLeaderboardItems(trades, { yes, no }), closes) : emptyItems),
+    [closes, marketKey, no, trades, yes],
   )
 
   const [view, setView] = useState({ hold: emptyHold, frozen: false })
@@ -37,9 +40,9 @@ export function useLeaderboard() {
     setView(next)
   }
 
-  const status = isLoadingMarket || tradesStatus === 'loading' || seriesStatus === 'loading'
+  const status = isLoadingMarket || tradesStatus === 'loading' || seriesStatus === 'loading' || closesStatus === 'loading'
     ? 'loading'
-    : tradesStatus === 'error' || seriesStatus === 'error'
+    : tradesStatus === 'error' || seriesStatus === 'error' || closesStatus === 'error'
       ? 'error'
       : 'live'
 

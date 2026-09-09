@@ -1,0 +1,299 @@
+'use client'
+
+import { useCurrentMarket } from '@/hooks/use-current-market'
+import { errorMessage } from '@/lib/error'
+import {
+  binaryMarketId,
+  canPlaceTrade,
+  canTakeProfit as canTakeProfitPositions,
+  claimRewardsBody,
+  formatClaimResultMessage,
+  formatTakeProfitResultMessage,
+  formatTradeResultMessage,
+  outcomePositions,
+  placePositionBody,
+  positionTotal,
+  sellablePositions,
+  tradableForOutcome,
+  tradingApiErrorMessage,
+  type Outcome,
+  type PlacePositionResult,
+  type RewardClaimResult,
+  type TradeSide,
+  type TradingBalances,
+  type TradingStatus,
+} from '@/lib/trading'
+import { tradeWallet } from '@/lib/trade-setup'
+import { usePrivy } from '@privy-io/react-auth'
+import { useEffect, useState } from 'react'
+
+type BalancesResponse = {
+  balances: TradingBalances
+}
+
+export function useTrading() {
+  const { user, getAccessToken } = usePrivy()
+  const { market, isLoading: isLoadingMarket } = useCurrentMarket()
+  const walletId = tradeWallet(user)?.id ?? null
+  const marketId = binaryMarketId(market)
+  const [balances, setBalances] = useState<TradingBalances | null>(null)
+  const [isLoadingPositions, setIsLoadingPositions] = useState(false)
+  const [isTrading, setIsTrading] = useState(false)
+  const [tradingOutcome, setTradingOutcome] = useState<Outcome | null>(null)
+  const [isTakingProfit, setIsTakingProfit] = useState(false)
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [status, setStatus] = useState<TradingStatus | null>(null)
+  const positions = outcomePositions(market, balances)
+  const busy = isTrading || isClaiming
+  const canTrade = canPlaceTrade({
+    walletId,
+    marketId,
+    tradable: tradableForOutcome(market, 'YES'),
+    busy,
+  })
+  const canTakeProfit = canTakeProfitPositions({
+    walletId,
+    marketId,
+    positions,
+    busy,
+  })
+
+  async function tradingApiFetch(url: string, body: unknown) {
+    const accessToken = await getAccessToken()
+    if (!accessToken) throw new Error('Privy session expired. Please sign in again.')
+
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function refreshPositions({ silent = false }: { silent?: boolean } = {}) {
+    if (!walletId) {
+      setBalances(null)
+      return
+    }
+
+    try {
+      setIsLoadingPositions(true)
+      const response = await tradingApiFetch('/api/trading/balances', { wallet_id: walletId })
+      const result = (await response.json().catch(() => null)) as BalancesResponse | null
+
+      if (!response.ok) {
+        throw new Error(tradingApiErrorMessage(result, 'Failed to load positions'))
+      }
+
+      setBalances(result?.balances ?? null)
+    } catch (error) {
+      setBalances(null)
+      if (!silent) {
+        setStatus({ tone: 'error', message: `Could not load positions: ${errorMessage(error)}` })
+      }
+    } finally {
+      setIsLoadingPositions(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!walletId) return
+
+    let canceled = false
+
+    void getAccessToken()
+      .then((accessToken) => {
+        if (!accessToken) throw new Error('Privy session expired. Please sign in again.')
+        return fetch('/api/trading/balances', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ wallet_id: walletId }),
+        })
+      })
+      .then(async (response) => {
+        const result = (await response.json().catch(() => null)) as BalancesResponse | null
+        if (canceled) return
+
+        if (!response.ok) {
+          setBalances(null)
+          setStatus({
+            tone: 'error',
+            message: `Could not load positions: ${tradingApiErrorMessage(result, 'Failed to load positions')}`,
+          })
+          setIsLoadingPositions(false)
+          return
+        }
+
+        setBalances(result?.balances ?? null)
+        setIsLoadingPositions(false)
+      })
+      .catch((error: unknown) => {
+        if (canceled) return
+        setBalances(null)
+        setStatus({ tone: 'error', message: `Could not load positions: ${errorMessage(error)}` })
+        setIsLoadingPositions(false)
+      })
+
+    return () => {
+      canceled = true
+    }
+  }, [getAccessToken, walletId])
+
+  useEffect(() => {
+    if (!marketId) return
+
+    const controller = new AbortController()
+    void fetch('/api/trading/market-prefetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ market_id: marketId }),
+      signal: controller.signal,
+    }).catch(() => {})
+
+    return () => controller.abort()
+  }, [marketId])
+
+  async function submitPosition(outcome: Outcome, side: TradeSide, amount?: number) {
+    const tradable = tradableForOutcome(market, outcome)
+    if (!walletId || !market || !marketId || !tradable) {
+      throw new Error('No live market is ready to trade yet.')
+    }
+
+    const response = await tradingApiFetch(
+      '/api/trading/position',
+      placePositionBody({
+        walletId,
+        marketId,
+        marketSymbol: market.symbol,
+        tradable,
+        outcome,
+        side,
+        amount,
+      }),
+    )
+    const result = (await response.json().catch(() => null)) as PlacePositionResult | null
+
+    if (!response.ok) {
+      throw new Error(tradingApiErrorMessage(result, 'Failed to place position'))
+    }
+
+    if (result?.balances) setBalances(result.balances)
+    return result
+  }
+
+  async function placeTrade(outcome: Outcome, side: TradeSide = 'buy', amount?: number) {
+    try {
+      setIsTrading(true)
+      setTradingOutcome(outcome)
+      setStatus({
+        tone: 'neutral',
+        message: `${side === 'buy' ? 'Buying' : 'Selling'} ${outcome}...`,
+      })
+
+      const result = await submitPosition(outcome, side, amount)
+      setStatus({
+        tone: 'success',
+        message: formatTradeResultMessage({
+          side,
+          outcome,
+          filled: result?.order.filled ?? 0,
+          amount: result?.order.amount ?? amount ?? 0,
+        }),
+      })
+      void refreshPositions({ silent: true })
+    } catch (error) {
+      setStatus({ tone: 'error', message: errorMessage(error) })
+    } finally {
+      setIsTrading(false)
+      setTradingOutcome(null)
+    }
+  }
+
+  async function takeProfit() {
+    const lots = sellablePositions(positions)
+    if (lots.length === 0) {
+      setStatus({ tone: 'error', message: 'No shares to sell.' })
+      return
+    }
+
+    try {
+      setIsTrading(true)
+      setIsTakingProfit(true)
+      setStatus({ tone: 'neutral', message: 'Selling all shares...' })
+
+      const results = []
+      for (const lot of lots) {
+        const result = await submitPosition(lot.label, 'sell', lot.total)
+        results.push({
+          outcome: lot.label,
+          filled: result?.order.filled ?? 0,
+          amount: result?.order.amount ?? lot.total,
+        })
+      }
+
+      setStatus({ tone: 'success', message: formatTakeProfitResultMessage(results) })
+      void refreshPositions({ silent: true })
+    } catch (error) {
+      setStatus({ tone: 'error', message: errorMessage(error) })
+    } finally {
+      setIsTrading(false)
+      setIsTakingProfit(false)
+    }
+  }
+
+  async function claimRewards() {
+    if (!walletId) {
+      setStatus({ tone: 'error', message: 'No Privy server-signing wallet is available.' })
+      return
+    }
+
+    try {
+      setIsClaiming(true)
+      setStatus({ tone: 'neutral', message: 'Checking closed markets for rewards...' })
+
+      const response = await tradingApiFetch('/api/trading/rewards', claimRewardsBody(walletId))
+      const result = (await response.json().catch(() => null)) as RewardClaimResult | null
+
+      if (!response.ok) {
+        throw new Error(tradingApiErrorMessage(result, 'Failed to claim rewards'))
+      }
+
+      if (result?.balances) setBalances(result.balances)
+      setStatus({
+        tone: 'success',
+        message: formatClaimResultMessage(result?.claimed.length ?? 0),
+      })
+      void refreshPositions({ silent: true })
+    } catch (error) {
+      setStatus({ tone: 'error', message: errorMessage(error) })
+    } finally {
+      setIsClaiming(false)
+    }
+  }
+
+  return {
+    market,
+    isLoadingMarket,
+    walletId,
+    positions,
+    yesPosition: positionTotal(positions, 'YES'),
+    noPosition: positionTotal(positions, 'NO'),
+    status,
+    isTrading,
+    tradingOutcome,
+    isTakingProfit,
+    isClaiming,
+    isLoadingPositions,
+    canTrade,
+    canTakeProfit,
+    canClaim: Boolean(walletId) && !busy,
+    placeTrade,
+    takeProfit,
+    claimRewards,
+  }
+}

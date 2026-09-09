@@ -4,12 +4,16 @@ import {
   traderAvatar,
   type MarketTrade,
 } from '@/lib/market-trades'
+import { closePositionKey, type MarketClose } from '@/lib/market-closes'
 import { formatAddress, formatCents, formatShares } from '@/lib/format'
 import { liveTraderHeartRate, traderKey, type Trader } from '@/lib/traders'
 
 const closedShares = 1e-8
+export const LEADERBOARD_LIMIT = 10
 
 export type LeaderboardSide = 'up' | 'down'
+export type LeaderboardExit = 'tp' | 'sl'
+export type LeaderboardStatus = 'open' | 'closed'
 
 export type LeaderboardPrices = {
   yes?: number
@@ -26,6 +30,8 @@ export type LeaderboardItem = {
   shares: number
   avgPrice: number
   profit: number
+  status: LeaderboardStatus
+  exit?: LeaderboardExit
   heartRate?: number
 }
 
@@ -35,6 +41,17 @@ type OpenPosition = {
   outcome: 'YES' | 'NO'
   shares: number
   cost: number
+  openedShares: number
+  realized: number
+}
+
+type ClosedLot = {
+  trader: string
+  displayTrader: string
+  outcome: 'YES' | 'NO'
+  shares: number
+  avgPrice: number
+  profit: number
 }
 
 function tradeSize(trade: MarketTrade) {
@@ -59,40 +76,77 @@ function positionKey(trader: string, outcome: 'YES' | 'NO') {
   return `${trader}:${outcome}`
 }
 
-function applyFill(position: OpenPosition | undefined, trade: MarketTrade, trader: string, outcome: 'YES' | 'NO') {
+function tradePrice(trade: MarketTrade, amount: number) {
+  if (Number.isFinite(trade.price)) return trade.price as number
+  if (Number.isFinite(trade.cost) && amount > 0) return (trade.cost as number) / amount
+  return null
+}
+
+function roundCents(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function applyBuy(position: OpenPosition | undefined, trade: MarketTrade, trader: string, outcome: 'YES' | 'NO') {
   const amount = tradeSize(trade)
   if (amount == null) return position
 
-  const action = marketTradeAction(trade) ?? 'buy'
+  const cost = tradeCost(trade, amount)
+  if (cost == null) return position
+
   const current = position ?? {
     trader,
     displayTrader: trade.taker ?? trader,
     outcome,
     shares: 0,
     cost: 0,
+    openedShares: 0,
+    realized: 0,
   }
-
-  if (action === 'buy') {
-    const cost = tradeCost(trade, amount)
-    if (cost == null) return position
-    return {
-      ...current,
-      shares: current.shares + amount,
-      cost: current.cost + cost,
-    }
-  }
-
-  if (current.shares <= closedShares) return current.shares > 0 ? current : undefined
-
-  const sold = Math.min(amount, current.shares)
-  const avgPrice = current.cost / current.shares
-  const nextShares = current.shares - sold
-  if (nextShares <= closedShares) return undefined
 
   return {
     ...current,
-    shares: nextShares,
-    cost: current.cost - avgPrice * sold,
+    displayTrader: current.shares > closedShares ? current.displayTrader : (trade.taker ?? current.displayTrader),
+    shares: current.shares + amount,
+    cost: current.cost + cost,
+    openedShares: current.openedShares + amount,
+  }
+}
+
+function applySell(
+  position: OpenPosition | undefined,
+  trade: MarketTrade,
+): { open?: OpenPosition; closed?: ClosedLot } {
+  if (!position || position.shares <= closedShares) return { open: position }
+
+  const amount = tradeSize(trade)
+  if (amount == null) return { open: position }
+
+  const sold = Math.min(amount, position.shares)
+  const avgPrice = position.cost / position.shares
+  const price = tradePrice(trade, amount) ?? avgPrice
+  const realized = position.realized + (price - avgPrice) * sold
+  const nextShares = position.shares - sold
+
+  if (nextShares <= closedShares) {
+    return {
+      closed: {
+        trader: position.trader,
+        displayTrader: position.displayTrader,
+        outcome: position.outcome,
+        shares: position.openedShares > closedShares ? position.openedShares : position.shares,
+        avgPrice,
+        profit: roundCents(realized),
+      },
+    }
+  }
+
+  return {
+    open: {
+      ...position,
+      shares: nextShares,
+      cost: position.cost - avgPrice * sold,
+      realized,
+    },
   }
 }
 
@@ -100,7 +154,11 @@ function markPrice(outcome: 'YES' | 'NO', prices: LeaderboardPrices) {
   return outcome === 'YES' ? prices.yes : prices.no
 }
 
-function toItem(position: OpenPosition, prices: LeaderboardPrices): LeaderboardItem | null {
+function exitFromProfit(profit: number): LeaderboardExit {
+  return profit >= 0 ? 'tp' : 'sl'
+}
+
+function toOpenItem(position: OpenPosition, prices: LeaderboardPrices): LeaderboardItem | null {
   if (position.shares <= closedShares) return null
 
   const avgPrice = position.cost / position.shares
@@ -108,7 +166,7 @@ function toItem(position: OpenPosition, prices: LeaderboardPrices): LeaderboardI
 
   const mark = markPrice(position.outcome, prices)
   const rawProfit = mark == null ? 0 : (mark - avgPrice) * position.shares
-  const profit = Math.round(rawProfit * 100) / 100
+  const profit = roundCents(rawProfit)
 
   return {
     id: positionKey(position.trader, position.outcome),
@@ -120,11 +178,31 @@ function toItem(position: OpenPosition, prices: LeaderboardPrices): LeaderboardI
     shares: position.shares,
     avgPrice,
     profit,
+    status: 'open',
+  }
+}
+
+function toClosedItem(lot: ClosedLot): LeaderboardItem | null {
+  if (!Number.isFinite(lot.avgPrice) || lot.shares <= closedShares) return null
+
+  return {
+    id: `${positionKey(lot.trader, lot.outcome)}:done`,
+    trader: lot.trader,
+    name: formatAddress(lot.displayTrader),
+    avatar: traderAvatar(lot.displayTrader),
+    outcome: lot.outcome,
+    side: lot.outcome === 'YES' ? 'up' : 'down',
+    shares: lot.shares,
+    avgPrice: lot.avgPrice,
+    profit: lot.profit,
+    status: 'closed',
+    exit: exitFromProfit(lot.profit),
   }
 }
 
 export function toLeaderboardItems(trades: MarketTrade[], prices: LeaderboardPrices): LeaderboardItem[] {
-  const positions = new Map<string, OpenPosition>()
+  const open = new Map<string, OpenPosition>()
+  const closed = new Map<string, ClosedLot>()
   const ordered = [...trades].sort((left, right) => left.t - right.t || left.id.localeCompare(right.id))
 
   for (const trade of ordered) {
@@ -133,17 +211,54 @@ export function toLeaderboardItems(trades: MarketTrade[], prices: LeaderboardPri
     if (!trader || !outcome) continue
 
     const key = positionKey(trader, outcome)
-    const next = applyFill(positions.get(key), trade, trader, outcome)
-    if (next) positions.set(key, next)
-    else positions.delete(key)
+    const action = marketTradeAction(trade) ?? 'buy'
+
+    if (action === 'buy') {
+      const next = applyBuy(open.get(key), trade, trader, outcome)
+      if (next) open.set(key, next)
+      continue
+    }
+
+    const { open: nextOpen, closed: nextClosed } = applySell(open.get(key), trade)
+    if (nextOpen) open.set(key, nextOpen)
+    else open.delete(key)
+    if (nextClosed) closed.set(key, nextClosed)
   }
 
-  return [...positions.values()]
-    .flatMap((position) => {
-      const item = toItem(position, prices)
+  return [
+    ...[...open.values()].flatMap((position) => {
+      const item = toOpenItem(position, prices)
       return item ? [item] : []
-    })
-    .sort((left, right) => right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id))
+    }),
+    ...[...closed.values()].flatMap((lot) => {
+      const item = toClosedItem(lot)
+      return item ? [item] : []
+    }),
+  ].sort((left, right) => {
+    if (left.status !== right.status) return left.status === 'open' ? -1 : 1
+    return right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id)
+  }).slice(0, LEADERBOARD_LIMIT)
+}
+
+export function withCloseExits(items: LeaderboardItem[], closes: readonly MarketClose[]): LeaderboardItem[] {
+  if (items.length === 0 || closes.length === 0) return items
+
+  const byKey = new Map<string, MarketClose>()
+  for (const close of closes) {
+    byKey.set(closePositionKey(close.trader, close.outcome), close)
+  }
+
+  let changed = false
+  const next = items.map((item) => {
+    if (item.status !== 'closed') return item
+    const close = byKey.get(closePositionKey(item.trader, item.outcome))
+    if (!close || (close.exit === item.exit && close.profit === item.profit)) return item
+
+    changed = true
+    return { ...item, exit: close.exit, profit: close.profit }
+  })
+
+  return changed ? next : items
 }
 
 export function withTraderData(items: LeaderboardItem[], traders: readonly Trader[], now = Date.now()): LeaderboardItem[] {

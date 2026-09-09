@@ -1,3 +1,4 @@
+import { writeClose } from '@/closes'
 import { createDreamDexExchange } from '@/dreamdex'
 import { errorMessage, isAbortError, sleep } from '@/lib/async'
 import { defaultInterval, type IntervalOption } from '@/market'
@@ -23,8 +24,9 @@ export type SimulateTradesOptions = {
 const INDEXER_RETRY_MS = 5_000
 
 function formatTrade(result: TradeResult) {
+  const tag = result.exit ? result.exit.toUpperCase() : result.side
   const verb = result.dryRun ? 'dry' : result.txHash ? result.txHash.slice(0, 10) : 'sent'
-  return `  ${result.side.padEnd(8, ' ')}  ${result.cost.toFixed(2).padStart(6, ' ')}  ${result.wallet}  ${result.symbol}  ${verb}`
+  return `  ${tag.padEnd(8, ' ')}  ${result.cost.toFixed(2).padStart(6, ' ')}  ${result.wallet}  ${result.symbol}  ${verb}`
 }
 
 function formatWait(kind: string, waitMs: number) {
@@ -148,6 +150,21 @@ async function tradeOne(
       snapshot,
       positions,
     })
+    if (result.exit && !result.dryRun) {
+      const shares = intent.outcome === 'YES' ? positions.yes : positions.no
+      const pnl = positions.unrealizedPnl ?? 0
+      await writeClose({
+        marketId: result.marketId,
+        trader: result.wallet,
+        outcome: intent.outcome,
+        exit: result.exit,
+        profit: pnl,
+        shares,
+        t: Date.now(),
+      }).catch((error) => {
+        console.error(`  close    ${result.wallet}  ${errorMessage(error)}`)
+      })
+    }
     console.log(formatTrade(result))
     return result
   } catch (error) {

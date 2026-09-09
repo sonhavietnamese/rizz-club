@@ -10,6 +10,7 @@ import {
   fundTradeWallet,
   idleTradeSetupStatus,
   isBusyTradeSetup,
+  refreshTradeBalances,
   runTradeSetup,
   tradeWallet,
   type FaucetAsset,
@@ -200,6 +201,25 @@ export function useTradeSetup() {
     [deps, fail, ready],
   )
 
+  const refresh = useCallback(async () => {
+    const current = statusRef.current
+    const address = current.address ?? tradeWallet(asTradeUser(userRef.current))?.address
+    if (!ready || runningRef.current || !address) return
+
+    const currentBalances =
+      current.stt != null && current.tusdc != null ? { stt: current.stt, tusdc: current.tusdc } : undefined
+
+    runningRef.current = true
+    try {
+      await refreshTradeBalances(deps(), address, setStatus, currentBalances)
+      setDidPrepare(true)
+    } catch (error) {
+      fail(error)
+    } finally {
+      runningRef.current = false
+    }
+  }, [deps, fail, ready])
+
   useEffect(() => {
     if (!ready || !authenticated || status.step !== 'idle') return
     const timer = window.setTimeout(() => {
@@ -221,5 +241,6 @@ export function useTradeSetup() {
     busy: isBusyTradeSetup(status.step),
     start,
     fund,
+    refresh,
   }
 }

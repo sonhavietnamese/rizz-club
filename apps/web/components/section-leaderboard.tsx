@@ -65,7 +65,7 @@ function LeaderboardRow({
     <motion.li
       layout="position"
       initial={enter ? { opacity: 0 } : false}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: item.status === 'closed' ? 0.8 : 1 }}
       exit={{ opacity: 0, transition: { ...fade, delay: stagger } }}
       transition={{
         layout: reduceMotion || frozen ? { duration: 0 } : { duration: 0.22, ease: EASE_IN_OUT },
@@ -73,7 +73,7 @@ function LeaderboardRow({
       }}
       className="relative flex w-full gap-[10px] rounded-xl bg-background p-2"
     >
-      <div>
+      <div className="relative">
         <figure className="aspect-square h-15 w-15 rounded-lg bg-[#ff00ff] bg-cover bg-center p-[2px]">
           <Image
             draggable={false}
@@ -84,6 +84,14 @@ function LeaderboardRow({
             className="h-full w-full rounded-lg object-cover"
           />
         </figure>
+        {item.exit ? (
+          <span
+            className="absolute -top-1 -right-1 rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold tracking-wide text-black"
+            style={{ backgroundColor: item.exit === 'tp' ? YES_COLOR : NO_COLOR }}
+          >
+            {item.exit === 'tp' ? 'TP' : 'SL'}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-col items-start gap-2 py-2">

@@ -70,6 +70,7 @@ export async function loadPositions(
       yes: pnl ? humanAmount(pnl.balanceYes, decimals) : 0,
       no: pnl ? humanAmount(pnl.balanceNo, decimals) : 0,
       collateral: collaterals[index] ?? 0,
+      unrealizedPnl: pnl ? humanAmount(pnl.unrealizedPnl, decimals) : undefined,
     }
   })
 }

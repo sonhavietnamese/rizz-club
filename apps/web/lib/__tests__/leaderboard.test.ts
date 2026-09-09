@@ -3,7 +3,9 @@ import {
   advanceLeaderboardHold,
   formatCents,
   formatShares,
+  LEADERBOARD_LIMIT,
   toLeaderboardItems,
+  withCloseExits,
   withTraderData,
   type LeaderboardHold,
   type LeaderboardItem,
@@ -84,7 +86,7 @@ describe('toLeaderboardItems', () => {
     expect(item?.profit).toBeCloseTo(30)
   })
 
-  test('drops a position that is fully sold', () => {
+  test('keeps a fully sold lot on the board with a TP badge', () => {
     const items = toLeaderboardItems(
       [
         trade({ id: 'buy', t: 1, amount: 40, price: 0.25, cost: 10 }),
@@ -93,7 +95,47 @@ describe('toLeaderboardItems', () => {
       { yes: 0.5 },
     )
 
-    expect(items).toEqual([])
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      status: 'closed',
+      exit: 'tp',
+      shares: 40,
+      avgPrice: 0.25,
+      profit: 6,
+    })
+  })
+
+  test('marks a losing close as SL and keeps the open stack above it', () => {
+    const items = toLeaderboardItems(
+      [
+        trade({
+          id: 'closed-buy',
+          t: 1,
+          taker: '0x2222222222222222222222222222222222222222',
+          amount: 100,
+          price: 0.8,
+          cost: 80,
+        }),
+        trade({
+          id: 'closed-sell',
+          t: 2,
+          taker: '0x2222222222222222222222222222222222222222',
+          side: 'SELL_YES',
+          amount: 100,
+          price: 0.5,
+          cost: 50,
+        }),
+        trade({ id: 'open', t: 3, amount: 50, price: 0.4, cost: 20 }),
+      ],
+      { yes: 0.5 },
+    )
+
+    expect(items.map((item) => item.status)).toEqual(['open', 'closed'])
+    expect(items[1]).toMatchObject({
+      trader: '0x2222222222222222222222222222222222222222',
+      exit: 'sl',
+      profit: -30,
+    })
   })
 
   test('sorts by floating profit, highest first', () => {
@@ -124,6 +166,23 @@ describe('toLeaderboardItems', () => {
       '0x2222222222222222222222222222222222222222',
     ])
     expect(items[0]?.profit).toBeGreaterThan(items[1]?.profit ?? 0)
+  })
+
+  test('keeps only the top ten rows', () => {
+    const trades = Array.from({ length: LEADERBOARD_LIMIT + 2 }, (_, index) =>
+      trade({
+        id: `t${index}`,
+        t: index + 1,
+        taker: `0x${index.toString(16).padStart(40, '0')}`,
+        amount: 100,
+        price: 0.2 + index * 0.01,
+        cost: 20 + index,
+      }),
+    )
+
+    const items = toLeaderboardItems(trades, { yes: 0.5 })
+    expect(items).toHaveLength(LEADERBOARD_LIMIT)
+    expect(items[0]?.profit).toBeGreaterThan(items[items.length - 1]?.profit ?? 0)
   })
 
   test('ignores fills without a taker or outcome', () => {
@@ -197,7 +256,7 @@ describe('leaderboard formatters', () => {
   })
 })
 
-function item(id: string): LeaderboardItem {
+function item(id: string, overrides: Partial<LeaderboardItem> = {}): LeaderboardItem {
   return {
     id,
     trader: id,
@@ -208,8 +267,37 @@ function item(id: string): LeaderboardItem {
     shares: 10,
     avgPrice: 0.4,
     profit: 1,
+    status: 'open',
+    ...overrides,
   }
 }
+
+describe('withCloseExits', () => {
+  test('overlays a firebase close onto the matching done row', () => {
+    const [row] = toLeaderboardItems(
+      [
+        trade({ id: 'buy', t: 1, amount: 40, price: 0.25, cost: 10 }),
+        trade({ id: 'sell', t: 2, side: 'SELL_YES', amount: 40, price: 0.4, cost: 16 }),
+      ],
+      { yes: 0.5 },
+    )
+
+    const [item] = withCloseExits([row!], [
+      {
+        id: 'c1',
+        marketId: 'm1',
+        trader: '0x1111111111111111111111111111111111111111',
+        outcome: 'YES',
+        exit: 'tp',
+        profit: 6.25,
+        shares: 40,
+        t: 2,
+      },
+    ])
+
+    expect(item).toMatchObject({ exit: 'tp', profit: 6.25, status: 'closed' })
+  })
+})
 
 describe('advanceLeaderboardHold', () => {
   const first: LeaderboardHold = {

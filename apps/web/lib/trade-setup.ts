@@ -220,6 +220,23 @@ export function failedTradeSetupStatus(
   }
 }
 
+export async function refreshTradeBalances(
+  deps: Pick<TradeSetupDeps, 'getBalances'>,
+  address: string,
+  onStatus: (status: TradeSetupStatus) => void,
+  current?: TradeSetupBalances,
+) {
+  onStatus(tradeSetupStatus('checking_balances', { address, balances: current }))
+  const balances = await wrap('Could not read STT and tUSDC balances', () => deps.getBalances(address))
+  const ready = tradeSetupStatus('ready', { address, balances })
+  onStatus(ready)
+  return {
+    address,
+    stt: balances.stt,
+    tusdc: balances.tusdc,
+  }
+}
+
 export async function fundTradeWallet(
   deps: Pick<TradeSetupDeps, 'getBalances' | 'faucet'>,
   address: string,

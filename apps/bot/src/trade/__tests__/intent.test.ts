@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { oppositeOutcome, pickCost, pickIntent, tradeSide, walletBias } from '../intent.ts'
-import { maxTradeCost, minTradeCost, resolveCostBounds, type BookPrices, type WalletPositions } from '../types.ts'
+import { exitReason, oppositeOutcome, pickCost, pickExitIntent, pickIntent, tradeSide, walletBias } from '../intent.ts'
+import {
+  assertTradeCost,
+  maxTradeCost,
+  minTradeCost,
+  resolveCostBounds,
+  type BookPrices,
+  type WalletPositions,
+} from '../types.ts'
 
 const yesWallet = '0x0000000000000000000000000000000000000000'
 const noWallet = '0x0000000000000000000000000000000000000001'
@@ -87,5 +94,51 @@ describe('pickIntent', () => {
     const intent = pickIntent(yesWallet, funded, prices, sequence([0.1, 0.9, 1]), { limit: 7 })
     expect(intent?.cost).toBeGreaterThan(minTradeCost)
     expect(intent?.cost).toBeLessThanOrEqual(7)
+  })
+
+  test('takes profit on a winner before rolling a random sell', () => {
+    const intent = pickIntent(yesWallet, { ...longYes, unrealizedPnl: 4 }, prices, () => 0.99)
+    expect(intent).toMatchObject({
+      side: 'SELL_YES',
+      action: 'sell',
+      exit: 'tp',
+      cost: 18,
+    })
+  })
+
+  test('stops out a loser even when the wallet would rather buy', () => {
+    const intent = pickIntent(yesWallet, { ...longYes, unrealizedPnl: -4 }, prices, () => 0.99)
+    expect(intent).toMatchObject({
+      side: 'SELL_YES',
+      action: 'sell',
+      exit: 'sl',
+      cost: 18,
+    })
+  })
+})
+
+describe('exitReason', () => {
+  test('fires at a 12 percent move and stays put inside the band', () => {
+    expect(exitReason(2.4, 18)).toBe('tp')
+    expect(exitReason(-2.4, 18)).toBe('sl')
+    expect(exitReason(1, 18)).toBeNull()
+  })
+})
+
+describe('pickExitIntent', () => {
+  test('closes the open side that crossed the stop', () => {
+    const intent = pickExitIntent({ yes: 0, no: 40, collateral: 40, unrealizedPnl: -6 }, prices)
+    expect(intent).toMatchObject({ outcome: 'NO', exit: 'sl', cost: 16 })
+  })
+})
+
+describe('assertTradeCost', () => {
+  test('lets an exit sell the full position above the usual cap', () => {
+    expect(() =>
+      assertTradeCost({ side: 'SELL_YES', outcome: 'YES', action: 'sell', cost: 40, exit: 'tp' }),
+    ).not.toThrow()
+    expect(() => assertTradeCost({ side: 'BUY_YES', outcome: 'YES', action: 'buy', cost: 40 })).toThrow(
+      'at most 12',
+    )
   })
 })

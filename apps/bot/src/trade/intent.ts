@@ -3,8 +3,11 @@ import {
   resolveCostBounds,
   sellChance,
   stickiness,
+  stopLossRate,
+  takeProfitRate,
   type BookPrices,
   type CostBounds,
+  type ExitReason,
   type Outcome,
   type TradeAction,
   type TradeIntent,
@@ -49,6 +52,50 @@ function sellableValue(outcome: Outcome, positions: WalletPositions, prices: Boo
   return outcomePosition(outcome, positions) * bid
 }
 
+export function allocatedPnl(outcome: Outcome, positions: WalletPositions, prices: BookPrices) {
+  if (positions.unrealizedPnl == null || !Number.isFinite(positions.unrealizedPnl)) return null
+
+  const yesValue = sellableValue('YES', positions, prices)
+  const noValue = sellableValue('NO', positions, prices)
+  const total = yesValue + noValue
+  if (!(total > 0)) return null
+
+  const mark = outcome === 'YES' ? yesValue : noValue
+  return positions.unrealizedPnl * (mark / total)
+}
+
+export function exitReason(pnl: number, mark: number): ExitReason | null {
+  if (!(mark > 0) || !Number.isFinite(pnl)) return null
+  const rate = pnl / mark
+  if (rate >= takeProfitRate) return 'tp'
+  if (rate <= -stopLossRate) return 'sl'
+  return null
+}
+
+export function pickExitIntent(
+  positions: WalletPositions,
+  prices: BookPrices,
+): TradeIntent | null {
+  for (const outcome of ['YES', 'NO'] as const) {
+    const mark = sellableValue(outcome, positions, prices)
+    const pnl = allocatedPnl(outcome, positions, prices)
+    if (pnl == null) continue
+
+    const exit = exitReason(pnl, mark)
+    if (!exit) continue
+
+    return {
+      side: tradeSide(outcome, 'sell'),
+      outcome,
+      action: 'sell',
+      cost: mark,
+      exit,
+    }
+  }
+
+  return null
+}
+
 export function pickIntent(
   address: string,
   positions: WalletPositions,
@@ -57,6 +104,9 @@ export function pickIntent(
   bounds: Partial<CostBounds> = {},
 ): TradeIntent | null {
   const costBounds = resolveCostBounds(bounds)
+  const exit = pickExitIntent(positions, prices)
+  if (exit) return exit
+
   const preferred = walletBias(address)
   const outcome = random() < stickiness ? preferred : oppositeOutcome(preferred)
   const sellValue = sellableValue(outcome, positions, prices)

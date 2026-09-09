@@ -3,11 +3,13 @@ import type { BinarySide } from '@somnia-chain/markets-sdk'
 export type Outcome = 'YES' | 'NO'
 export type TradeAction = 'buy' | 'sell'
 export type TradeSide = BinarySide
+export type ExitReason = 'tp' | 'sl'
 
 export type WalletPositions = {
   yes: number
   no: number
   collateral: number
+  unrealizedPnl?: number
 }
 
 export type BookPrices = {
@@ -20,6 +22,7 @@ export type TradeIntent = {
   outcome: Outcome
   action: TradeAction
   cost: number
+  exit?: ExitReason
 }
 
 export type TradeResult = {
@@ -33,6 +36,7 @@ export type TradeResult = {
   filled: number
   txHash?: `0x${string}`
   dryRun: boolean
+  exit?: ExitReason
 }
 
 export type CostBounds = {
@@ -48,6 +52,8 @@ export const defaultCostBounds: CostBounds = {
 }
 export const stickiness = 0.85
 export const sellChance = 0.35
+export const takeProfitRate = 0.12
+export const stopLossRate = 0.12
 export const defaultSlippagePercent = 2
 
 export function resolveCostBounds(bounds?: Partial<CostBounds>): CostBounds {
@@ -60,4 +66,19 @@ export function resolveCostBounds(bounds?: Partial<CostBounds>): CostBounds {
     throw new Error(`limit cost must be greater than ${min}, got: ${bounds?.limit}`)
   }
   return { min, limit }
+}
+
+export function assertTradeCost(intent: TradeIntent, bounds: CostBounds = defaultCostBounds) {
+  if (intent.exit) {
+    if (!(intent.cost > 0) || !Number.isFinite(intent.cost)) {
+      throw new Error(`Exit cost must be a positive number, got ${intent.cost}`)
+    }
+    return
+  }
+
+  if (intent.cost <= bounds.min || intent.cost > bounds.limit) {
+    throw new Error(
+      `Trade cost must be more than ${bounds.min} and at most ${bounds.limit}, got ${intent.cost}`,
+    )
+  }
 }

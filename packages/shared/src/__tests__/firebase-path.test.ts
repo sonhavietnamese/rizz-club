@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { firebaseKey, traderKey } from '../firebase-path'
+import { closeKey, firebaseKey, traderKey } from '../firebase-path'
 
 describe('firebaseKey', () => {
   test('strips firebase-forbidden characters without changing case', () => {
@@ -11,5 +11,11 @@ describe('firebaseKey', () => {
 describe('traderKey', () => {
   test('lowercases and strips firebase-forbidden characters', () => {
     expect(traderKey('0xAbC.def#1$[x]/Y')).toBe('0xabc_def_1__x__y')
+  })
+})
+
+describe('closeKey', () => {
+  test('joins market, trader, and outcome into a firebase-safe id', () => {
+    expect(closeKey('0xAb/C', '0xDeF', 'YES')).toBe('0xab_c_0xdef_YES')
   })
 })
