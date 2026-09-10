@@ -23,9 +23,15 @@ import {
   type TradingBalances,
   type TradingStatus,
 } from '@/lib/trading'
+import { progressHeartRateBpm, recordProgressEvent, type ProgressHeartRate } from '@/lib/progress'
 import { tradeWallet } from '@/lib/trade-setup'
 import { usePrivy } from '@privy-io/react-auth'
 import { useEffect, useState } from 'react'
+
+export type TradeProgressHint = {
+  profit?: number
+  heartRate?: ProgressHeartRate
+}
 
 type BalancesResponse = {
   balances: TradingBalances
@@ -196,15 +202,17 @@ export function useTrading() {
       })
 
       const result = await submitPosition(outcome, side, amount)
+      const filled = result?.order.filled ?? 0
       setStatus({
         tone: 'success',
         message: formatTradeResultMessage({
           side,
           outcome,
-          filled: result?.order.filled ?? 0,
+          filled,
           amount: result?.order.amount ?? amount ?? 0,
         }),
       })
+      if (side === 'buy' && filled > 0) recordProgressEvent({ type: 'placed' })
       void refreshPositions({ silent: true })
     } catch (error) {
       setStatus({ tone: 'error', message: errorMessage(error) })
@@ -214,7 +222,7 @@ export function useTrading() {
     }
   }
 
-  async function takeProfit(outcome?: Outcome) {
+  async function takeProfit(outcome?: Outcome, progress?: TradeProgressHint) {
     const lots = sellablePositions(positions, outcome)
     if (lots.length === 0) {
       setStatus({ tone: 'error', message: 'No shares to sell.' })
@@ -232,11 +240,20 @@ export function useTrading() {
       const results = []
       for (const lot of lots) {
         const result = await submitPosition(lot.label, 'sell', lot.total)
+        const filled = result?.order.filled ?? 0
         results.push({
           outcome: lot.label,
-          filled: result?.order.filled ?? 0,
+          filled,
           amount: result?.order.amount ?? lot.total,
         })
+        const profit = progress?.profit
+        if (filled > 0 && profit != null && Number.isFinite(profit)) {
+          recordProgressEvent({
+            type: 'result',
+            won: profit >= 0,
+            heartRateBpm: progressHeartRateBpm(progress?.heartRate),
+          })
+        }
       }
 
       setStatus({ tone: 'success', message: formatTakeProfitResultMessage(results) })

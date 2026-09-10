@@ -94,12 +94,15 @@ export const SERIES_COLORS = [
 export function resolveSeriesPalettes(
   series: LivelineSeries[],
   mode: ThemeMode,
+  lineWidth?: number,
 ): Map<string, LivelinePalette> {
   const map = new Map<string, LivelinePalette>()
   for (let i = 0; i < series.length; i++) {
     const s = series[i]
     const color = s.color || SERIES_COLORS[i % SERIES_COLORS.length]
-    map.set(s.id, resolveTheme(color, mode))
+    const palette = resolveTheme(color, mode)
+    if (lineWidth != null) palette.lineWidth = lineWidth
+    map.set(s.id, palette)
   }
   return map
 }

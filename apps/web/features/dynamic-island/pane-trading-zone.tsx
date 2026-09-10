@@ -96,6 +96,10 @@ export default function PaneTradingZone({
     setAmount((current) => Math.max(TRADE_AMOUNT_STEP, current + delta))
   }
 
+  function progressHint(profit: number) {
+    return { profit, heartRate: { live: heartRate.live, bpm: heartRate.bpm } }
+  }
+
   return (
     <div className="flex h-full w-full gap-2 pointer-events-none">
       {heartRate.bpm && (
@@ -252,7 +256,7 @@ export default function PaneTradingZone({
           <div id="yes-position" className="flex gap-3">
             <button
               type="button"
-              onClick={() => void takeProfit('YES')}
+              onClick={() => void takeProfit('YES', progressHint(profits.YES))}
               disabled={!canExitYes}
               aria-busy={isTakingProfit}
               aria-label={`${yesExit === 'TP' ? 'Take profit' : 'Stop loss'} on UP`}
@@ -278,7 +282,7 @@ export default function PaneTradingZone({
 
             <button
               type="button"
-              onClick={() => void takeProfit('NO')}
+              onClick={() => void takeProfit('NO', progressHint(profits.NO))}
               disabled={!canExitNo}
               aria-busy={isTakingProfit}
               aria-label={`${noExit === 'TP' ? 'Take profit' : 'Stop loss'} on DOWN`}

@@ -91,20 +91,25 @@ export function Liveline({
   // Per-series palettes (memoized on series ids + colors + theme)
   const seriesPalettes = useMemo(() => {
     if (!seriesProp || seriesProp.length === 0) return null
-    return resolveSeriesPalettes(seriesProp, theme)
-  }, [seriesProp, theme])
+    return resolveSeriesPalettes(seriesProp, theme, lineWidth)
+  }, [seriesProp, theme, lineWidth])
 
   // Normalized multi-series config for the engine
   const multiSeries = useMemo(() => {
     if (!seriesProp || !seriesPalettes) return undefined
-    return seriesProp.map((s, i) => ({
-      id: s.id,
-      data: s.data,
-      value: s.value,
-      palette: seriesPalettes.get(s.id) ?? resolveTheme(s.color || SERIES_COLORS[i % SERIES_COLORS.length], theme),
-      label: s.label,
-    }))
-  }, [seriesProp, seriesPalettes, theme])
+    return seriesProp.map((s, i) => {
+      const palette =
+        seriesPalettes.get(s.id) ?? resolveTheme(s.color || SERIES_COLORS[i % SERIES_COLORS.length], theme)
+      if (lineWidth != null) palette.lineWidth = lineWidth
+      return {
+        id: s.id,
+        data: s.data,
+        value: s.value,
+        palette,
+        label: s.label,
+      }
+    })
+  }, [seriesProp, seriesPalettes, theme, lineWidth])
 
   // Resolve momentum prop: boolean enables auto-detect, string overrides
   const showMomentum = momentum !== false

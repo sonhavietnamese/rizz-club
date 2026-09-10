@@ -1,13 +1,12 @@
+'use client'
+
+import { useProgress } from '@/hooks/use-progress'
+import { progressTracks } from '@/lib/progress'
+import Image from 'next/image'
+
 const STAGE_COUNT = 4
 const TRACK_COLOR = '#3B3B3B'
 const FILL_COLOR = '#C8C8C8'
-
-const TRACKS = [
-  { id: 1, name: 'Trade Masters', value: 0, max: 100 },
-  { id: 2, name: 'Streak Climber', value: 60, max: 100 },
-  { id: 3, name: 'Poker Face', value: 2, max: 100 },
-  { id: 4, name: 'Day Trader', value: 3, max: 100 },
-]
 
 function DashedLine({ color }: { color: string }) {
   return (
@@ -67,12 +66,17 @@ function StageTrack({ value, max }: { value: number; max: number }) {
 }
 
 export default function SectionProgress() {
+  const state = useProgress()
+  const tracks = progressTracks(state)
+
   return (
     <section className="section-panel flex-none select-none">
       <ul className="grid h-full w-full grid-rows-4 gap-2">
-        {TRACKS.map((track) => (
+        {tracks.map((track) => (
           <li className="flex items-center gap-3 text-white" key={track.id}>
-            <div className="size-12 shrink-0 rounded-lg bg-[#C8C8C8]" />
+            <div className="size-12 shrink-0 rounded-lg bg-[#C8C8C8] overflow-hidden">
+              <Image src={track.icon} alt={track.name} width={48} height={48} />
+            </div>
             <div className="flex w-fit min-w-0 flex-col gap-2.5 flex-1 pr-2">
               <div className="flex items-end justify-between gap-2">
                 <span className="font-sans text-[14px] font-semibold">{track.name}</span>
@@ -82,7 +86,7 @@ export default function SectionProgress() {
               </div>
               <StageTrack value={track.value} max={track.max} />
             </div>
-            <div className="size-12 shrink-0 rounded-lg bg-[#C8C8C8]"></div>
+            {/* <div className="size-12 shrink-0 rounded-lg bg-[#C8C8C8]"></div> */}
           </li>
         ))}
       </ul>
