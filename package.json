@@ -2,7 +2,8 @@
   "name": "rizz",
   "private": true,
   "scripts": {
-    "build:web": "turbo run build --filter=@apps/web",
+    "build": "bun run scripts/railway-build.ts",
+    "build:web": "bun run --filter @apps/web build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

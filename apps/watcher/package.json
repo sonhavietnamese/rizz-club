@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run index.tsx -- --interval 5m",
     "start": "bun run index.tsx",
+    "build": "true",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
