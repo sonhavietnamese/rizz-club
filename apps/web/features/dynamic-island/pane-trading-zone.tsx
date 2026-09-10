@@ -1,14 +1,31 @@
+'use client'
+
+import { currentMarketIds } from '@/hooks/use-current-market'
 import { useHeartRate } from '@/hooks/use-heart-rate'
+import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
+import { useMarketTrades } from '@/hooks/use-market-trades'
 import { useTrading } from '@/hooks/use-trading'
 import { formatShares } from '@/lib/format'
+import { floatingProfitsForTrader } from '@/lib/leaderboard'
 import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
-import BpmReadout from './bpm-readout'
-import IslandButton from './island-button'
-import { cn } from 'cn'
+import { DEFAULT_TRADE_AMOUNT } from '@/lib/trading'
 import NumberFlow from '@number-flow/react'
 import Image from 'next/image'
+import { useMemo, useState } from 'react'
 import upTexture from '@/public/texture-up.png'
 import downTexture from '@/public/texture-down.png'
+import { BPM_TIMING } from './constants'
+import Spinner from './spinner'
+
+const TRADE_AMOUNT_STEP = 2
+
+function positionLabel(shares: number, side: 'UP' | 'DOWN') {
+  return `${formatShares(shares)} ${side}`
+}
+
+function exitLabel(profit: number) {
+  return profit < 0 ? 'SL' : 'TP'
+}
 
 export default function PaneTradingZone({
   heartRate,
@@ -22,25 +39,57 @@ export default function PaneTradingZone({
   const {
     status,
     tradingOutcome,
-    isClaiming,
+    isTrading,
     isLoadingPositions,
     isLoadingMarket,
     canTrade,
     canTakeProfit,
-    canClaim,
     yesPosition,
     noPosition,
+    address,
+    market,
     isTakingProfit,
     placeTrade,
     takeProfit,
-    claimRewards,
   } = useTrading()
+  const [amount, setAmount] = useState(DEFAULT_TRADE_AMOUNT)
+  const marketIds = useMemo(() => currentMarketIds(market), [market])
+  const { trades } = useMarketTrades(marketIds)
+  const { points } = useMarketTimeseries(marketIds)
+  const latest = points.at(-1)
+  const yesMark = latest?.yes
+  const noMark = latest?.no ?? (yesMark == null ? undefined : 1 - yesMark)
+  const profits = useMemo(
+    () => floatingProfitsForTrader(trades, { yes: yesMark, no: noMark }, address),
+    [address, noMark, trades, yesMark],
+  )
+  const floatingProfit = profits.YES + profits.NO
+  const yesExit = exitLabel(profits.YES)
+  const noExit = exitLabel(profits.NO)
 
   const statusTone =
     status?.tone === 'error' ? 'text-[#F87171]' : status?.tone === 'success' ? 'text-white' : 'text-white/70'
   const detail =
     status?.message ??
-    (isLoadingMarket ? 'Loading live market...' : isLoadingPositions ? 'Syncing positions...' : '5 tUSDC per trade')
+    (isLoadingMarket
+      ? 'Loading live market...'
+      : isLoadingPositions
+        ? 'Syncing positions...'
+        : `${amount} tUSDC per trade`)
+  const canExitYes = canTakeProfit && yesPosition > 0
+  const canExitNo = canTakeProfit && noPosition > 0
+  const buyingYes = isTrading && !isTakingProfit && tradingOutcome === 'YES'
+  const buyingNo = isTrading && !isTakingProfit && tradingOutcome === 'NO'
+  const canAdjustAmount = !isTrading
+  const bpmTiming = {
+    transformTiming: BPM_TIMING,
+    spinTiming: BPM_TIMING,
+    opacityTiming: { duration: 150, easing: BPM_TIMING.easing },
+  } as const
+
+  function bumpAmount(delta: number) {
+    setAmount((current) => Math.max(TRADE_AMOUNT_STEP, current + delta))
+  }
 
   return (
     <div className="flex h-full w-full gap-2">
@@ -90,12 +139,15 @@ export default function PaneTradingZone({
         <div className="w-full h-full absolute top-0 left-0 z-0 pt-6 flex justify-center items-center">
           <div
             id="speedometer-value"
-            className={cn(
-              'font-abc-gravity-italic text-[32px] leading-none text-white',
-              'after:content-["BPM"] after:text-[14px] after:font-sans after:leading-none after:text-white/50 after:absolute after:bottom-[24px] after:right-[124px]',
-            )}
+            className="flex items-end font-abc-gravity-italic text-[32px] leading-none text-white"
+            style={{ fontVariantNumeric: 'tabular-nums', lineHeight: 0.85 }}
           >
-            180
+            {heartRate.bpm == null ? (
+              <span className="text-white/45">—</span>
+            ) : (
+              <NumberFlow value={heartRate.bpm} animated={!reduceMotion} {...bpmTiming} />
+            )}
+            <span className="mb-3 ml-1 font-sans text-[14px] leading-none text-white/50">BPM</span>
           </div>
         </div>
       </div>
@@ -141,8 +193,8 @@ export default function PaneTradingZone({
                 y2="15.5"
                 gradientUnits="userSpaceOnUse"
               >
-                <stop stop-color="#E130FC" stop-opacity="0.84" />
-                <stop offset="1" stop-color="#1A1A1A" stop-opacity="0" />
+                <stop stopColor="#E130FC" stopOpacity="0.84" />
+                <stop offset="1" stopColor="#1A1A1A" stopOpacity="0" />
               </linearGradient>
             </defs>
           </svg>
@@ -182,16 +234,23 @@ export default function PaneTradingZone({
                 y2="24.5"
                 gradientUnits="userSpaceOnUse"
               >
-                <stop stop-color="#F7992B" />
-                <stop offset="1" stop-color="#1A1A1A" stop-opacity="0" />
+                <stop stopColor="#F7992B" />
+                <stop offset="1" stopColor="#1A1A1A" stopOpacity="0" />
               </linearGradient>
             </defs>
           </svg>
         </div>
 
         <div className="w-full h-full absolute top-0 left-0 flex justify-between text-white/80 font-sans font-medium px-4 py-4">
-          <div className="flex gap-3">
-            <button className="flex gap-2 relative w-[40px] justify-center">
+          <div id="yes-position" className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => void takeProfit('YES')}
+              disabled={!canExitYes}
+              aria-busy={isTakingProfit}
+              aria-label={`${yesExit === 'TP' ? 'Take profit' : 'Stop loss'} on UP`}
+              className="flex gap-2 relative w-[40px] justify-center transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+            >
               <figure className="absolute z-0 inset-0">
                 <svg width="44" height="20" viewBox="0 0 44 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -201,16 +260,23 @@ export default function PaneTradingZone({
                 </svg>
               </figure>
 
-              <span className="text-sm mt-0.5 ml-1">TP</span>
+              <span className="text-sm mt-0.5 ml-1">{yesExit}</span>
             </button>
 
-            <div>12,5 YES @ 12c</div>
+            <div className="tabular-nums mt-0.5">{positionLabel(yesPosition, 'UP')}</div>
           </div>
 
-          <div className="flex gap-3">
-            <div>12,5 YES @ 12c</div>
+          <div id="no-position" className="flex gap-3">
+            <div className="tabular-nums mt-0.5">{positionLabel(noPosition, 'DOWN')}</div>
 
-            <button className="flex gap-3 relative w-[40px] justify-center">
+            <button
+              type="button"
+              onClick={() => void takeProfit('NO')}
+              disabled={!canExitNo}
+              aria-busy={isTakingProfit}
+              aria-label={`${noExit === 'TP' ? 'Take profit' : 'Stop loss'} on DOWN`}
+              className="flex gap-3 relative w-[40px] justify-center transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+            >
               <figure className="absolute z-0 inset-0">
                 <svg width="44" height="20" viewBox="0 0 44 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -220,73 +286,17 @@ export default function PaneTradingZone({
                 </svg>
               </figure>
 
-              <span className="text-sm mt-0.5 ml-1">SL</span>
+              <span className="text-sm mt-0.5 ml-1">{noExit}</span>
             </button>
           </div>
         </div>
       </div>
 
       <div className="flex w-full h-full flex-1 justify-center relative z-30 bg-[#1a1a1a] rounded-2xl overflow-hidden">
-        {/* <div className="flex shrink-0 items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate font-sans text-xs tabular-nums text-white/80">
-              <span style={{ color: YES_COLOR }}>YES {formatShares(yesPosition)}</span>
-              <span className="text-white/35"> · </span>
-              <span style={{ color: NO_COLOR }}>NO {formatShares(noPosition)}</span>
-            </p>
-            <p className={`mt-1 truncate font-sans text-[11px] ${statusTone}`} aria-live="polite">
-              {detail}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <IslandButton
-              onClick={() => void takeProfit()}
-              disabled={!canTakeProfit}
-              busy={isTakingProfit}
-              className="bg-white text-black"
-            >
-              {isTakingProfit ? 'Selling' : 'TP'}
-            </IslandButton>
-            <IslandButton
-              onClick={() => void claimRewards()}
-              disabled={!canClaim}
-              busy={isClaiming}
-              className="bg-white/15 text-white"
-            >
-              {isClaiming ? 'Claiming' : 'Claim'}
-            </IslandButton>
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 gap-2">
-          <button
-            type="button"
-            onClick={() => void placeTrade('YES')}
-            disabled={!canTrade}
-            className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#7C5CFF] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="font-abc-gravity-italic text-[42px] leading-none">UP</span>
-            <span className="mt-2 font-sans text-xs text-white/70">
-              {tradingOutcome === 'YES' ? 'Buying...' : 'Buy YES'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void placeTrade('NO')}
-            disabled={!canTrade}
-            className="flex flex-1 flex-col items-center justify-center rounded-xl bg-[#FF6A3D] text-white transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="font-abc-gravity-italic text-[42px] leading-none">DOWN</span>
-            <span className="mt-2 font-sans text-xs text-white/70">
-              {tradingOutcome === 'NO' ? 'Buying...' : 'Buy NO'}
-            </span>
-          </button>
-        </div> */}
-
         <div className="absolute w-1 h-1 left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
           <div
             id="yes-panel"
-            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2 pointer-events-none"
           >
             <figure className="h-full">
               <svg
@@ -310,8 +320,8 @@ export default function PaneTradingZone({
                     y2="78"
                     gradientUnits="userSpaceOnUse"
                   >
-                    <stop stop-color="#222222" stop-opacity="0" />
-                    <stop offset="0.519231" stop-color="#222222" />
+                    <stop stopColor="#222222" stopOpacity="0" />
+                    <stop offset="0.519231" stopColor="#222222" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -320,7 +330,7 @@ export default function PaneTradingZone({
 
           <div
             id="yes-panel-texture"
-            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2 pr-0"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2 pr-0 pointer-events-none"
           >
             <figure className="h-full">
               <Image
@@ -334,16 +344,24 @@ export default function PaneTradingZone({
             </figure>
           </div>
 
-          <div
+          <button
+            type="button"
             id="yes-panel-text"
-            className="absolute top-0 h-[180px] w-[514px] flex justify-start left-[-620px] top-1/2 -translate-y-1/2 p-2 pr-0 "
+            onClick={() => void placeTrade('YES', 'buy', amount)}
+            disabled={!canTrade}
+            aria-label="Buy UP"
+            aria-busy={buyingYes}
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start left-[-620px] -translate-y-1/2 p-2 pr-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="absolute top-1/2 right-40 text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
-              <span>Yes</span>
+            <div className="absolute top-1/2 right-40 flex items-center text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
+              {buyingYes ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>Yes</span>}
             </div>
-          </div>
+          </button>
 
-          <div id="no-panel" className="absolute top-0 h-[180px] w-[514px] right-[-620px] -translate-y-1/2 p-2">
+          <div
+            id="no-panel"
+            className="absolute top-0 h-[180px] w-[514px] right-[-620px] -translate-y-1/2 p-2 pointer-events-none"
+          >
             <figure className="h-full">
               <svg
                 className="h-full w-auto"
@@ -353,7 +371,7 @@ export default function PaneTradingZone({
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <g clip-path="url(#clip0_2202_11698)">
+                <g clipPath="url(#clip0_2202_11698)">
                   <path
                     d="M392.327 10.3692C392.671 4.70809 388.151 0 382.479 0H104.467C90.0527 0 76.7532 7.7554 69.6543 20.3005L1.31145 141.075C-2.46081 147.741 2.35504 156 10.0147 156H329.051C344.424 156 358.469 147.21 364.517 133.077C371.153 117.571 379.275 96.9921 383.366 80.5C388.827 58.4863 391.342 26.616 392.327 10.3692Z"
                     fill="url(#paint0_linear_2202_11698)"
@@ -368,8 +386,8 @@ export default function PaneTradingZone({
                     y2="78"
                     gradientUnits="userSpaceOnUse"
                   >
-                    <stop stop-color="#222222" />
-                    <stop offset="1" stop-color="#222222" stop-opacity="0" />
+                    <stop stopColor="#222222" />
+                    <stop offset="1" stopColor="#222222" stopOpacity="0" />
                   </linearGradient>
                   <clipPath id="clip0_2202_11698">
                     <rect width="393" height="156" fill="white" />
@@ -381,7 +399,7 @@ export default function PaneTradingZone({
 
           <div
             id="no-panel-texture"
-            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0 pointer-events-none"
           >
             <figure className="h-full">
               <Image
@@ -395,38 +413,32 @@ export default function PaneTradingZone({
             </figure>
           </div>
 
-          <div
+          <button
+            type="button"
             id="no-panel-text"
-            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0"
+            onClick={() => void placeTrade('NO', 'buy', amount)}
+            disabled={!canTrade}
+            aria-label="Buy DOWN"
+            aria-busy={buyingNo}
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="absolute top-1/2 left-40 text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
-              <span>No</span>
+            <div className="absolute top-1/2 left-40 flex items-center text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
+              {buyingNo ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>No</span>}
             </div>
-          </div>
+          </button>
         </div>
 
-        <div className="flex items-center flex-col w-[384px] pb-2">
+        <div className="relative z-10 flex items-center flex-col w-[384px] pb-2">
           <div className="relative min-w-[384px] h-fit flex items-center justify-between gap-2">
-            <div
-              id="amount"
-              className="absolute h-[86%] w-[65%] bg-[#222222] z-0 left-1/2 -translate-x-1/2 flex justify-center items-center overflow-hidden"
+            <button
+              type="button"
+              id="minus"
+              onClick={() => bumpAmount(-TRADE_AMOUNT_STEP)}
+              disabled={!canAdjustAmount || amount <= TRADE_AMOUNT_STEP}
+              aria-label="Decrease trade amount"
+              className="relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 z-10"
             >
-              <NumberFlow value={100} className="text-white text-[32px] font-abc-gravity-italic z-10" />
-
-              <video
-                // ref={videoRef}
-                className="absolute inset-0 size-full object-cover object-center motion-reduce:hidden opacity-30"
-                src="https://v1.pinimg.com/videos/iht/expMp4/3e/06/12/3e06120f4326ec50e71392f95e0f4ff4_720w.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                aria-hidden
-              />
-            </div>
-
-            <div className="relative">
-              <figure id="minus" className="z-10">
+              <figure className="z-10">
                 <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path
                     d="M68.5372 4C82.5094 4 95.0595 12.548 100.176 25.5498L122.733 82.874C126.347 92.0593 119.576 102 109.705 102H69.2628C57.005 102 45.6959 95.4014 39.6641 84.7305L5.83893 24.8887C0.563802 15.556 7.30598 4 18.0264 4H68.5372Z"
@@ -437,13 +449,41 @@ export default function PaneTradingZone({
                 </svg>
               </figure>
 
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic z-10">
                 -
               </div>
+            </button>
+
+            <div
+              id="amount"
+              className="absolute h-[86%] w-[65%] bg-[#222222] z-0 left-1/2 -translate-x-1/2 flex justify-center items-center overflow-hidden pointer-events-none"
+            >
+              <NumberFlow
+                value={amount}
+                animated={!reduceMotion}
+                className="text-white text-[32px] font-abc-gravity-italic z-10"
+              />
+
+              <video
+                className="absolute inset-0 size-full object-cover object-center motion-reduce:hidden opacity-30 z-0"
+                src="https://v1.pinimg.com/videos/iht/expMp4/3e/06/12/3e06120f4326ec50e71392f95e0f4ff4_720w.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                aria-hidden
+              />
             </div>
 
-            <div className="relative">
-              <figure id="plus" className="z-10">
+            <button
+              type="button"
+              id="plus"
+              onClick={() => bumpAmount(TRADE_AMOUNT_STEP)}
+              disabled={!canAdjustAmount}
+              aria-label="Increase trade amount"
+              className="relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 z-10"
+            >
+              <figure className="z-10">
                 <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path
                     d="M59.1855 4C45.2133 4 32.6633 12.548 27.5469 25.5498L4.98926 82.874C1.37524 92.0593 8.14682 102 18.0176 102H58.46C70.7177 102 82.0268 95.4014 88.0586 84.7305L121.884 24.8887C127.159 15.556 120.417 4 109.696 4H59.1855Z"
@@ -454,10 +494,10 @@ export default function PaneTradingZone({
                 </svg>
               </figure>
 
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic z-10">
                 +
               </div>
-            </div>
+            </button>
           </div>
 
           <div id="pnl" className="h-full relative">
@@ -477,21 +517,35 @@ export default function PaneTradingZone({
               </svg>
             </figure>
 
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px]">
-              <NumberFlow value={100} className="text-white text-[20px]" prefix="$" suffix="tUSDC" />
+            <div
+              className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-baseline text-[20px] font-semibold tabular-nums"
+              style={{
+                color: floatingProfit > 0 ? YES_COLOR : floatingProfit < 0 ? NO_COLOR : 'rgba(255,255,255,0.8)',
+              }}
+            >
+              <NumberFlow
+                value={Math.abs(floatingProfit)}
+                animated={!reduceMotion}
+                format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+                prefix={floatingProfit >= 0 ? '+$' : '-$'}
+                className="text-[20px]"
+              />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 z-30 p-2">
+      <div className="absolute bottom-0 left-0 z-30 flex items-end gap-3 p-2">
         <button
           type="button"
           onClick={onBack}
-          className="text-white text-[14px] font-sans py-2 px-3 rounded-lg bg-[#222222]"
+          className="text-white text-[14px] font-sans py-2 px-3 rounded-lg bg-[#222222] transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97]"
         >
           Back
         </button>
+        <p className={`max-w-[220px] truncate pb-2 font-sans text-[11px] ${statusTone}`} aria-live="polite">
+          {detail}
+        </p>
       </div>
     </div>
   )

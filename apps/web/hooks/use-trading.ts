@@ -214,8 +214,8 @@ export function useTrading() {
     }
   }
 
-  async function takeProfit() {
-    const lots = sellablePositions(positions)
+  async function takeProfit(outcome?: Outcome) {
+    const lots = sellablePositions(positions, outcome)
     if (lots.length === 0) {
       setStatus({ tone: 'error', message: 'No shares to sell.' })
       return
@@ -224,7 +224,10 @@ export function useTrading() {
     try {
       setIsTrading(true)
       setIsTakingProfit(true)
-      setStatus({ tone: 'neutral', message: 'Selling all shares...' })
+      setStatus({
+        tone: 'neutral',
+        message: outcome ? `Selling ${outcome}...` : 'Selling all shares...',
+      })
 
       const results = []
       for (const lot of lots) {
@@ -283,6 +286,8 @@ export function useTrading() {
     positions,
     yesPosition: positionTotal(positions, 'YES'),
     noPosition: positionTotal(positions, 'NO'),
+    address: tradeWallet(user)?.address ?? null,
+    quoteBalance: market?.quote ? (balances?.[market.quote]?.total ?? 0) : 0,
     status,
     isTrading,
     tradingOutcome,

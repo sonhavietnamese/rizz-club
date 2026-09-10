@@ -200,7 +200,11 @@ function toClosedItem(lot: ClosedLot): LeaderboardItem | null {
   }
 }
 
-export function toLeaderboardItems(trades: MarketTrade[], prices: LeaderboardPrices): LeaderboardItem[] {
+export function toLeaderboardItems(
+  trades: MarketTrade[],
+  prices: LeaderboardPrices,
+  limit = LEADERBOARD_LIMIT,
+): LeaderboardItem[] {
   const open = new Map<string, OpenPosition>()
   const closed = new Map<string, ClosedLot>()
   const ordered = [...trades].sort((left, right) => left.t - right.t || left.id.localeCompare(right.id))
@@ -237,7 +241,34 @@ export function toLeaderboardItems(trades: MarketTrade[], prices: LeaderboardPri
   ].sort((left, right) => {
     if (left.status !== right.status) return left.status === 'open' ? -1 : 1
     return right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id)
-  }).slice(0, LEADERBOARD_LIMIT)
+  }).slice(0, limit)
+}
+
+export function floatingProfitsForTrader(
+  trades: MarketTrade[],
+  prices: LeaderboardPrices,
+  address?: string | null,
+) {
+  const profits = { YES: 0, NO: 0 }
+
+  if (!address) return profits
+
+  const trader = address.toLowerCase()
+  for (const item of toLeaderboardItems(trades, prices, Number.POSITIVE_INFINITY)) {
+    if (item.status !== 'open' || item.trader !== trader) continue
+    profits[item.outcome] += item.profit
+  }
+
+  return profits
+}
+
+export function floatingProfitForTrader(
+  trades: MarketTrade[],
+  prices: LeaderboardPrices,
+  address?: string | null,
+) {
+  const profits = floatingProfitsForTrader(trades, prices, address)
+  return profits.YES + profits.NO
 }
 
 export function withCloseExits(items: LeaderboardItem[], closes: readonly MarketClose[]): LeaderboardItem[] {

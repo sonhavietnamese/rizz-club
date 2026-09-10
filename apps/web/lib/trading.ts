@@ -94,8 +94,8 @@ export function canPlaceTrade(input: {
   return Boolean(input.walletId && input.marketId && input.tradable && !input.busy)
 }
 
-export function sellablePositions(positions: OutcomePosition[]) {
-  return positions.filter((position) => position.total > 0)
+export function sellablePositions(positions: OutcomePosition[], outcome?: Outcome) {
+  return positions.filter((position) => position.total > 0 && (!outcome || position.label === outcome))
 }
 
 export function canTakeProfit(input: {

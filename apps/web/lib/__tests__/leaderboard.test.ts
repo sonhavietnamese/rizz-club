@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import {
   advanceLeaderboardHold,
+  floatingProfitForTrader,
+  floatingProfitsForTrader,
   formatCents,
   formatShares,
   LEADERBOARD_LIMIT,
@@ -344,5 +346,72 @@ describe('advanceLeaderboardHold', () => {
 
     expect(firstPass).toEqual({ hold: empty, frozen: false })
     expect(secondPass.hold).toBe(firstPass.hold)
+  })
+})
+
+describe('floatingProfitForTrader', () => {
+  const trader = '0x1111111111111111111111111111111111111111'
+
+  test('sums open YES and NO mark-to-market for one wallet', () => {
+    expect(
+      floatingProfitForTrader(
+        [
+          trade({ id: 'yes', outcome: 'YES', side: 'BUY_YES', amount: 50, price: 0.4, cost: 20 }),
+          trade({
+            id: 'no',
+            t: 2,
+            outcome: 'NO',
+            side: 'BUY_NO',
+            amount: 80,
+            price: 0.3,
+            cost: 24,
+          }),
+        ],
+        { yes: 0.55, no: 0.45 },
+        trader,
+      ),
+    ).toBeCloseTo(19.5)
+  })
+
+  test('ignores other wallets and fully closed lots', () => {
+    expect(
+      floatingProfitForTrader(
+        [
+          trade({ id: 'open', t: 1, amount: 100, price: 0.4, cost: 40 }),
+          trade({
+            id: 'other',
+            t: 2,
+            taker: '0x2222222222222222222222222222222222222222',
+            amount: 100,
+            price: 0.2,
+            cost: 20,
+          }),
+          trade({ id: 'sell', t: 3, side: 'SELL_YES', amount: 100, price: 0.8, cost: 80 }),
+        ],
+        { yes: 0.9 },
+        trader,
+      ),
+    ).toBe(0)
+  })
+
+  test('splits floating profit per outcome so each side can pick TP or SL', () => {
+    expect(
+      floatingProfitsForTrader(
+        [
+          trade({ id: 'yes', outcome: 'YES', side: 'BUY_YES', amount: 50, price: 0.4, cost: 20 }),
+          trade({
+            id: 'no',
+            t: 2,
+            outcome: 'NO',
+            side: 'BUY_NO',
+            amount: 80,
+            price: 0.3,
+            cost: 24,
+          }),
+        ],
+        { yes: 0.55, no: 0.2 },
+        trader,
+      ),
+    ).toEqual({ YES: 7.5, NO: -8 })
   })
 })

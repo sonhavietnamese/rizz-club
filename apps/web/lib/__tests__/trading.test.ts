@@ -111,6 +111,15 @@ describe('take profit', () => {
     })
 
     expect(sellablePositions(positions).map((position) => position.label)).toEqual(['YES'])
+    expect(sellablePositions(positions, 'YES').map((position) => position.label)).toEqual(['YES'])
+    expect(sellablePositions(positions, 'NO')).toEqual([])
+
+    const both = outcomePositions(market(), {
+      'BTC-5M-YES': { total: 8 },
+      'BTC-5M-NO': { total: 3 },
+    })
+    expect(sellablePositions(both).map((position) => position.label)).toEqual(['YES', 'NO'])
+    expect(sellablePositions(both, 'NO').map((position) => position.label)).toEqual(['NO'])
     expect(canTakeProfit({ walletId: 'wal_1', marketId: '0x1', positions, busy: false })).toBe(true)
     expect(canTakeProfit({ walletId: 'wal_1', marketId: '0x1', positions, busy: true })).toBe(false)
     expect(canTakeProfit({ walletId: 'wal_1', marketId: '0x1', positions: outcomePositions(market(), null) })).toBe(false)
