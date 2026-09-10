@@ -354,7 +354,7 @@ export default function PaneTradingZone({
             className="absolute top-0 h-[180px] w-[514px] flex justify-start left-[-620px] -translate-y-1/2 p-2 pr-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <div className="absolute top-1/2 right-40 flex items-center text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
-              {buyingYes ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>Yes</span>}
+              {buyingYes ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>Up</span>}
             </div>
           </button>
 
@@ -422,8 +422,8 @@ export default function PaneTradingZone({
             aria-busy={buyingNo}
             className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0 transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="absolute top-1/2 left-40 flex items-center text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
-              {buyingNo ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>No</span>}
+            <div className="absolute top-1/2 left-30 flex items-center text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
+              {buyingNo ? <Spinner reduceMotion={reduceMotion} className="size-8" /> : <span>Down</span>}
             </div>
           </button>
         </div>

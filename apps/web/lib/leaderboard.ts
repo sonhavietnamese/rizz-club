@@ -200,6 +200,14 @@ function toClosedItem(lot: ClosedLot): LeaderboardItem | null {
   }
 }
 
+function compareByPnl(left: LeaderboardItem, right: LeaderboardItem) {
+  return right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id)
+}
+
+function rankByPnl(items: LeaderboardItem[], limit = items.length) {
+  return items.sort(compareByPnl).slice(0, limit)
+}
+
 export function toLeaderboardItems(
   trades: MarketTrade[],
   prices: LeaderboardPrices,
@@ -229,19 +237,19 @@ export function toLeaderboardItems(
     if (nextClosed) closed.set(key, nextClosed)
   }
 
-  return [
-    ...[...open.values()].flatMap((position) => {
-      const item = toOpenItem(position, prices)
-      return item ? [item] : []
-    }),
-    ...[...closed.values()].flatMap((lot) => {
-      const item = toClosedItem(lot)
-      return item ? [item] : []
-    }),
-  ].sort((left, right) => {
-    if (left.status !== right.status) return left.status === 'open' ? -1 : 1
-    return right.profit - left.profit || right.shares - left.shares || left.id.localeCompare(right.id)
-  }).slice(0, limit)
+  return rankByPnl(
+    [
+      ...[...open.values()].flatMap((position) => {
+        const item = toOpenItem(position, prices)
+        return item ? [item] : []
+      }),
+      ...[...closed.values()].flatMap((lot) => {
+        const item = toClosedItem(lot)
+        return item ? [item] : []
+      }),
+    ],
+    limit,
+  )
 }
 
 export function floatingProfitsForTrader(
@@ -289,7 +297,7 @@ export function withCloseExits(items: LeaderboardItem[], closes: readonly Market
     return { ...item, exit: close.exit, profit: close.profit }
   })
 
-  return changed ? next : items
+  return changed ? rankByPnl(next) : items
 }
 
 export function withTraderData(items: LeaderboardItem[], traders: readonly Trader[], now = Date.now()): LeaderboardItem[] {

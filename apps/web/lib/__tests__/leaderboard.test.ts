@@ -107,7 +107,7 @@ describe('toLeaderboardItems', () => {
     })
   })
 
-  test('marks a losing close as SL and keeps the open stack above it', () => {
+  test('marks a losing close as SL and ranks it below a profitable open', () => {
     const items = toLeaderboardItems(
       [
         trade({
@@ -140,7 +140,7 @@ describe('toLeaderboardItems', () => {
     })
   })
 
-  test('sorts by floating profit, highest first', () => {
+  test('sorts by profit, highest first, including closed TP and SL lots', () => {
     const items = toLeaderboardItems(
       [
         trade({
@@ -159,15 +159,35 @@ describe('toLeaderboardItems', () => {
           price: 0.2,
           cost: 20,
         }),
+        trade({
+          id: 'closed-buy',
+          t: 3,
+          taker: '0x4444444444444444444444444444444444444444',
+          amount: 100,
+          price: 0.2,
+          cost: 20,
+        }),
+        trade({
+          id: 'closed-sell',
+          t: 4,
+          taker: '0x4444444444444444444444444444444444444444',
+          side: 'SELL_YES',
+          amount: 100,
+          price: 0.9,
+          cost: 90,
+        }),
       ],
       { yes: 0.5 },
     )
 
     expect(items.map((item) => item.trader)).toEqual([
+      '0x4444444444444444444444444444444444444444',
       '0x3333333333333333333333333333333333333333',
       '0x2222222222222222222222222222222222222222',
     ])
-    expect(items[0]?.profit).toBeGreaterThan(items[1]?.profit ?? 0)
+    expect(items[0]).toMatchObject({ status: 'closed', exit: 'tp', profit: 70 })
+    expect(items[1]).toMatchObject({ status: 'open', profit: 30 })
+    expect(items[2]).toMatchObject({ status: 'open', profit: -30 })
   })
 
   test('keeps only the top ten rows', () => {
@@ -185,6 +205,51 @@ describe('toLeaderboardItems', () => {
     const items = toLeaderboardItems(trades, { yes: 0.5 })
     expect(items).toHaveLength(LEADERBOARD_LIMIT)
     expect(items[0]?.profit).toBeGreaterThan(items[items.length - 1]?.profit ?? 0)
+  })
+
+  test('lets a closed TP displace a weaker open when the board is full', () => {
+    const opens = Array.from({ length: LEADERBOARD_LIMIT }, (_, index) =>
+      trade({
+        id: `open-${index}`,
+        t: index + 1,
+        taker: `0x${(index + 1).toString(16).padStart(40, '0')}`,
+        amount: 100,
+        price: 0.49,
+        cost: 49,
+      }),
+    )
+
+    const items = toLeaderboardItems(
+      [
+        ...opens,
+        trade({
+          id: 'closed-buy',
+          t: 20,
+          taker: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          amount: 100,
+          price: 0.2,
+          cost: 20,
+        }),
+        trade({
+          id: 'closed-sell',
+          t: 21,
+          taker: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          side: 'SELL_YES',
+          amount: 100,
+          price: 0.8,
+          cost: 80,
+        }),
+      ],
+      { yes: 0.5 },
+    )
+
+    expect(items).toHaveLength(LEADERBOARD_LIMIT)
+    expect(items[0]).toMatchObject({
+      trader: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      status: 'closed',
+      exit: 'tp',
+      profit: 60,
+    })
   })
 
   test('ignores fills without a taker or outcome', () => {
@@ -298,6 +363,34 @@ describe('withCloseExits', () => {
     ])
 
     expect(item).toMatchObject({ exit: 'tp', profit: 6.25, status: 'closed' })
+  })
+
+  test('re-ranks a closed lot after overlaying a larger firebase pnl', () => {
+    const open = item('0x2222222222222222222222222222222222222222', { profit: 10, status: 'open' })
+    const closed = item('0x1111111111111111111111111111111111111111', {
+      profit: 1,
+      status: 'closed',
+      exit: 'tp',
+    })
+
+    const ranked = withCloseExits([open, closed], [
+      {
+        id: 'c1',
+        marketId: 'm1',
+        trader: '0x1111111111111111111111111111111111111111',
+        outcome: 'YES',
+        exit: 'tp',
+        profit: 40,
+        shares: 10,
+        t: 2,
+      },
+    ])
+
+    expect(ranked.map((row) => row.trader)).toEqual([
+      '0x1111111111111111111111111111111111111111',
+      '0x2222222222222222222222222222222222222222',
+    ])
+    expect(ranked[0]).toMatchObject({ status: 'closed', profit: 40 })
   })
 })
 
