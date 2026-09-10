@@ -107,6 +107,7 @@ export interface LivelineProps {
   badgeVariant?: BadgeVariant  // Badge visual style: 'default' (accent) or 'minimal' (white + grey text)
 
   // Crosshair
+  tooltip?: boolean        // Show crosshair tooltip text on hover (default: true)
   tooltipY?: number        // Vertical offset for crosshair tooltip text (default: 14)
   tooltipOutline?: boolean // Stroke outline around crosshair tooltip text for readability (default: true)
 

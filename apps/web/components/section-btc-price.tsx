@@ -96,6 +96,7 @@ function BtcPriceFeed() {
             emptyText="Waiting for BTC price..."
             formatValue={formatUsd}
             formatTime={formatChartTime}
+            tooltip={false}
             referenceLine={marketReferenceLine}
             valueMomentumColor
             exaggerate

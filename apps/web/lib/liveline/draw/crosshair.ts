@@ -19,6 +19,7 @@ export function drawCrosshair(
   tooltipY?: number,
   liveDotX?: number,
   tooltipOutline?: boolean,
+  showTooltip = true,
 ) {
   if (scrubOpacity < 0.01) return
 
@@ -49,7 +50,7 @@ export function drawCrosshair(
 
   // Top label: "$VALUE - TIME" — fixed at top, moves horizontally only
   // Skip text for small containers (text is ~200px wide)
-  if (scrubOpacity < 0.1 || layout.w < 300) return
+  if (!showTooltip || scrubOpacity < 0.1 || layout.w < 300) return
 
   const valueText = formatValue(hoverValue)
   const timeText = formatTime(hoverTime)
@@ -111,6 +112,7 @@ export function drawMultiCrosshair(
   tooltipY?: number,
   tooltipOutline?: boolean,
   liveDotX?: number,
+  showTooltip = true,
 ) {
   if (scrubOpacity < 0.01 || entries.length === 0) return
 
@@ -141,7 +143,7 @@ export function drawMultiCrosshair(
     }
   }
 
-  if (scrubOpacity < 0.1 || layout.w < 300) return
+  if (!showTooltip || scrubOpacity < 0.1 || layout.w < 300) return
 
   // Inline text at top — same style as single-series crosshair
   // Format: "TIME  ·  ● Label Value  ·  ● Label Value"

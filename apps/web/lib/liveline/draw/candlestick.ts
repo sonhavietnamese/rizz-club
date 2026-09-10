@@ -225,6 +225,7 @@ export function drawCandleCrosshair(
   formatValue: (v: number) => string,
   formatTime: (t: number) => string,
   opacity: number,
+  showTooltip = true,
 ) {
   if (opacity < 0.01) return
 
@@ -242,7 +243,7 @@ export function drawCandleCrosshair(
   ctx.restore()
 
   // Tooltip — OHLC + time (matches line chart crosshair patterns)
-  if (opacity < 0.1 || layout.w < 200) return
+  if (!showTooltip || opacity < 0.1 || layout.w < 200) return
 
   const isBull = candle.close >= candle.open
   const valueColor = isBull ? BULL : BEAR
@@ -333,6 +334,7 @@ export function drawLineModeCrosshair(
   formatValue: (v: number) => string,
   formatTime: (t: number) => string,
   opacity: number,
+  showTooltip = true,
 ) {
   if (opacity < 0.01) return
 
@@ -355,7 +357,7 @@ export function drawLineModeCrosshair(
   ctx.stroke()
   ctx.restore()
 
-  if (opacity < 0.1 || layout.w < 200) return
+  if (!showTooltip || opacity < 0.1 || layout.w < 200) return
 
   const val = formatValue(value)
   const time = formatTime(hoverTime)

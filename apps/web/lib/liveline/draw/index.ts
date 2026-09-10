@@ -63,6 +63,7 @@ export interface DrawOptions {
   timeAxisState: TimeAxisState
   dt: number // delta time in ms for frame-rate-independent lerps
   targetWindowSecs: number // final target window (stable during transitions)
+  tooltip: boolean
   tooltipY: number
   tooltipOutline: boolean
   orderbookData?: OrderbookData
@@ -281,6 +282,7 @@ export function drawFrame(
         opts.tooltipY,
         lastPt[0], // liveDotX — tooltip right edge stops here
         opts.tooltipOutline,
+        opts.tooltip,
       )
     }
   }
@@ -320,6 +322,7 @@ export interface MultiSeriesDrawOptions {
   timeAxisState: TimeAxisState
   dt: number
   targetWindowSecs: number
+  tooltip: boolean
   tooltipY: number
   tooltipOutline: boolean
   chartReveal: number
@@ -507,6 +510,7 @@ export function drawMultiFrame(ctx: CanvasRenderingContext2D, layout: ChartLayou
         opts.tooltipY,
         opts.tooltipOutline,
         maxLiveDotX,
+        opts.tooltip,
       )
     }
   }
@@ -543,6 +547,7 @@ export interface CandleDrawOptions {
   timeAxisState: TimeAxisState
   dt: number
   targetWindowSecs: number
+  tooltip: boolean
   tooltipY: number
   tooltipOutline: boolean
   // Line data — drawLine handles morphY, alpha, color, dot position
@@ -809,6 +814,7 @@ export function drawCandleFrame(
         opts.formatValue,
         opts.formatTime,
         opts.scrubAmount,
+        opts.tooltip,
       )
     } else {
       drawCandleCrosshair(
@@ -821,6 +827,7 @@ export function drawCandleFrame(
         opts.formatValue,
         opts.formatTime,
         opts.scrubAmount,
+        opts.tooltip,
       )
     }
   }

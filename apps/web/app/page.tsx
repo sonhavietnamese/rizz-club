@@ -1,32 +1,42 @@
-'use client'
+import { AbilityProvider } from '@/components/ability-provider'
+import SectionAbility from '@/components/section-ability'
+import SectionBtcPrice from '@/components/section-btc-price'
+import SectionChat from '@/components/section-chat'
+import SectionHeader from '@/components/section-header'
+import SectionHistory from '@/components/section-history'
+import SectionLeaderboard from '@/features/leaderboard'
+import SectionMarket from '@/components/section-market'
+import SectionProgress from '@/components/section-progress'
+import SectionStatus from '@/features/status'
+import SectionAbout from '@/features/about'
+import SectionDynamicIsland from '@/features/dynamic-island'
 
-import CtaBtnGroup from '@/components/cta-btn-group'
-import { usePrivy } from '@privy-io/react-auth'
-import Image from 'next/image'
-import { redirect } from 'next/navigation'
-
-export default function Home() {
-  const { ready, authenticated } = usePrivy()
-
-  if (!ready) return <main className="h-dvh bg-background" />
-
-  if (authenticated) {
-    return redirect('/me')
-  }
-
+export default function Page() {
   return (
-    <main className="flex flex-col items-center justify-center h-screen before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-full before:bg-cover before:bg-center before:bg-no-repeat before:bg-[url('/background-01.png')] before:z-0">
-      <figure className="w-[200px] h-auto z-1 absolute top-[60px]">
-        <Image
-          src="/fishing-frienzy-logo.png"
-          alt="Fishing Frienzy Logo"
-          width={400}
-          height={400}
-          className="w-full h-full object-contain"
-        />
-      </figure>
+    <AbilityProvider>
+      <main className="w-screen h-screen bg-background relative p-2 flex flex-col gap-2">
+        <SectionHeader />
+        <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(400px,1fr)_3fr_minmax(400px,1fr)] gap-2">
+          <div id="left" className="flex min-h-0 flex-col gap-2 overflow-hidden">
+            <SectionChat />
+            <SectionProgress />
+            <SectionStatus />
+          </div>
 
-      <CtaBtnGroup />
-    </main>
+          <div id="center" className="flex flex-col gap-2">
+            <SectionBtcPrice />
+            <SectionMarket />
+            <SectionDynamicIsland />
+          </div>
+
+          <div id="right" className="flex min-h-0 flex-col gap-2 overflow-hidden">
+            <SectionLeaderboard />
+            <SectionAbility />
+            <SectionHistory />
+            <SectionAbout />
+          </div>
+        </div>
+      </main>
+    </AbilityProvider>
   )
 }

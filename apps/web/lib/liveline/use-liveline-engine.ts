@@ -41,6 +41,7 @@ interface EngineConfig {
   degenOptions?: DegenOptions
   badgeTail: boolean
   badgeVariant: BadgeVariant
+  tooltip: boolean
   tooltipY: number
   tooltipOutline: boolean
   valueMomentumColor: boolean
@@ -1498,6 +1499,7 @@ export function useLivelineEngine(
         timeAxisState: timeAxisStateRef.current,
         dt: pausedDt,
         targetWindowSecs: cfg.windowSecs,
+        tooltip: cfg.tooltip,
         tooltipY: cfg.tooltipY,
         tooltipOutline: cfg.tooltipOutline,
         lineVisible,
@@ -1801,6 +1803,7 @@ export function useLivelineEngine(
       timeAxisState: timeAxisStateRef.current,
       dt,
       targetWindowSecs: cfg.windowSecs,
+      tooltip: cfg.tooltip,
       tooltipY: cfg.tooltipY,
       tooltipOutline: cfg.tooltipOutline,
       chartReveal,
@@ -1974,6 +1977,7 @@ export function useLivelineEngine(
       timeAxisState: timeAxisStateRef.current,
       dt,
       targetWindowSecs: cfg.windowSecs,
+      tooltip: cfg.tooltip,
       tooltipY: cfg.tooltipY,
       tooltipOutline: cfg.tooltipOutline,
       orderbookData: cfg.orderbookData,

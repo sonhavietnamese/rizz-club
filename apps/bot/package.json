@@ -5,7 +5,6 @@
   "private": true,
   "scripts": {
     "start": "bun run index.ts",
-    "dev": "bun run index.ts",
     "build": "true",
     "generate-wallets": "bun run src/scripts/generate-wallets.ts",
     "wallets": "bun run src/scripts/wallets.ts",

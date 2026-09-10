@@ -4,7 +4,6 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run index.tsx -- --interval 5m",
     "start": "bun run index.tsx -- --interval 5m",
     "build": "true",
     "check-types": "tsc --noEmit"
