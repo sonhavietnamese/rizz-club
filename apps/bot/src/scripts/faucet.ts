@@ -1,12 +1,12 @@
 import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
-import { chain, createSignerClient, publicClient, tusdcAbi, tusdcAddress } from '@/chain'
+import { chain, createSignerClient, publicClient, tusdcAbi, tusdcAddress, writeGasEnvelope } from '@/chain'
 import { errorMessage } from '@/lib/async'
 import { getFaucetAccount, wallets, type BotWallet } from '@/wallets'
 
-const STT_AMOUNT = parseEther('0.5')
+const STT_AMOUNT = parseEther('2')
 const TUSDC_DECIMALS = 6
 const TUSDC_AMOUNT = parseUnits('100', TUSDC_DECIMALS)
-const GAS_RESERVE = parseEther('0.5')
+const GAS_RESERVE = parseEther('2')
 
 type PendingTransfer = {
   index: number
@@ -48,6 +48,12 @@ async function needsFunding(wallet: BotWallet, force: boolean) {
   }
 }
 
+if (STT_AMOUNT < writeGasEnvelope) {
+  throw new Error(
+    `Faucet STT amount ${formatEther(STT_AMOUNT)} is below the SDK gas envelope ${formatEther(writeGasEnvelope)}`,
+  )
+}
+
 const { dryRun, force } = parseArgs()
 const faucet = getFaucetAccount()
 const recipients = wallets()
@@ -84,10 +90,14 @@ const [faucetStt, faucetTusdc] = await Promise.all([
 console.log(`Faucet ${faucet.address} on ${chain.name} (${chain.id})`)
 console.log(`  STT   ${formatEther(faucetStt)}`)
 console.log(`  tUSDC ${formatUnits(faucetTusdc, TUSDC_DECIMALS)}  ${tusdcAddress}`)
-console.log(`Wallets ${recipients.length}: send 2 STT to ${sttTargets}, 100 tUSDC to ${tusdcTargets}`)
+console.log(
+  `Wallets ${recipients.length}: send ${formatEther(STT_AMOUNT)} STT to ${sttTargets}, ${formatUnits(TUSDC_AMOUNT, TUSDC_DECIMALS)} tUSDC to ${tusdcTargets} (SDK gas envelope ${formatEther(writeGasEnvelope)} STT)`,
+)
 
 if (targets.length === 0) {
-  console.log('All wallets already have at least 2 STT and 100 tUSDC.')
+  console.log(
+    `All wallets already have at least ${formatEther(STT_AMOUNT)} STT and ${formatUnits(TUSDC_AMOUNT, TUSDC_DECIMALS)} tUSDC.`,
+  )
   process.exit(0)
 }
 
@@ -100,7 +110,7 @@ if (faucetStt < sttNeeded + GAS_RESERVE) {
 if (dryRun) {
   for (const { wallet, needs } of targets) {
     console.log(
-      `  ${wallet.index.toString().padStart(3, ' ')}  ${wallet.address}  ${needs.stt ? '2 STT' : '-'}  ${needs.tusdc ? '100 tUSDC' : '-'}`,
+      `  ${wallet.index.toString().padStart(3, ' ')}  ${wallet.address}  ${needs.stt ? `${formatEther(STT_AMOUNT)} STT` : '-'}  ${needs.tusdc ? `${formatUnits(TUSDC_AMOUNT, TUSDC_DECIMALS)} tUSDC` : '-'}`,
     )
   }
   console.log('Dry run only. Re-run without --dry-run to send.')

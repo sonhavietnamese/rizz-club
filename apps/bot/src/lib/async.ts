@@ -1,4 +1,4 @@
-export { errorMessage } from '@repo/shared/error'
+export { errorMessage } from './chain-error'
 
 export function sleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {

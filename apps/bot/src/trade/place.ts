@@ -14,8 +14,8 @@ import {
   type SomniaMarkets,
   type UnifiedMarket,
 } from '@somnia-chain/markets-sdk'
-import { formatUnits, parseUnits, type Hex } from 'viem'
-import { publicClient, tusdcAbi, tusdcAddress } from '@/chain'
+import { formatEther, formatUnits, parseUnits, type Hex } from 'viem'
+import { publicClient, tusdcAbi, tusdcAddress, writeGasEnvelope } from '@/chain'
 import { errorMessage } from '@/lib/async'
 import type { BotWallet } from '@/wallets'
 import type { MarketSnapshot } from './snapshot'
@@ -125,12 +125,19 @@ export async function placeTrade(
     throw new Error(`Market ${market.symbol} is not trading on-chain`)
   }
 
-  const [bookParams, book, positions] = await Promise.all([
+  const [bookParams, book, positions, stt] = await Promise.all([
     options.snapshot?.bookParams ?? exchange.client.getBinaryBookParams(onchain.pool),
     options.snapshot?.book ??
       exchange.client.getBinaryOrderBook(onchain.pool, { depth: 10, decimals: onchain.decimals }),
     options.positions ?? walletPositions(exchange, wallet.address, marketId, onchain.decimals),
+    publicClient.getBalance({ address: wallet.address }),
   ])
+
+  if (!options.dryRun && stt < writeGasEnvelope) {
+    throw new Error(
+      `Need at least ${formatEther(writeGasEnvelope)} STT for the SDK gas envelope, have ${formatEther(stt)}. Run bun run faucet.`,
+    )
+  }
 
   const slippagePercent = options.slippagePercent ?? 2
   const slippageBps = BigInt(Math.round(slippagePercent * 100))
