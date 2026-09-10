@@ -190,8 +190,39 @@ export default function PaneTradingZone({
         </div>
 
         <div className="w-full h-full absolute top-0 left-0 flex justify-between text-white/80 font-sans font-medium px-4 py-4">
-          <div>12,5 YES @ 12c</div>
-          <div>12,5 NO @ 12c</div>
+          <div className="flex gap-3">
+            <button className="flex gap-2 relative w-[40px] justify-center">
+              <figure className="absolute z-0 inset-0">
+                <svg width="44" height="20" viewBox="0 0 44 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M0.492573 5.71949C-0.937171 3.15581 0.916258 0 3.85167 0H32.7363C34.1308 0 35.4161 0.754864 36.0954 1.97281L42.9593 14.2805C44.389 16.8442 42.5356 20 39.6002 20H10.7156C9.32102 20 8.03572 19.2451 7.35648 18.0272L0.492573 5.71949Z"
+                    fill="#D9D9D950"
+                  />
+                </svg>
+              </figure>
+
+              <span className="text-sm mt-0.5 ml-1">TP</span>
+            </button>
+
+            <div>12,5 YES @ 12c</div>
+          </div>
+
+          <div className="flex gap-3">
+            <div>12,5 YES @ 12c</div>
+
+            <button className="flex gap-3 relative w-[40px] justify-center">
+              <figure className="absolute z-0 inset-0">
+                <svg width="44" height="20" viewBox="0 0 44 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M42.9593 5.71949C44.3891 3.15581 42.5356 0 39.6002 0H10.7156C9.32106 0 8.03576 0.754864 7.35652 1.97281L0.49261 14.2805C-0.937134 16.8442 0.916295 20 3.8517 20H32.7363C34.1309 20 35.4162 19.2451 36.0954 18.0272L42.9593 5.71949Z"
+                    fill="#D9D9D950"
+                  />
+                </svg>
+              </figure>
+
+              <span className="text-sm mt-0.5 ml-1">SL</span>
+            </button>
+          </div>
         </div>
       </div>
 
