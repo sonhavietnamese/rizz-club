@@ -329,6 +329,7 @@ function item(id: string, overrides: Partial<LeaderboardItem> = {}): Leaderboard
     trader: id,
     name: id,
     avatar: '',
+    frame: '',
     outcome: 'YES',
     side: 'up',
     shares: 10,

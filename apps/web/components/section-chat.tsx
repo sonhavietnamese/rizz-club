@@ -3,17 +3,18 @@
 import { CHAT_MAX_LENGTH, useChat, type ChatMessage } from '@/hooks/use-chat'
 import { resolveDisplayName } from '@/lib/display-name'
 import { formatGmt7Hm } from '@/lib/format'
-import { traderAvatar } from '@/lib/market-trades'
+import { FramedAvatar } from '@/components/framed-avatar'
+import { getAvatar, getFrame } from '@/lib/avatar'
 import { traderIdentity } from '@/lib/traders'
 import { usePrivy, type User } from '@privy-io/react-auth'
 import { animate } from 'motion'
 import { motion, useReducedMotion } from 'motion/react'
-import Image from 'next/image'
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 
 type ChatItem = {
   id: string
   avatar: string
+  frame: string
   name: string
   message: string
   side: 'left' | 'right'
@@ -44,7 +45,8 @@ function isSelfMessage(message: ChatMessage, user: User | null) {
 function toChatItem(message: ChatMessage, user: User | null): ChatItem {
   return {
     id: message.id,
-    avatar: traderAvatar(message.address || message.id),
+    avatar: getAvatar(message.address || message.id),
+    frame: getFrame(message.address || message.id),
     name: message.name,
     message: message.message,
     side: isSelfMessage(message, user) ? 'right' : 'left',
@@ -81,15 +83,7 @@ function ChatRow({ item, enter }: { item: ChatItem; enter: boolean }) {
       className={`flex min-w-0 w-full ${isRight ? 'justify-end' : ''}`}
     >
       <div className={`flex min-w-0 max-w-full gap-4 ${isRight ? 'flex-row-reverse' : ''}`}>
-        <figure className="h-12 w-12 shrink-0 rounded-lg bg-[#ff00ff] p-[2px]">
-          <Image
-            src={item.avatar}
-            alt={item.name}
-            width={60}
-            height={60}
-            className="h-full w-full rounded-[6px] object-cover"
-          />
-        </figure>
+        <FramedAvatar src={item.avatar} frame={item.frame} alt={item.name} className="h-12 w-12" />
         <div className="relative min-w-0 w-fit max-w-full rounded-lg bg-[#3A3A3A] p-2 text-white/80">
           <BubbleTail side={item.side} />
           <div className="flex min-w-0 w-full items-baseline justify-between gap-3">

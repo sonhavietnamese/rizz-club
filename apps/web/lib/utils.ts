@@ -46,8 +46,7 @@ export function holdLastValue(
   const last = sorted[sorted.length - 1]
   if (!first || !last) return sorted
 
-  const start =
-    fromTime != null && Number.isFinite(fromTime) && fromTime < first.time ? fromTime : first.time
+  const start = fromTime != null && Number.isFinite(fromTime) && fromTime < first.time ? fromTime : first.time
   const end = Math.max(nowSeconds, last.time)
   const held: LivelinePoint[] = []
   let index = 0
@@ -140,3 +139,5 @@ export function pointsToCandles(points: LivelinePoint[], candleWidth: number) {
     liveCandle,
   }
 }
+
+export { getAvatar, getFrame } from '@/lib/avatar'

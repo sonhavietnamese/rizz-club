@@ -1,12 +1,8 @@
-import {
-  marketTradeAction,
-  marketTradeOutcome,
-  traderAvatar,
-  type MarketTrade,
-} from '@/lib/market-trades'
+import { marketTradeAction, marketTradeOutcome, type MarketTrade } from '@/lib/market-trades'
 import { closePositionKey, type MarketClose } from '@/lib/market-closes'
 import { formatAddress, formatCents, formatShares } from '@/lib/format'
 import { liveTraderHeartRate, traderKey, type Trader } from '@/lib/traders'
+import { getAvatar, getFrame } from '@/lib/avatar'
 
 const closedShares = 1e-8
 export const LEADERBOARD_LIMIT = 10
@@ -25,6 +21,7 @@ export type LeaderboardItem = {
   trader: string
   name: string
   avatar: string
+  frame: string
   outcome: 'YES' | 'NO'
   side: LeaderboardSide
   shares: number
@@ -172,7 +169,8 @@ function toOpenItem(position: OpenPosition, prices: LeaderboardPrices): Leaderbo
     id: positionKey(position.trader, position.outcome),
     trader: position.trader,
     name: formatAddress(position.displayTrader),
-    avatar: traderAvatar(position.displayTrader),
+    avatar: getAvatar(position.displayTrader),
+    frame: getFrame(position.displayTrader),
     outcome: position.outcome,
     side: position.outcome === 'YES' ? 'up' : 'down',
     shares: position.shares,
@@ -189,7 +187,8 @@ function toClosedItem(lot: ClosedLot): LeaderboardItem | null {
     id: `${positionKey(lot.trader, lot.outcome)}:done`,
     trader: lot.trader,
     name: formatAddress(lot.displayTrader),
-    avatar: traderAvatar(lot.displayTrader),
+    avatar: getAvatar(lot.displayTrader),
+    frame: getFrame(lot.displayTrader),
     outcome: lot.outcome,
     side: lot.outcome === 'YES' ? 'up' : 'down',
     shares: lot.shares,

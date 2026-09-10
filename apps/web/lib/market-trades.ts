@@ -1,11 +1,6 @@
 import type { LivelineMarker } from '@/lib/liveline'
 import { formatAddress } from '@/lib/format'
-
-const traderAvatars = [
-  'https://i.pinimg.com/1200x/6c/50/e8/6c50e8fc7cc13cfc7bc4abb312282f15.jpg',
-  'https://i.pinimg.com/1200x/a5/65/6c/a5656c180fedac78f1f913abc7253015.jpg',
-  'https://i.pinimg.com/736x/d8/bd/f8/d8bdf86d816411cc2501754d2e202afe.jpg',
-] as const
+import { getAvatar } from '@/lib/avatar'
 
 export type MarketTrade = {
   id: string
@@ -19,14 +14,6 @@ export type MarketTrade = {
   amount?: number | null
   cost?: number | null
   taker?: string | null
-}
-
-export function traderAvatar(seed: string) {
-  let hash = 0
-  for (const character of seed) {
-    hash = (hash + character.charCodeAt(0)) % traderAvatars.length
-  }
-  return traderAvatars[hash] ?? traderAvatars[0]
 }
 
 function tradeTimeSeconds(t: number) {
@@ -73,7 +60,7 @@ export function toTradeMarkers(trades: MarketTrade[]): LivelineMarker[] {
         id: trade.id,
         time,
         seriesId,
-        avatar: traderAvatar(seed),
+        avatar: getAvatar(seed),
         name: trade.taker ? formatAddress(trade.taker) : undefined,
       },
     ]

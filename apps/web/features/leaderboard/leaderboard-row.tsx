@@ -5,6 +5,7 @@ import { EASE_OUT, profitColor } from './constants'
 import { EASE_IN_OUT } from './constants'
 import { motion } from 'motion/react'
 import Image from 'next/image'
+import { FramedAvatar } from '@/components/framed-avatar'
 import { YES_COLOR } from '@/lib/outcome'
 import { NO_COLOR } from '@/lib/outcome'
 import { formatShares } from '@/lib/format'
@@ -44,16 +45,7 @@ export default function LeaderboardRow({
       className="relative flex w-full gap-[10px] rounded-xl bg-background p-2"
     >
       <div className="relative">
-        <figure className="aspect-square h-15 w-15 rounded-lg bg-[#ff00ff] bg-cover bg-center p-[2px]">
-          <Image
-            draggable={false}
-            src={item.avatar}
-            alt={item.name}
-            width={60}
-            height={60}
-            className="h-full w-full rounded-lg object-cover"
-          />
-        </figure>
+        <FramedAvatar src={item.avatar} frame={item.frame} alt={item.name} className="aspect-square h-15 w-15" />
         {item.exit ? (
           <span
             className="absolute -top-1 -right-1 rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold tracking-wide text-black"
