@@ -10,7 +10,7 @@ export const PRELOAD_REALTIME_PATHS = ['chat', TRADERS_PATH, 'market', 'trades']
 
 export const PRELOAD_IMAGE_URLS = [
   ...ABILITY_CARDS.map((card) => card.image),
-  '/background-texture.png',
+  '/background-texture.webp',
   '/icon.png',
   '/mark-orange.png',
   '/mark-purple.png',

@@ -1,11 +1,11 @@
 import { AbilityProvider } from '@/components/ability-provider'
 import SectionAbility from '@/components/section-ability'
-import SectionBtcPrice from '@/components/section-btc-price'
+import SectionChartBtc from '@/features/chart-btc'
 import SectionChat from '@/components/section-chat'
 import SectionHeader from '@/components/section-header'
 import SectionHistory from '@/components/section-history'
 import SectionLeaderboard from '@/features/leaderboard'
-import SectionMarket from '@/components/section-market'
+import SectionChartMarket from '@/features/chart-market'
 import SectionProgress from '@/components/section-progress'
 import SectionStatus from '@/features/status'
 import SectionAbout from '@/features/about'
@@ -24,8 +24,8 @@ export default function Page() {
           </div>
 
           <div id="center" className="flex flex-col gap-2">
-            <SectionBtcPrice />
-            <SectionMarket />
+            <SectionChartBtc />
+            <SectionChartMarket />
             <SectionDynamicIsland />
           </div>
 

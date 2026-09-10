@@ -1,8 +1,6 @@
-import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
-
 export const EASE_OUT = [0.23, 1, 0.32, 1] as const
 export const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 export const profitColor = {
-  up: YES_COLOR,
-  down: NO_COLOR,
+  up: '#31DC0E',
+  down: '#DC220E',
 } as const

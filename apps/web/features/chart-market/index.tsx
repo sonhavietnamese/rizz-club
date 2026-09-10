@@ -67,8 +67,8 @@ function MarketValueFeed() {
   const yesValue = yesPoints.at(-1)?.value ?? fallbackYes
   const noValue = noPoints.at(-1)?.value ?? (fallbackYes === undefined ? undefined : 1 - fallbackYes)
   const series: LivelineSeries[] = [
-    { id: 'yes', label: 'YES', data: yesPoints, value: yesValue ?? 0.5, color: YES_COLOR },
-    { id: 'no', label: 'NO', data: noPoints, value: noValue ?? 0.5, color: NO_COLOR },
+    { id: 'yes', label: 'UP', data: yesPoints, value: yesValue ?? 0.5, color: YES_COLOR },
+    { id: 'no', label: 'DOWN', data: noPoints, value: noValue ?? 0.5, color: NO_COLOR },
   ]
   const tradeMarkers = useMemo(() => toTradeMarkers(trades), [trades])
 
@@ -78,7 +78,7 @@ function MarketValueFeed() {
         <div className="flex items-start gap-6 text-right">
           <div>
             <p className="font-sans text-sm" style={{ color: YES_COLOR }}>
-              YES
+              UP
             </p>
             <p
               className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight"
@@ -89,7 +89,7 @@ function MarketValueFeed() {
           </div>
           <div>
             <p className="font-sans text-sm" style={{ color: NO_COLOR }}>
-              NO
+              DOWN
             </p>
             <p
               className="mt-2 font-sans text-[28px] font-medium tabular-nums tracking-tight"
@@ -133,6 +133,7 @@ function MarketValueFeed() {
             lineWidth={5}
             smoothCurve={false}
             badgeVariant="minimal"
+            scrub={false}
           />
         </div>
       </div>
@@ -140,6 +141,6 @@ function MarketValueFeed() {
   )
 }
 
-export default function SectionMarket() {
+export default function SectionChartMarket() {
   return <MarketValueFeed />
 }

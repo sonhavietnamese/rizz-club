@@ -54,7 +54,7 @@ function BtcPriceFeed() {
   const latestValue = btcPrice?.price ?? btcPricePoints.at(-1)?.value
   const change = first && latestValue !== undefined ? latestValue - first.value : undefined
   const changePercent = change !== undefined && first && first.value !== 0 ? change / first.value : undefined
-  const changeTone = change === undefined ? '#6A7374' : change >= 0 ? YES_COLOR : NO_COLOR
+  const changeTone = change === undefined ? '#6A7374' : change >= 0 ? '#31DC0E' : '#DC220E'
 
   return (
     <section className="section-panel flex min-h-0 flex-col overflow-hidden p-2 px-0 relative">
@@ -84,7 +84,6 @@ function BtcPriceFeed() {
             windows={BTC_PRICE_WINDOWS}
             onWindowChange={setWindowSecs}
             windowStyle="rounded"
-            mode="candle"
             lineMode={chartMode === 'line'}
             onModeChange={setChartMode}
             candles={candles}
@@ -100,8 +99,11 @@ function BtcPriceFeed() {
             referenceLine={marketReferenceLine}
             valueMomentumColor
             exaggerate
-            badgeVariant="minimal"
+            momentum
+            degen
+            pulse
             lineWidth={3}
+            scrub={false}
           />
         </div>
       </div>
@@ -109,7 +111,7 @@ function BtcPriceFeed() {
   )
 }
 
-export default function SectionBtcPrice() {
+export default function SectionChartBtc() {
   const exchange = useMemo(() => createDreamDexExchange(), [])
 
   return (

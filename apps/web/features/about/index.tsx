@@ -22,7 +22,7 @@ export default function SectionAbout() {
       <div className="p-1 px-1.5 rounded-lg w-fit">
         <span className={cn('text-[#6A7374] font-regular tabular-nums text-sm')}>{time}</span>
       </div>
-      <div className="p-1 px-1.5 bg-[url('/background-texture.png')] mix-blend-exclusion bg-cover bg-center leading-none rounded-lg w-fit">
+      <div className="p-1 px-1.5 bg-[url('/background-texture.webp')] mix-blend-exclusion bg-cover bg-center leading-none rounded-lg w-fit">
         <span className={cn('text-white font-regular text-sm')}>Version 0.1.12-oven</span>
       </div>
     </section>

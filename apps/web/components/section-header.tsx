@@ -61,7 +61,7 @@ export default function SectionHeader() {
       <div
         className={cn(
           'overflow-hidden w-full h-full absolute top-0 left-0 rounded-2xl',
-          "bg-[url('/background-texture.png')] bg-cover bg-center",
+          "bg-[url('/background-texture.webp')] bg-cover bg-center",
         )}
       >
         <div className="w-full h-full flex items-center justify-center">

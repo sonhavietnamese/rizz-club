@@ -1,2 +1,2 @@
-export const YES_COLOR = '#2DD530'
-export const NO_COLOR = '#F87171'
+export const YES_COLOR = '#BD0AEE'
+export const NO_COLOR = '#DC5A0E'
