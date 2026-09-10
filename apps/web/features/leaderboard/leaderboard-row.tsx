@@ -1,50 +1,20 @@
-'use client'
-
-import { useLeaderboard } from '@/hooks/use-leaderboard'
-import {
-  LEADERBOARD_FADE_S,
-  leaderboardExitDuration,
-  leaderboardStaggerDelay,
-  type LeaderboardItem,
-} from '@/lib/leaderboard'
-import { formatCents, formatShares } from '@/lib/format'
-import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
-import markOrange from '@/public/mark-orange.png'
-import markPurple from '@/public/mark-purple.png'
-import NumberFlow from '@number-flow/react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { LeaderboardItem } from '@/lib/leaderboard'
+import { leaderboardStaggerDelay } from '@/lib/leaderboard'
+import { LEADERBOARD_FADE_S } from '@/lib/leaderboard'
+import { EASE_OUT, profitColor } from './constants'
+import { EASE_IN_OUT } from './constants'
+import { motion } from 'motion/react'
 import Image from 'next/image'
-import { forwardRef } from 'react'
+import { YES_COLOR } from '@/lib/outcome'
+import { NO_COLOR } from '@/lib/outcome'
+import { formatShares } from '@/lib/format'
+import { formatCents } from '@/lib/format'
+import IconHeartbeat from './icon-heart-beat'
+import NumberFlow from '@number-flow/react'
+import markPurple from '@/public/mark-purple.png'
+import markOrange from '@/public/mark-orange.png'
 
-const EASE_OUT = [0.23, 1, 0.32, 1] as const
-const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
-const profitColor = {
-  up: YES_COLOR,
-  down: NO_COLOR,
-} as const
-
-function HeartbeatIcon() {
-  return (
-    <figure className="h-3 w-3">
-      <svg
-        className="h-full w-full"
-        width="11"
-        height="11"
-        viewBox="0 0 11 11"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M0.5 6.60254H3.22727L4.59091 0.102539L6.40909 10.1025L7.77273 5.60254H10.5"
-          stroke="#6A7374"
-          strokeLinecap="round"
-        />
-      </svg>
-    </figure>
-  )
-}
-
-function LeaderboardRow({
+export default function LeaderboardRow({
   item,
   index,
   reduceMotion,
@@ -97,7 +67,7 @@ function LeaderboardRow({
       <div className="flex flex-col items-start gap-2 py-2">
         <div className="font-sans font-medium text-white/90">{item.name}</div>
         <div className="mt-2 flex items-center justify-center gap-1">
-          <HeartbeatIcon />
+          <IconHeartbeat />
           <span className="font-sans text-xs font-medium tabular-nums text-[#6A7374]">
             {item.heartRate == null ? '—' : `${item.heartRate} BPM`}
           </span>
@@ -138,64 +108,5 @@ function LeaderboardRow({
         />
       </figure>
     </motion.li>
-  )
-}
-
-const LeaderboardList = forwardRef<
-  HTMLUListElement,
-  {
-    items: LeaderboardItem[]
-    reduceMotion: boolean
-    enter: boolean
-    frozen: boolean
-  }
->(function LeaderboardList({ items, reduceMotion, enter, frozen, ...presence }, ref) {
-  return (
-    <motion.ul
-      ref={ref}
-      className="flex flex-col gap-2"
-      {...presence}
-      initial={false}
-      exit={{ opacity: 1 }}
-      transition={{ duration: leaderboardExitDuration(items.length, reduceMotion), ease: EASE_OUT }}
-    >
-      {items.map((item, index) => (
-        <LeaderboardRow
-          key={item.id}
-          item={item}
-          index={index}
-          reduceMotion={reduceMotion}
-          enter={enter}
-          frozen={frozen}
-        />
-      ))}
-    </motion.ul>
-  )
-})
-
-export default function SectionLeaderboard() {
-  const { items, epoch, frozen, status } = useLeaderboard()
-  const reduceMotion = useReducedMotion() ?? false
-
-  return (
-    <section className="section-panel flex min-h-0 flex-1 flex-col gap-2 overflow-hidden select-none relative">
-      <motion.div layoutScroll className="min-h-0 flex-1 overflow-y-auto rounded-lg hide-scrollbar">
-        {items.length === 0 ? (
-          <p className="px-2 py-3 font-sans text-sm text-[#6A7374]">
-            {status === 'error'
-              ? 'Could not load trades.'
-              : status === 'loading'
-                ? 'Syncing positions...'
-                : 'Waiting for positions...'}
-          </p>
-        ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <LeaderboardList key={epoch} items={items} reduceMotion={reduceMotion} enter={epoch > 0} frozen={frozen} />
-          </AnimatePresence>
-        )}
-
-        <div className="pointer-events-none absolute w-full bottom-0 h-[50%] bg-gradient-to-t from-section-background to-transparent z-10"></div>
-      </motion.div>
-    </section>
   )
 }

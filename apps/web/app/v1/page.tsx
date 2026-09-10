@@ -1,15 +1,15 @@
+import { AbilityProvider } from '@/components/ability-provider'
 import SectionAbility from '@/components/section-ability'
-import SectionAbout from '@/components/section-about'
 import SectionBtcPrice from '@/components/section-btc-price'
 import SectionChat from '@/components/section-chat'
-import SectionDynamicIsland from '@/components/section-dynamic-island'
 import SectionHeader from '@/components/section-header'
 import SectionHistory from '@/components/section-history'
-import SectionLeaderboard from '@/components/section-leaderboard'
+import SectionLeaderboard from '@/features/leaderboard'
 import SectionMarket from '@/components/section-market'
 import SectionProgress from '@/components/section-progress'
-import SectionStatus from '@/components/section-status'
-import { AbilityProvider } from '@/components/ability-provider'
+import SectionStatus from '@/features/status'
+import SectionAbout from '@/features/about'
+import SectionDynamicIsland from '@/features/dynamic-island'
 
 export default function Page() {
   return (
