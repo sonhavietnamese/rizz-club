@@ -4,6 +4,11 @@ import { formatShares } from '@/lib/format'
 import { NO_COLOR, YES_COLOR } from '@/lib/outcome'
 import BpmReadout from './bpm-readout'
 import IslandButton from './island-button'
+import { cn } from 'cn'
+import NumberFlow from '@number-flow/react'
+import Image from 'next/image'
+import upTexture from '@/public/texture-up.png'
+import downTexture from '@/public/texture-down.png'
 
 export default function PaneTradingZone({
   heartRate,
@@ -39,7 +44,7 @@ export default function PaneTradingZone({
 
   return (
     <div className="flex h-full w-full gap-2">
-      <div className="absolute w-[400px] h-[100px] top-[-80px] left-1/2 -translate-x-1/2 z-0">
+      <div id="bpm" className="absolute w-[400px] h-[100px] top-[-80px] left-1/2 -translate-x-1/2 z-0">
         <figure className="w-full h-full">
           <svg
             className="w-full h-auto"
@@ -73,17 +78,124 @@ export default function PaneTradingZone({
           </svg>
         </figure>
 
-        <div className="absolute flex justify-center items-center w-full h-full top-0 left-0 z-0">
+        <div id="speedometer" className="absolute flex justify-center items-center w-full h-full top-0 left-0 z-0">
           <svg width="289" height="56" viewBox="0 0 289 56" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M144.207 0C191.437 4.15888e-05 215.211 12.0681 236.618 26.0205C252.511 36.379 266.65 47.391 288.414 55.2939H267.119C253.642 48.3116 242.948 40.3964 231.93 33.2148C211.624 19.9805 189.454 8.58793 144.207 8.58789C98.9603 8.58795 76.7909 19.9806 56.4854 33.2148C45.4665 40.3964 34.7724 48.3115 21.2949 55.2939H0C21.7637 47.391 35.9026 36.3791 51.7959 26.0205C73.2034 12.068 96.977 5.71828e-05 144.207 0Z"
-              fill="white"
+              fill="#ffffff20"
             />
           </svg>
         </div>
+
+        <div className="w-full h-full absolute top-0 left-0 z-0 pt-6 flex justify-center items-center">
+          <div
+            id="speedometer-value"
+            className={cn(
+              'font-abc-gravity-italic text-[32px] leading-none text-white',
+              'after:content-["BPM"] after:text-[14px] after:font-sans after:leading-none after:text-white/50 after:absolute after:bottom-[24px] after:right-[124px]',
+            )}
+          >
+            180
+          </div>
+        </div>
       </div>
 
-      <div className="flex w-full h-full flex-1 justify-center relative z-30 bg-[#1a1a1a] rounded-2xl">
+      <div className="absolute w-full h-[80px] top-[-40px] flex justify-between">
+        <div>
+          <svg width="323" height="78" viewBox="0 0 323 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M206.764 4C216.755 4 225.287 10.194 230.122 18.166C233.599 23.8991 238.418 30.3132 244.4 34.7998C257.137 44.3518 275.29 45.9889 294.555 44.5215C301.198 43.4698 306.438 44.301 310.369 46.7939C314.353 49.3205 316.351 53.1451 317.303 56.7217C318.244 60.2625 318.241 63.823 318.043 66.3857C317.942 67.69 317.787 68.7917 317.654 69.5771C317.588 69.9708 317.527 70.2885 317.48 70.5156C317.457 70.6289 317.438 70.7199 317.423 70.7871C317.415 70.8206 317.409 70.8487 317.404 70.8701C317.402 70.8807 317.399 70.8899 317.397 70.8975C317.397 70.9013 317.396 70.9052 317.396 70.9082C317.395 70.9096 317.395 70.9113 317.395 70.9121L313.5 70L317.394 70.916L316.668 74H-4V24C-4 12.9543 4.95431 4 16 4H206.764Z"
+              fill="#1A1A1A"
+              stroke="#121314"
+              strokeWidth="8"
+            />
+            <mask
+              id="mask0_2209_11748"
+              style={{ maskType: 'alpha' }}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="8"
+              width="315"
+              height="62"
+            >
+              <path
+                d="M0 8H206.764C215.039 8 222.411 13.1644 226.702 20.2402C230.305 26.1811 235.439 33.079 242 38C256 48.5 275.5 50 295 48.5C319.5 44.5 313.5 69.9998 313.5 69.9998H0V8Z"
+                fill="#1A1A1A"
+              />
+            </mask>
+            <g mask="url(#mask0_2209_11748)">
+              <rect
+                width="194"
+                height="31"
+                rx="5"
+                transform="matrix(-1 0 0 1 252 9)"
+                fill="url(#paint0_linear_2209_11748)"
+              />
+            </g>
+            <defs>
+              <linearGradient
+                id="paint0_linear_2209_11748"
+                x1="0"
+                y1="15.5"
+                x2="194"
+                y2="15.5"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#E130FC" stop-opacity="0.84" />
+                <stop offset="1" stop-color="#1A1A1A" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <div>
+          <svg width="322" height="78" viewBox="0 0 322 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M115.385 4C105.394 4 96.8614 10.194 92.0266 18.166C88.5497 23.8991 83.7305 30.3132 77.7483 34.7998C65.0122 44.3518 46.8582 45.9889 27.594 44.5215C20.9504 43.4698 15.7107 44.301 11.7795 46.7939C7.79556 49.3205 5.7972 53.1451 4.84595 56.7217C3.90424 60.2625 3.90792 63.823 4.10571 66.3857C4.20638 67.69 4.36199 68.7917 4.49438 69.5771C4.56074 69.9708 4.6218 70.2885 4.66821 70.5156C4.69136 70.6289 4.71103 70.7199 4.72583 70.7871C4.73322 70.8206 4.7395 70.8487 4.74438 70.8701C4.7468 70.8807 4.74947 70.8899 4.75122 70.8975C4.7521 70.9013 4.75247 70.9052 4.75317 70.9082C4.75349 70.9096 4.75395 70.9113 4.75415 70.9121L8.64868 70L4.75513 70.916L5.48071 74H326.149V20C326.149 11.1635 318.985 4 310.149 4H115.385Z"
+              fill="#1A1A1A"
+              stroke="#121314"
+              strokeWidth="8"
+            />
+            <mask
+              id="mask0_2209_11749"
+              style={{ maskType: 'alpha' }}
+              maskUnits="userSpaceOnUse"
+              x="8"
+              y="8"
+              width="315"
+              height="62"
+            >
+              <path
+                d="M322.149 8H115.385C107.109 8 99.738 13.1644 95.4467 20.2402C91.8437 26.1811 86.7101 33.079 80.1487 38C66.1487 48.5 46.6487 50 27.1487 48.5C2.64868 44.5 8.64868 69.9998 8.64868 69.9998H322.149V8Z"
+                fill="#1A1A1A"
+              />
+            </mask>
+            <g mask="url(#mask0_2209_11749)">
+              <rect x="70.1487" y="9" width="194" height="31" rx="5" fill="url(#paint0_linear_2209_11749)" />
+            </g>
+            <defs>
+              <linearGradient
+                id="paint0_linear_2209_11749"
+                x1="70.1487"
+                y1="24.5"
+                x2="264.149"
+                y2="24.5"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#F7992B" />
+                <stop offset="1" stop-color="#1A1A1A" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <div className="w-full h-full absolute top-0 left-0 flex justify-between text-white/80 font-sans font-medium px-4 py-4">
+          <div>12,5 YES @ 12c</div>
+          <div>12,5 NO @ 12c</div>
+        </div>
+      </div>
+
+      <div className="flex w-full h-full flex-1 justify-center relative z-30 bg-[#1a1a1a] rounded-2xl overflow-hidden">
         {/* <div className="flex shrink-0 items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate font-sans text-xs tabular-nums text-white/80">
@@ -141,7 +253,10 @@ export default function PaneTradingZone({
         </div> */}
 
         <div className="absolute w-1 h-1 left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
-          <div className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2">
+          <div
+            id="yes-panel"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2"
+          >
             <figure className="h-full">
               <svg
                 className="h-full w-auto"
@@ -172,7 +287,32 @@ export default function PaneTradingZone({
             </figure>
           </div>
 
-          <div className="absolute top-0 h-[180px] w-[514px] right-[-620px] -translate-y-1/2 p-2">
+          <div
+            id="yes-panel-texture"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-end left-[-620px] -translate-y-1/2 p-2 pr-0"
+          >
+            <figure className="h-full">
+              <Image
+                draggable={false}
+                src={upTexture}
+                alt="up texture"
+                width={393}
+                height={180}
+                className="h-full w-auto"
+              />
+            </figure>
+          </div>
+
+          <div
+            id="yes-panel-text"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start left-[-620px] top-1/2 -translate-y-1/2 p-2 pr-0 "
+          >
+            <div className="absolute top-1/2 right-40 text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
+              <span>Yes</span>
+            </div>
+          </div>
+
+          <div id="no-panel" className="absolute top-0 h-[180px] w-[514px] right-[-620px] -translate-y-1/2 p-2">
             <figure className="h-full">
               <svg
                 className="h-full w-auto"
@@ -207,36 +347,89 @@ export default function PaneTradingZone({
               </svg>
             </figure>
           </div>
+
+          <div
+            id="no-panel-texture"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0"
+          >
+            <figure className="h-full">
+              <Image
+                draggable={false}
+                src={downTexture}
+                alt="down texture"
+                width={393}
+                height={180}
+                className="h-full w-auto"
+              />
+            </figure>
+          </div>
+
+          <div
+            id="no-panel-text"
+            className="absolute top-0 h-[180px] w-[514px] flex justify-start right-[-620px] -translate-y-1/2 p-2 pl-0"
+          >
+            <div className="absolute top-1/2 left-40 text-white text-[40px] font-abc-gravity-italic -translate-y-1/2">
+              <span>No</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center flex-col w-[384px] pb-2">
           <div className="relative min-w-[384px] h-fit flex items-center justify-between gap-2">
-            <div className="absolute h-[86%] w-[65%] bg-[#222222] z-0 left-1/2 -translate-x-1/2"></div>
+            <div
+              id="amount"
+              className="absolute h-[86%] w-[65%] bg-[#222222] z-0 left-1/2 -translate-x-1/2 flex justify-center items-center overflow-hidden"
+            >
+              <NumberFlow value={100} className="text-white text-[32px] font-abc-gravity-italic z-10" />
 
-            <figure className="z-10">
-              <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M68.5372 4C82.5094 4 95.0595 12.548 100.176 25.5498L122.733 82.874C126.347 92.0593 119.576 102 109.705 102H69.2628C57.005 102 45.6959 95.4014 39.6641 84.7305L5.83893 24.8887C0.563802 15.556 7.30598 4 18.0264 4H68.5372Z"
-                  fill="#222222"
-                  stroke="#1A1A1A"
-                  strokeWidth="8"
-                />
-              </svg>
-            </figure>
+              <video
+                // ref={videoRef}
+                className="absolute inset-0 size-full object-cover object-center motion-reduce:hidden opacity-30"
+                src="https://v1.pinimg.com/videos/iht/expMp4/3e/06/12/3e06120f4326ec50e71392f95e0f4ff4_720w.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                aria-hidden
+              />
+            </div>
 
-            <figure className="z-10">
-              <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M59.1855 4C45.2133 4 32.6633 12.548 27.5469 25.5498L4.98926 82.874C1.37524 92.0593 8.14682 102 18.0176 102H58.46C70.7177 102 82.0268 95.4014 88.0586 84.7305L121.884 24.8887C127.159 15.556 120.417 4 109.696 4H59.1855Z"
-                  fill="#222222"
-                  stroke="#1A1A1A"
-                  strokeWidth="8"
-                />
-              </svg>
-            </figure>
+            <div className="relative">
+              <figure id="minus" className="z-10">
+                <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M68.5372 4C82.5094 4 95.0595 12.548 100.176 25.5498L122.733 82.874C126.347 92.0593 119.576 102 109.705 102H69.2628C57.005 102 45.6959 95.4014 39.6641 84.7305L5.83893 24.8887C0.563802 15.556 7.30598 4 18.0264 4H68.5372Z"
+                    fill="#222222"
+                    stroke="#1A1A1A"
+                    strokeWidth="8"
+                  />
+                </svg>
+              </figure>
+
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic">
+                -
+              </div>
+            </div>
+
+            <div className="relative">
+              <figure id="plus" className="z-10">
+                <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M59.1855 4C45.2133 4 32.6633 12.548 27.5469 25.5498L4.98926 82.874C1.37524 92.0593 8.14682 102 18.0176 102H58.46C70.7177 102 82.0268 95.4014 88.0586 84.7305L121.884 24.8887C127.159 15.556 120.417 4 109.696 4H59.1855Z"
+                    fill="#222222"
+                    stroke="#1A1A1A"
+                    strokeWidth="8"
+                  />
+                </svg>
+              </figure>
+
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px] font-abc-gravity-italic">
+                +
+              </div>
+            </div>
           </div>
 
-          <div className="h-full">
+          <div id="pnl" className="h-full relative">
             <figure className="z-10 h-full">
               <svg
                 className="h-full w-auto"
@@ -252,8 +445,22 @@ export default function PaneTradingZone({
                 />
               </svg>
             </figure>
+
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[32px]">
+              <NumberFlow value={100} className="text-white text-[20px]" prefix="$" suffix="tUSDC" />
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="absolute bottom-0 left-0 z-30 p-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-white text-[14px] font-sans py-2 px-3 rounded-lg bg-[#222222]"
+        >
+          Back
+        </button>
       </div>
     </div>
   )
