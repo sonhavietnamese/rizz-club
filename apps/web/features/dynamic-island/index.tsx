@@ -140,7 +140,7 @@ export default function SectionDynamicIsland() {
         ) : null}
       </AnimatePresence>
 
-      <div className="relative h-full overflow-hidden rounded-2xl">
+      <div className="relative h-full rounded-2xl">
         {showVideo ? (
           <video
             ref={videoRef}
