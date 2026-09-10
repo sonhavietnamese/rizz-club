@@ -130,7 +130,7 @@ function MarketValueFeed() {
             yDomain={[-0.05, 1.08]}
             formatValue={formatPercent}
             formatTime={formatChartTime}
-            lineWidth={4}
+            lineWidth={3}
             smoothCurve={false}
             badgeVariant="minimal"
             scrub={false}

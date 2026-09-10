@@ -1,6 +1,7 @@
 'use client'
 
 import { currentMarketIds } from '@/hooks/use-current-market'
+import { useAbility } from '@/components/ability-provider'
 import { useHeartRate } from '@/hooks/use-heart-rate'
 import { useMarketTimeseries } from '@/hooks/use-market-timeseries'
 import { useMarketTrades } from '@/hooks/use-market-trades'
@@ -57,6 +58,7 @@ export default function PaneTradingZone({
     placeTrade,
     takeProfit,
   } = useTrading()
+  const { applied, bindApplied } = useAbility()
   const [amount, setAmount] = useState(DEFAULT_TRADE_AMOUNT)
   const marketIds = useMemo(() => currentMarketIds(market), [market])
   const { trades } = useMarketTrades(marketIds)
@@ -98,6 +100,11 @@ export default function PaneTradingZone({
 
   function progressHint(profit: number) {
     return { profit, heartRate: { live: heartRate.live, bpm: heartRate.bpm } }
+  }
+
+  async function buy(outcome: 'YES' | 'NO') {
+    const result = await placeTrade(outcome, 'buy', amount, applied?.id)
+    if (result?.abilityPlay) bindApplied()
   }
 
   return (
@@ -358,7 +365,7 @@ export default function PaneTradingZone({
           <button
             type="button"
             id="yes-panel-text"
-            onClick={() => void placeTrade('YES', 'buy', amount)}
+            onClick={() => void buy('YES')}
             disabled={!canTrade}
             aria-label="Buy UP"
             aria-busy={buyingYes}
@@ -427,7 +434,7 @@ export default function PaneTradingZone({
           <button
             type="button"
             id="no-panel-text"
-            onClick={() => void placeTrade('NO', 'buy', amount)}
+            onClick={() => void buy('NO')}
             disabled={!canTrade}
             aria-label="Buy DOWN"
             aria-busy={buyingNo}
@@ -447,7 +454,7 @@ export default function PaneTradingZone({
               onClick={() => bumpAmount(-TRADE_AMOUNT_STEP)}
               disabled={!canAdjustAmount || amount <= TRADE_AMOUNT_STEP}
               aria-label="Decrease trade amount"
-              className="pointer-events-auto cursor-pointer relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 z-10"
+              className="pointer-events-auto cursor-pointer relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed z-10"
             >
               <figure className="z-10">
                 <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -492,7 +499,7 @@ export default function PaneTradingZone({
               onClick={() => bumpAmount(TRADE_AMOUNT_STEP)}
               disabled={!canAdjustAmount}
               aria-label="Increase trade amount"
-              className="pointer-events-auto cursor-pointer relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 z-10"
+              className="pointer-events-auto cursor-pointer relative transition-transform duration-[160ms] [transition-timing-function:var(--ease-out)] enabled:active:scale-[0.97] disabled:cursor-not-allowed z-10"
             >
               <figure className="z-10">
                 <svg width="128" height="106" viewBox="0 0 128 106" fill="none" xmlns="http://www.w3.org/2000/svg">

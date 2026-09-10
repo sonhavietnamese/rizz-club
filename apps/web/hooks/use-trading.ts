@@ -10,9 +10,11 @@ import {
   formatClaimResultMessage,
   formatTakeProfitResultMessage,
   formatTradeResultMessage,
+  withAbilityMessage,
   outcomePositions,
   placePositionBody,
   positionTotal,
+  balancesAfterPosition,
   sellablePositions,
   tradableForOutcome,
   tradingApiErrorMessage,
@@ -26,7 +28,7 @@ import {
 import { progressHeartRateBpm, recordProgressEvent, type ProgressHeartRate } from '@/lib/progress'
 import { tradeWallet } from '@/lib/trade-setup'
 import { usePrivy } from '@privy-io/react-auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type TradeProgressHint = {
   profit?: number
@@ -49,6 +51,7 @@ export function useTrading() {
   const [isTakingProfit, setIsTakingProfit] = useState(false)
   const [isClaiming, setIsClaiming] = useState(false)
   const [status, setStatus] = useState<TradingStatus | null>(null)
+  const snapshotGeneration = useRef(0)
   const positions = outcomePositions(market, balances)
   const busy = isTrading || isClaiming
   const canTrade = canPlaceTrade({
@@ -84,6 +87,8 @@ export function useTrading() {
       return
     }
 
+    const generation = snapshotGeneration.current
+
     try {
       setIsLoadingPositions(true)
       const response = await tradingApiFetch('/api/trading/balances', { wallet_id: walletId })
@@ -93,14 +98,16 @@ export function useTrading() {
         throw new Error(tradingApiErrorMessage(result, 'Failed to load positions'))
       }
 
+      if (generation !== snapshotGeneration.current) return
       setBalances(result?.balances ?? null)
     } catch (error) {
+      if (generation !== snapshotGeneration.current) return
       setBalances(null)
       if (!silent) {
         setStatus({ tone: 'error', message: `Could not load positions: ${errorMessage(error)}` })
       }
     } finally {
-      setIsLoadingPositions(false)
+      if (generation === snapshotGeneration.current) setIsLoadingPositions(false)
     }
   }
 
@@ -108,6 +115,7 @@ export function useTrading() {
     if (!walletId) return
 
     let canceled = false
+    const generation = snapshotGeneration.current
 
     void getAccessToken()
       .then((accessToken) => {
@@ -123,7 +131,7 @@ export function useTrading() {
       })
       .then(async (response) => {
         const result = (await response.json().catch(() => null)) as BalancesResponse | null
-        if (canceled) return
+        if (canceled || generation !== snapshotGeneration.current) return
 
         if (!response.ok) {
           setBalances(null)
@@ -139,7 +147,7 @@ export function useTrading() {
         setIsLoadingPositions(false)
       })
       .catch((error: unknown) => {
-        if (canceled) return
+        if (canceled || generation !== snapshotGeneration.current) return
         setBalances(null)
         setStatus({ tone: 'error', message: `Could not load positions: ${errorMessage(error)}` })
         setIsLoadingPositions(false)
@@ -164,7 +172,30 @@ export function useTrading() {
     return () => controller.abort()
   }, [marketId])
 
-  async function submitPosition(outcome: Outcome, side: TradeSide, amount?: number) {
+  useEffect(() => {
+    if (!walletId) return
+
+    let canceled = false
+    void getAccessToken()
+      .then((accessToken) => {
+        if (!accessToken || canceled) return
+        return fetch('/api/abilities/settle', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ wallet_id: walletId }),
+        })
+      })
+      .catch(() => {})
+
+    return () => {
+      canceled = true
+    }
+  }, [getAccessToken, marketId, walletId])
+
+  async function submitPosition(outcome: Outcome, side: TradeSide, amount?: number, abilityId?: number) {
     const tradable = tradableForOutcome(market, outcome)
     if (!walletId || !market || !marketId || !tradable) {
       throw new Error('No live market is ready to trade yet.')
@@ -180,6 +211,7 @@ export function useTrading() {
         outcome,
         side,
         amount,
+        abilityId: side === 'buy' ? abilityId : undefined,
       }),
     )
     const result = (await response.json().catch(() => null)) as PlacePositionResult | null
@@ -188,11 +220,20 @@ export function useTrading() {
       throw new Error(tradingApiErrorMessage(result, 'Failed to place position'))
     }
 
-    if (result?.balances) setBalances(result.balances)
+    snapshotGeneration.current += 1
+    setBalances((current) =>
+      balancesAfterPosition({
+        current,
+        reported: result?.balances,
+        symbol: tradable,
+        side,
+        filled: result?.order.filled ?? 0,
+      }),
+    )
     return result
   }
 
-  async function placeTrade(outcome: Outcome, side: TradeSide = 'buy', amount?: number) {
+  async function placeTrade(outcome: Outcome, side: TradeSide = 'buy', amount?: number, abilityId?: number) {
     try {
       setIsTrading(true)
       setTradingOutcome(outcome)
@@ -201,21 +242,25 @@ export function useTrading() {
         message: `${side === 'buy' ? 'Buying' : 'Selling'} ${outcome}...`,
       })
 
-      const result = await submitPosition(outcome, side, amount)
+      const result = await submitPosition(outcome, side, amount, abilityId)
       const filled = result?.order.filled ?? 0
       setStatus({
         tone: 'success',
-        message: formatTradeResultMessage({
-          side,
-          outcome,
-          filled,
-          amount: result?.order.amount ?? amount ?? 0,
-        }),
+        message: withAbilityMessage(
+          formatTradeResultMessage({
+            side,
+            outcome,
+            filled,
+            amount: result?.order.amount ?? amount ?? 0,
+          }),
+          result?.abilitySettlement,
+        ),
       })
       if (side === 'buy' && filled > 0) recordProgressEvent({ type: 'placed' })
-      void refreshPositions({ silent: true })
+      return result
     } catch (error) {
       setStatus({ tone: 'error', message: errorMessage(error) })
+      return null
     } finally {
       setIsTrading(false)
       setTradingOutcome(null)
@@ -238,6 +283,7 @@ export function useTrading() {
       })
 
       const results = []
+      let settlement = null
       for (const lot of lots) {
         const result = await submitPosition(lot.label, 'sell', lot.total)
         const filled = result?.order.filled ?? 0
@@ -246,6 +292,7 @@ export function useTrading() {
           filled,
           amount: result?.order.amount ?? lot.total,
         })
+        if (result?.abilitySettlement) settlement = result.abilitySettlement
         const profit = progress?.profit
         if (filled > 0 && profit != null && Number.isFinite(profit)) {
           recordProgressEvent({
@@ -256,8 +303,7 @@ export function useTrading() {
         }
       }
 
-      setStatus({ tone: 'success', message: formatTakeProfitResultMessage(results) })
-      void refreshPositions({ silent: true })
+      setStatus({ tone: 'success', message: withAbilityMessage(formatTakeProfitResultMessage(results), settlement) })
     } catch (error) {
       setStatus({ tone: 'error', message: errorMessage(error) })
     } finally {
@@ -286,7 +332,10 @@ export function useTrading() {
       if (result?.balances) setBalances(result.balances)
       setStatus({
         tone: 'success',
-        message: formatClaimResultMessage(result?.claimed.length ?? 0),
+        message: withAbilityMessage(
+          formatClaimResultMessage(result?.claimed.length ?? 0),
+          result?.abilitySettlements?.[0],
+        ),
       })
       void refreshPositions({ silent: true })
     } catch (error) {

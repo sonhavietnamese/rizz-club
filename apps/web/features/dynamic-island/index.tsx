@@ -3,19 +3,24 @@
 import { useAbility } from '@/components/ability-provider'
 import { useDisplayName } from '@/hooks/use-display-name'
 import { useHeartRate } from '@/hooks/use-heart-rate'
+import { useCurrentMarket, useMarketCountdown } from '@/hooks/use-current-market'
 import { useTradeSetup } from '@/hooks/use-trade-setup'
+import { useTrading } from '@/hooks/use-trading'
 import { usePublishTraderHeartRate } from '@/hooks/use-traders'
-import { ABILITY_ACCENT } from '@/lib/ability'
+import { ABILITY_ACCENT, appliedAbilityRelease, islandAbilityMarketToApply } from '@/lib/ability'
+import { binaryMarketId, settleAbilitiesBody } from '@/lib/trading'
 import {
   canApplyAbilityOnIsland,
   formatBalanceLine,
   islandStageFromSetup,
   shortAddress,
   tradeSetupProgress,
+  tradeWallet,
   type FaucetAsset,
 } from '@/lib/trade-setup'
 import { traderIdentity } from '@/lib/traders'
 import { useIslandStore } from '@/stores/island'
+import { usePrivy } from '@privy-io/react-auth'
 import { AnimatePresence, useReducedMotion } from 'motion/react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import AppliedTag from './applied-tag'
@@ -52,13 +57,68 @@ function SetupProgress({ step }: { step: ReturnType<typeof useTradeSetup>['statu
   )
 }
 
+function useReleaseAppliedOnMarketEnd() {
+  const { applied, bound, clearApplied, consumeApplied } = useAbility()
+  const { market } = useCurrentMarket()
+  const remaining = useMarketCountdown()
+  const { user, getAccessToken } = usePrivy()
+  const walletId = tradeWallet(user)?.id ?? null
+  const marketId = binaryMarketId(market)
+  const previousMarketIdRef = useRef<string | null>(null)
+  const releasedMarketRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const target = islandAbilityMarketToApply({
+      previousMarketId: previousMarketIdRef.current,
+      marketId,
+      remainingSeconds: remaining,
+    })
+    if (marketId) previousMarketIdRef.current = marketId
+    if (!target || !applied) return
+    if (releasedMarketRef.current === target) return
+    releasedMarketRef.current = target
+
+    const cardId = applied.id
+    const wasBound = bound
+
+    void (async () => {
+      let playCreated = false
+      try {
+        if (!walletId) return
+        const accessToken = await getAccessToken()
+        if (!accessToken) return
+        const response = await fetch('/api/abilities/settle', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(settleAbilitiesBody(walletId, { marketId: target, abilityId: cardId })),
+        })
+        const result = (await response.json().catch(() => null)) as { play?: { id?: string } | null } | null
+        playCreated = Boolean(result?.play?.id)
+      } catch {
+        // Pending plays retry on the next market tick.
+      } finally {
+        if (appliedAbilityRelease({ bound: wasBound, playCreated }) === 'consume') {
+          consumeApplied(cardId)
+        } else {
+          clearApplied(cardId)
+        }
+      }
+    })()
+  }, [applied, bound, clearApplied, consumeApplied, getAccessToken, marketId, remaining, walletId])
+}
+
 export default function SectionDynamicIsland() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const reduceMotion = useReducedMotion() ?? false
   const { ready, authenticated, user, status, balances, needs, settled, busy, start, fund, refresh } = useTradeSetup()
+  const { canClaim, isClaiming, claimRewards, status: claimStatus } = useTrading()
   const heartRate = useHeartRate()
   usePublishTraderHeartRate(heartRate.bpm, heartRate.live)
   const { islandRef, drag, overIsland, applied, clearApplied, returning } = useAbility()
+  useReleaseAppliedOnMarketEnd()
   const zone = useIslandStore((state) => state.zone)
   const setZone = useIslandStore((state) => state.setZone)
   const syncFromSetup = useIslandStore((state) => state.syncFromSetup)
@@ -125,6 +185,13 @@ export default function SectionDynamicIsland() {
     void fund(asset)
   }
 
+  const claim = () => {
+    void claimRewards().then(() => refresh())
+  }
+
+  const walletBusy = busy || isClaiming
+  const feedback = claimStatus ?? (status.step === 'error' ? { tone: 'error' as const, message: status.detail } : null)
+
   const showDrop = Boolean(drag) && !returning
   const canApply = canApplyAbilityOnIsland(stage)
 
@@ -144,7 +211,7 @@ export default function SectionDynamicIsland() {
         {showVideo ? (
           <video
             ref={videoRef}
-            className="absolute inset-0 size-full object-cover object-bottom motion-reduce:hidden"
+            className="absolute inset-0 size-full object-cover object-bottom motion-reduce:hidden rounded-2xl"
             src="https://v1.pinimg.com/videos/iht/expMp4/45/05/57/45055796afda511e5c057fa25102cae2_720w.mp4"
             autoPlay
             muted
@@ -239,16 +306,32 @@ export default function SectionDynamicIsland() {
                     <p className="font-sans text-sm tabular-nums text-white/90">
                       {balances ? formatBalanceLine(balances) : 'Balances unavailable'}
                     </p>
-                    {status.step === 'error' ? (
-                      <p className="mt-1 line-clamp-2 max-w-[280px] font-sans text-[12px] leading-snug text-[#F87171]">
-                        {status.detail}
+                    {feedback ? (
+                      <p
+                        className={`mt-1 line-clamp-2 max-w-[280px] font-sans text-[12px] leading-snug ${
+                          feedback.tone === 'error'
+                            ? 'text-[#F87171]'
+                            : feedback.tone === 'success'
+                              ? 'text-white/80'
+                              : 'text-white/55'
+                        }`}
+                      >
+                        {feedback.message}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <IslandButton
+                      onClick={claim}
+                      disabled={walletBusy || !canClaim}
+                      busy={isClaiming}
+                      className="bg-white text-black"
+                    >
+                      {isClaiming ? 'Claiming' : 'Claim'}
+                    </IslandButton>
+                    <IslandButton
                       onClick={() => void refresh()}
-                      disabled={busy || !status.address}
+                      disabled={walletBusy || !status.address}
                       busy={busy && status.step === 'checking_balances'}
                       className="bg-white/10 text-white"
                     >
@@ -258,14 +341,14 @@ export default function SectionDynamicIsland() {
                       <>
                         <IslandButton
                           onClick={() => faucet('STT')}
-                          disabled={busy || !status.address}
+                          disabled={walletBusy || !status.address}
                           busy={busy && status.step === 'funding_stt'}
                         >
                           {busy && status.step === 'funding_stt' ? 'Funding STT' : 'Faucet STT'}
                         </IslandButton>
                         <IslandButton
                           onClick={() => faucet('tUSDC')}
-                          disabled={busy || !status.address}
+                          disabled={walletBusy || !status.address}
                           busy={busy && status.step === 'funding_tusdc'}
                         >
                           {busy && status.step === 'funding_tusdc' ? 'Funding tUSDC' : 'Faucet tUSDC'}

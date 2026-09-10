@@ -3,13 +3,16 @@ import {
   canPlaceTrade,
   canTakeProfit,
   claimRewardsBody,
+  settleAbilitiesBody,
   formatClaimResultMessage,
   formatPositionLine,
   formatTakeProfitResultMessage,
   formatTradeResultMessage,
+  withAbilityMessage,
   outcomePositions,
   placePositionBody,
   positionTotal,
+  balancesAfterPosition,
   sellablePositions,
   tradableForOutcome,
   tradingApiErrorMessage,
@@ -56,6 +59,44 @@ describe('outcomePositions', () => {
   })
 })
 
+describe('balancesAfterPosition', () => {
+  test('a successful extra buy increases the open lot even if a stale snapshot missed the fill', () => {
+    const next = balancesAfterPosition({
+      current: { 'BTC-5M-YES': { total: 8 } },
+      reported: { 'BTC-5M-YES': { total: 8 }, tUSDC: { total: 90 } },
+      symbol: 'BTC-5M-YES',
+      side: 'buy',
+      filled: 5,
+    })
+
+    expect(positionTotal(outcomePositions(market(), next), 'YES')).toBe(13)
+    expect(next?.tUSDC?.total).toBe(90)
+  })
+
+  test('a first fill still opens a lot when the wallet snapshot is empty', () => {
+    const next = balancesAfterPosition({
+      current: null,
+      symbol: 'BTC-5M-YES',
+      side: 'buy',
+      filled: 5,
+    })
+
+    expect(positionTotal(outcomePositions(market(), next), 'YES')).toBe(5)
+  })
+
+  test('a full sell clears the lot even if a stale snapshot still shows it', () => {
+    const next = balancesAfterPosition({
+      current: { 'BTC-5M-YES': { total: 8 } },
+      reported: { 'BTC-5M-YES': { total: 8 } },
+      symbol: 'BTC-5M-YES',
+      side: 'sell',
+      filled: 8,
+    })
+
+    expect(positionTotal(outcomePositions(market(), next), 'YES')).toBe(0)
+  })
+})
+
 describe('placePositionBody', () => {
   test('builds a buy ticket with the default stake and slippage', () => {
     expect(
@@ -77,6 +118,17 @@ describe('placePositionBody', () => {
       amount: 5,
       slippage_percent: 5,
     })
+    expect(
+      placePositionBody({
+        walletId: 'wal_1',
+        marketId: `0x${'ab'.repeat(32)}`,
+        marketSymbol: 'BTC-5M',
+        tradable: 'BTC-5M-YES',
+        outcome: 'YES',
+        side: 'buy',
+        abilityId: 3,
+      }),
+    ).toMatchObject({ ability_id: 3 })
   })
 })
 
@@ -87,6 +139,17 @@ describe('claimRewardsBody', () => {
   })
 })
 
+describe('settleAbilitiesBody', () => {
+  test('includes the finished market and parked card when the round ends', () => {
+    expect(settleAbilitiesBody('wal_1')).toEqual({ wallet_id: 'wal_1' })
+    expect(settleAbilitiesBody('wal_1', { marketId: '0xabc', abilityId: 2 })).toEqual({
+      wallet_id: 'wal_1',
+      market_id: '0xabc',
+      ability_id: 2,
+    })
+  })
+})
+
 describe('trade and claim copy', () => {
   test('describes a fill and a claim in one line', () => {
     expect(formatTradeResultMessage({ side: 'buy', outcome: 'YES', filled: 5, amount: 5 })).toBe(
@@ -94,6 +157,16 @@ describe('trade and claim copy', () => {
     )
     expect(formatClaimResultMessage(0)).toBe('No settled rewards to claim yet.')
     expect(formatClaimResultMessage(2)).toBe('Claimed 2 rewards.')
+    expect(
+      withAbilityMessage('Sold YES. Filled 8 of 8.', {
+        kind: 'protect_loss',
+        status: 'paid',
+        won: false,
+        profit: -3,
+        playerUsd: 3,
+        recipientCount: 0,
+      }),
+    ).toBe('Sold YES. Filled 8 of 8. Ability paid $3.00.')
   })
 
   test('only a funded wallet with a live market can trade', () => {

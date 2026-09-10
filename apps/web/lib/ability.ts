@@ -1,10 +1,18 @@
 export const ABILITY_FRONT_COLOR = '#E8E4DC'
 export const ABILITY_ACCENT = '#7C5CFF'
 
+export const ABILITY_KINDS = ['double_win', 'protect_loss', 'calm_pulse', 'cheers_win'] as const
+export type AbilityKind = (typeof ABILITY_KINDS)[number]
+
+export const ABILITY_PAYOUT_CAP_USD = 10
+export const CHEERS_RECIPIENT_COUNT = 10
+export const CHEERS_AMOUNT_USD = 1
+
 export type AbilityCard = {
   id: number
   image: string
   name: string
+  kind: AbilityKind
 }
 
 export type AbilityDrag = {
@@ -18,11 +26,19 @@ export type AbilityDrag = {
 }
 
 export const ABILITY_CARDS: AbilityCard[] = [
-  { id: 1, image: '/card-001.png', name: 'Double price' },
-  { id: 2, image: '/card-002.png', name: 'Iron hands' },
-  { id: 3, image: '/card-003.png', name: 'Fast fill' },
-  { id: 4, image: '/card-004.png', name: 'Last stand' },
+  { id: 1, image: '/card-001.png', name: 'Double price', kind: 'double_win' },
+  { id: 2, image: '/card-002.png', name: 'Protect loss', kind: 'protect_loss' },
+  { id: 3, image: '/card-003.png', name: 'Calm pulse', kind: 'calm_pulse' },
+  { id: 4, image: '/card-004.png', name: 'Cheers', kind: 'cheers_win' },
 ]
+
+export function isAbilityKind(value: unknown): value is AbilityKind {
+  return typeof value === 'string' && (ABILITY_KINDS as readonly string[]).includes(value)
+}
+
+export function abilityCardById(id: number) {
+  return ABILITY_CARDS.find((card) => card.id === id) ?? null
+}
 
 export function insertAt<T>(list: T[], index: number, item: T) {
   const next = list.slice()
@@ -34,6 +50,22 @@ export function insertAt<T>(list: T[], index: number, item: T) {
 export function appendUnique(list: AbilityCard[], card: AbilityCard) {
   if (list.some((item) => item.id === card.id)) return list
   return [...list, card]
+}
+
+export function islandAbilityMarketToApply(input: {
+  previousMarketId: string | null
+  marketId: string | null
+  remainingSeconds: number | null
+}) {
+  if (input.remainingSeconds === 0 && input.marketId) return input.marketId
+  if (input.previousMarketId && input.marketId && input.previousMarketId !== input.marketId) {
+    return input.previousMarketId
+  }
+  return null
+}
+
+export function appliedAbilityRelease(input: { bound: boolean; playCreated: boolean }): 'consume' | 'return' {
+  return input.bound || input.playCreated ? 'consume' : 'return'
 }
 
 export function toggleFlippedId(ids: number[], id: number) {

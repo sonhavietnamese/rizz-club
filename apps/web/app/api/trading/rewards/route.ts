@@ -5,6 +5,7 @@ import { requirePrivyEthereumWallet, TradingApiError } from '@/app/api/privy-aut
 import { createViemAccount } from '@privy-io/node/viem'
 import { formatUnits, type Hex } from 'viem'
 import { z } from 'zod'
+import { settleResolvedAbilityPlays } from '@/services/ability-settle'
 
 export const runtime = 'nodejs'
 
@@ -156,6 +157,10 @@ export async function POST(request: Request) {
     }
 
     const balances = await exchange.fetchBalance().catch(() => null)
+    const abilitySettlements = await settleResolvedAbilityPlays(address).catch((error) => {
+      console.error('Failed to settle ability plays after claim:', errorMessage(error))
+      return []
+    })
 
     return Response.json({
       walletId,
@@ -164,6 +169,7 @@ export async function POST(request: Request) {
       claimed,
       skipped,
       balances,
+      abilitySettlements,
     })
   } catch (error) {
     console.error('Claim DreamDex rewards failed:', error)

@@ -1,4 +1,5 @@
 import { formatNumber, formatShares } from '@/lib/format'
+import { formatAbilitySettlement, type AbilitySettlement } from '@/lib/ability-payout'
 import { isBinaryMarket, type UnifiedMarket } from '@somnia-chain/markets-sdk'
 
 export const DEFAULT_TRADE_AMOUNT = 5
@@ -28,6 +29,8 @@ export type PlacePositionResult = {
     txHash?: string
   }
   balances?: TradingBalances
+  abilityPlay?: { id: string } | null
+  abilitySettlement?: AbilitySettlement | null
 }
 
 export type RewardClaim = {
@@ -42,6 +45,7 @@ export type RewardClaimResult = {
   claimed: RewardClaim[]
   skipped: { marketId: string; reason: string; outcome?: Outcome }[]
   balances?: TradingBalances | null
+  abilitySettlements?: AbilitySettlement[]
 }
 
 type TradingApiError = {
@@ -81,6 +85,45 @@ export function positionTotal(positions: OutcomePosition[], outcome: Outcome) {
   return positions.find((position) => position.label === outcome)?.total ?? 0
 }
 
+export function applyPositionFill(
+  balances: TradingBalances | null,
+  input: { symbol: string | null; side: TradeSide; filled: number },
+): TradingBalances | null {
+  if (!input.symbol || input.filled <= 0) return balances
+
+  const current = balances?.[input.symbol]?.total ?? 0
+  const total = input.side === 'buy' ? current + input.filled : Math.max(0, current - input.filled)
+  return { ...(balances ?? {}), [input.symbol]: { total } }
+}
+
+export function balancesAfterPosition(input: {
+  current: TradingBalances | null
+  reported?: TradingBalances | null
+  symbol: string | null
+  side: TradeSide
+  filled: number
+}): TradingBalances | null {
+  const applied = applyPositionFill(input.current, input)
+  if (!input.reported) return applied
+  if (!input.symbol) return { ...(applied ?? {}), ...input.reported }
+
+  const { [input.symbol]: reportedLot, ...restReported } = input.reported
+  const next: TradingBalances = { ...(applied ?? {}), ...restReported }
+  const appliedTotal = applied?.[input.symbol]?.total
+  const reportedTotal = reportedLot?.total
+
+  if (reportedTotal == null) return Object.keys(next).length > 0 ? next : applied
+  if (appliedTotal == null) {
+    next[input.symbol] = { total: reportedTotal }
+    return next
+  }
+
+  next[input.symbol] = {
+    total: input.side === 'buy' ? Math.max(appliedTotal, reportedTotal) : Math.min(appliedTotal, reportedTotal),
+  }
+  return next
+}
+
 export function formatPositionLine(positions: OutcomePosition[]) {
   return `YES ${formatShares(positionTotal(positions, 'YES'))} · NO ${formatShares(positionTotal(positions, 'NO'))}`
 }
@@ -116,6 +159,7 @@ export function placePositionBody(input: {
   side: TradeSide
   amount?: number
   slippagePercent?: number
+  abilityId?: number
 }) {
   return {
     wallet_id: input.walletId,
@@ -126,6 +170,7 @@ export function placePositionBody(input: {
     side: input.side,
     amount: input.amount ?? DEFAULT_TRADE_AMOUNT,
     slippage_percent: input.slippagePercent ?? DEFAULT_SLIPPAGE_PERCENT,
+    ...(input.abilityId != null ? { ability_id: input.abilityId } : {}),
   }
 }
 
@@ -133,6 +178,14 @@ export function claimRewardsBody(walletId: string, marketIds?: string[]) {
   return {
     wallet_id: walletId,
     ...(marketIds?.length ? { market_ids: marketIds } : {}),
+  }
+}
+
+export function settleAbilitiesBody(walletId: string, extra?: { marketId?: string; abilityId?: number }) {
+  return {
+    wallet_id: walletId,
+    ...(extra?.marketId ? { market_id: extra.marketId } : {}),
+    ...(extra?.abilityId != null ? { ability_id: extra.abilityId } : {}),
   }
 }
 
@@ -160,4 +213,10 @@ export function formatTakeProfitResultMessage(
   }
 
   return `Sold ${results.map((result) => `${formatNumber(result.filled)} ${result.outcome}`).join(' and ')}.`
+}
+
+export function withAbilityMessage(message: string, settlement?: AbilitySettlement | null) {
+  if (!settlement) return message
+  const extra = formatAbilitySettlement(settlement)
+  return extra ? `${message} ${extra}` : message
 }

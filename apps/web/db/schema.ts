@@ -1,5 +1,5 @@
 import { InferInsertModel, InferSelectModel, relations } from 'drizzle-orm'
-import { pgTable, text, timestamp, index } from 'drizzle-orm/pg-core'
+import { integer, pgTable, text, timestamp, index } from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
 	id: text('id').primaryKey(),
@@ -72,6 +72,31 @@ export const verification = pgTable(
 	(table) => [index('verification_identifier_idx').on(table.identifier)]
 )
 
+export const abilityPlay = pgTable(
+	'ability_play',
+	{
+		id: text('id').primaryKey(),
+		abilityId: integer('ability_id').notNull(),
+		kind: text('kind').notNull(),
+		address: text('address').notNull(),
+		walletId: text('wallet_id').notNull(),
+		marketId: text('market_id').notNull(),
+		outcome: text('outcome').notNull(),
+		stakeAmount: text('stake_amount').notNull(),
+		shares: text('shares').notNull(),
+		status: text('status').notNull(),
+		profit: text('profit'),
+		payoutAmount: text('payout_amount'),
+		payoutsJson: text('payouts_json'),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		settledAt: timestamp('settled_at')
+	},
+	(table) => [
+		index('ability_play_address_market_idx').on(table.address, table.marketId),
+		index('ability_play_status_idx').on(table.status)
+	]
+)
+
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account)
@@ -96,3 +121,5 @@ export type User = InferSelectModel<typeof user>
 export type UserInsert = InferInsertModel<typeof user>
 // Create input = required fields for insert (exclude id, createdAt, updatedAt)
 export type CreateUserInput = Pick<UserInsert, 'privyId' | 'discordId' | 'walletId'>
+export type AbilityPlay = InferSelectModel<typeof abilityPlay>
+export type AbilityPlayInsert = InferInsertModel<typeof abilityPlay>

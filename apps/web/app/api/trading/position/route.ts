@@ -22,6 +22,8 @@ import {
   type MarketOnchain,
   type PlaceOrderResult,
 } from '@somnia-chain/markets-sdk'
+import { abilityCardById } from '@/lib/ability'
+import { recordAbilityBuy, settleAbilityClose, settleResolvedAbilityPlays } from '@/services/ability-settle'
 import { formatUnits, parseUnits, type Hex } from 'viem'
 import { z } from 'zod'
 
@@ -38,6 +40,7 @@ const placePositionBodySchema = z.object({
   side: z.enum(['buy', 'sell']).default('buy'),
   amount: z.coerce.number().positive(),
   slippage_percent: z.coerce.number().min(0).max(50).default(2),
+  ability_id: z.coerce.number().int().positive().optional(),
 })
 
 function createPositionDebugTimer() {
@@ -113,6 +116,60 @@ function binarySideForPosition(outcome: 'YES' | 'NO', side: 'buy' | 'sell'): Bin
 
 function humanAmount(raw: bigint, decimals: number) {
   return Number(formatUnits(raw, decimals))
+}
+
+function counterpartTradable(tradable: string | undefined, marketSymbol: string | undefined, outcome: 'YES' | 'NO') {
+  const other = outcome === 'YES' ? 'NO' : 'YES'
+  if (tradable && /#(YES|NO)$/i.test(tradable)) return tradable.replace(/#(YES|NO)$/i, `#${other}`)
+  if (marketSymbol) return `${marketSymbol}#${other}`
+  return undefined
+}
+
+function outcomeTradableSymbols(
+  marketSymbol: string | undefined,
+  tradable: string | undefined,
+  outcome: 'YES' | 'NO',
+) {
+  const matched = tradable || (marketSymbol ? `${marketSymbol}#${outcome}` : undefined)
+  const other = counterpartTradable(matched, marketSymbol, outcome)
+  return {
+    yes: outcome === 'YES' ? matched : other,
+    no: outcome === 'NO' ? matched : other,
+  }
+}
+
+async function onchainOutcomeBalances({
+  exchange,
+  onchain,
+  account,
+  marketSymbol,
+  tradable,
+  outcome,
+}: {
+  exchange: ReturnType<typeof createDreamDexExchange>
+  onchain: MarketOnchain
+  account: `0x${string}`
+  marketSymbol?: string
+  tradable?: string
+  outcome: 'YES' | 'NO'
+}) {
+  const [yesRaw, noRaw] = await Promise.all([
+    exchange.client.getOutcomeBalance({
+      outcomeToken: onchain.outcomeToken,
+      account,
+      id: onchain.yesId,
+    }),
+    exchange.client.getOutcomeBalance({
+      outcomeToken: onchain.outcomeToken,
+      account,
+      id: onchain.noId,
+    }),
+  ])
+  const symbols = outcomeTradableSymbols(marketSymbol, tradable, outcome)
+  const balances: Record<string, { total: number }> = {}
+  if (symbols.yes) balances[symbols.yes] = { total: humanAmount(yesRaw, onchain.decimals) }
+  if (symbols.no) balances[symbols.no] = { total: humanAmount(noRaw, onchain.decimals) }
+  return balances
 }
 
 async function cachedMarketOnchain({
@@ -192,6 +249,59 @@ function bestCrossPrice(book: BinaryOrderBook, outcome: 'YES' | 'NO', side: 'buy
   return outcome === 'YES' ? book.yesBids[0]?.price : book.noBids[0]?.price
 }
 
+async function applyAbilityToPosition(input: {
+  abilityId?: number
+  address: string
+  walletId: string
+  marketId: string
+  outcome: 'YES' | 'NO'
+  side: 'buy' | 'sell'
+  filled: number
+  quotedQuantity: number
+  stakeAmount: number
+  proceeds: number
+}) {
+  try {
+    if (input.side === 'buy' && input.abilityId && input.filled > 0) {
+      const card = abilityCardById(input.abilityId)
+      if (card) {
+        const play = await recordAbilityBuy({
+          abilityId: card.id,
+          kind: card.kind,
+          address: input.address,
+          walletId: input.walletId,
+          marketId: input.marketId,
+          outcome: input.outcome,
+          stakeAmount: input.stakeAmount,
+          shares: input.filled,
+        })
+        void settleResolvedAbilityPlays(input.address).catch((error) => {
+          console.error('Failed to settle resolved ability plays:', errorMessage(error))
+        })
+        return { play, settlement: null }
+      }
+    }
+
+    if (input.side === 'sell' && input.filled > 0) {
+      const settlement = await settleAbilityClose({
+        address: input.address,
+        marketId: input.marketId,
+        outcome: input.outcome,
+        soldShares: input.filled,
+        proceeds: input.proceeds,
+      })
+      void settleResolvedAbilityPlays(input.address).catch((error) => {
+        console.error('Failed to settle resolved ability plays:', errorMessage(error))
+      })
+      return { play: null, settlement }
+    }
+  } catch (error) {
+    console.error('Ability apply failed:', errorMessage(error))
+  }
+
+  return { play: null, settlement: null }
+}
+
 export async function POST(request: Request) {
   const timer = createPositionDebugTimer()
   const body = await timer.wait(
@@ -221,6 +331,7 @@ export async function POST(request: Request) {
     side,
     amount,
     slippage_percent: slippagePercent,
+    ability_id,
   } = parseResult.data
 
   let exchange: ReturnType<typeof createDreamDexExchange> | null = null
@@ -354,6 +465,49 @@ export async function POST(request: Request) {
 
     console.info(`[trade-position-api:${timer.summary().id}] complete`, timer.summary())
 
+    const orderPayload = orderResponse(
+      order,
+      quote.quantity,
+      onchain.decimals,
+      tradable ?? `${marketId}#${outcome}`,
+      humanAmount(quote.limitPrice, onchain.decimals),
+      side,
+    )
+    const quotedQuantity = humanAmount(quote.quantity, onchain.decimals)
+    const ability = await applyAbilityToPosition({
+      abilityId: ability_id,
+      address: wallet.address,
+      walletId,
+      marketId,
+      outcome,
+      side,
+      filled: orderPayload.filled,
+      quotedQuantity,
+      stakeAmount:
+        side === 'buy' ? humanAmount((quote as BinaryStakeQuote).escrow, onchain.decimals) || amount : amount,
+      proceeds:
+        side === 'sell' && quotedQuantity > 0
+          ? humanAmount((quote as BinarySellQuote).estProceeds, onchain.decimals) *
+            (orderPayload.filled / quotedQuantity)
+          : 0,
+    })
+    const balances = await timer
+      .wait(
+        'outcomeBalances onchain',
+        onchainOutcomeBalances({
+          exchange,
+          onchain,
+          account: wallet.address as `0x${string}`,
+          marketSymbol,
+          tradable,
+          outcome,
+        }),
+      )
+      .catch((error) => {
+        console.error('Read outcome balances after position failed:', errorMessage(error))
+        return undefined
+      })
+
     return Response.json({
       walletId,
       address: wallet.address,
@@ -379,14 +533,10 @@ export async function POST(request: Request) {
               estProceeds: formatUnits((quote as BinarySellQuote).estProceeds, onchain.decimals),
             }),
       },
-      order: orderResponse(
-        order,
-        quote.quantity,
-        onchain.decimals,
-        tradable ?? `${marketId}#${outcome}`,
-        humanAmount(quote.limitPrice, onchain.decimals),
-        side,
-      ),
+      order: orderPayload,
+      balances,
+      abilityPlay: ability.play,
+      abilitySettlement: ability.settlement,
       debug: timer.summary(),
     })
   } catch (error) {

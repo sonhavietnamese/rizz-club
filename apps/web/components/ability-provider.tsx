@@ -24,6 +24,7 @@ const APPLY_DURATION_S = 0.2
 type AbilityContextValue = {
   rack: AbilityCard[]
   applied: AbilityCard | null
+  bound: boolean
   drag: AbilityDrag | null
   overIsland: boolean
   returning: boolean
@@ -37,7 +38,9 @@ type AbilityContextValue = {
     clientY: number
     originIndex: number
   }) => void
-  clearApplied: () => void
+  bindApplied: () => void
+  clearApplied: (cardId?: number) => void
+  consumeApplied: (cardId?: number) => void
 }
 
 const AbilityContext = createContext<AbilityContextValue | null>(null)
@@ -63,12 +66,14 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
   const rotate = useTransform([xPoint, x], ([pointerX, cardX]) => dragLeanFromLag(Number(cardX) - Number(pointerX)))
   const [rack, setRack] = useState(ABILITY_CARDS)
   const [applied, setApplied] = useState<AbilityCard | null>(null)
+  const [bound, setBound] = useState(false)
   const [drag, setDrag] = useState<AbilityDrag | null>(null)
   const [overIsland, setOverIsland] = useState(false)
   const [returning, setReturning] = useState(false)
 
   const dragRef = useRef<AbilityDrag | null>(null)
   const appliedRef = useRef<AbilityCard | null>(null)
+  const boundRef = useRef(false)
   const returningRef = useRef(false)
   const unbindRef = useRef<(() => void) | null>(null)
 
@@ -102,9 +107,12 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
     (card: AbilityCard) => {
       unbindPointer()
       const previous = appliedRef.current
+      const previousBound = boundRef.current
       appliedRef.current = card
+      boundRef.current = false
       setApplied(card)
-      if (previous && previous.id !== card.id) {
+      setBound(false)
+      if (previous && previous.id !== card.id && !previousBound) {
         setRack((rackNow) => appendUnique(rackNow, previous))
       }
       dragRef.current = null
@@ -302,13 +310,37 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  const clearApplied = useCallback(() => {
-    const current = appliedRef.current
-    if (!current) return
-    appliedRef.current = null
-    setApplied(null)
-    setRack((rackNow) => appendUnique(rackNow, current))
+  const bindApplied = useCallback(() => {
+    if (!appliedRef.current) return
+    boundRef.current = true
+    setBound(true)
   }, [])
+
+  const consumeApplied = useCallback((cardId?: number) => {
+    if (cardId != null && appliedRef.current?.id !== cardId) return
+    appliedRef.current = null
+    boundRef.current = false
+    setApplied(null)
+    setBound(false)
+  }, [])
+
+  const clearApplied = useCallback(
+    (cardId?: number) => {
+      if (cardId != null && appliedRef.current?.id !== cardId) return
+      if (boundRef.current) {
+        consumeApplied(cardId)
+        return
+      }
+      const current = appliedRef.current
+      if (!current) return
+      appliedRef.current = null
+      boundRef.current = false
+      setApplied(null)
+      setBound(false)
+      setRack((rackNow) => appendUnique(rackNow, current))
+    },
+    [consumeApplied],
+  )
 
   useEffect(() => {
     void useAbilityFlippedStore.persist.rehydrate()
@@ -338,15 +370,18 @@ export function AbilityProvider({ children }: { children: ReactNode }) {
     () => ({
       rack,
       applied,
+      bound,
       drag,
       overIsland,
       returning,
       islandRef,
       slotRefs,
       beginDrag,
+      bindApplied,
       clearApplied,
+      consumeApplied,
     }),
-    [applied, beginDrag, clearApplied, drag, overIsland, rack, returning],
+    [applied, beginDrag, bindApplied, bound, clearApplied, consumeApplied, drag, overIsland, rack, returning],
   )
 
   return (
