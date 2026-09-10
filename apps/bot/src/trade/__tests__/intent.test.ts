@@ -45,19 +45,20 @@ describe('tradeSide', () => {
 
 describe('pickCost', () => {
   test('stays between the floor and the limit', () => {
-    expect(pickCost(5)).toBeNull()
-    expect(pickCost(5.01, () => 0)).toBeCloseTo(5.01, 8)
-    expect(pickCost(12, () => 0)).toBeGreaterThan(minTradeCost)
-    expect(pickCost(12, () => 1)).toBe(12)
+    expect(pickCost(3)).toBeNull()
+    expect(pickCost(3.01, () => 0)).toBeCloseTo(3.01, 8)
+    expect(pickCost(5, () => 0)).toBeGreaterThan(minTradeCost)
+    expect(pickCost(5, () => 1)).toBe(5)
     expect(pickCost(100, () => 1)).toBe(maxTradeCost)
     expect(pickCost(40, () => 1, { min: 5, limit: 8 })).toBe(8)
   })
 })
 
 describe('resolveCostBounds', () => {
-  test('rejects a limit that is not above the floor', () => {
-    expect(() => resolveCostBounds({ limit: 5 })).toThrow('limit cost must be greater than 5')
-    expect(resolveCostBounds({ limit: 20 })).toEqual({ min: 5, limit: 20 })
+  test('accepts a 3–5 band and rejects a limit on the floor', () => {
+    expect(() => resolveCostBounds({ limit: 3 })).toThrow('limit cost must be greater than 3')
+    expect(resolveCostBounds({ limit: 5 })).toEqual({ min: 3, limit: 5 })
+    expect(resolveCostBounds({ limit: 20 })).toEqual({ min: 3, limit: 20 })
   })
 })
 
@@ -86,8 +87,8 @@ describe('pickIntent', () => {
     expect(intent?.cost).toBeGreaterThan(minTradeCost)
   })
 
-  test('skips when the wallet cannot fund a trade above 5', () => {
-    expect(pickIntent(yesWallet, { yes: 0, no: 0, collateral: 4 }, prices, () => 0.1)).toBeNull()
+  test('skips when the wallet cannot fund a trade above 3', () => {
+    expect(pickIntent(yesWallet, { yes: 0, no: 0, collateral: 3 }, prices, () => 0.1)).toBeNull()
   })
 
   test('caps each trade at the limit cost', () => {
@@ -138,7 +139,7 @@ describe('assertTradeCost', () => {
       assertTradeCost({ side: 'SELL_YES', outcome: 'YES', action: 'sell', cost: 40, exit: 'tp' }),
     ).not.toThrow()
     expect(() => assertTradeCost({ side: 'BUY_YES', outcome: 'YES', action: 'buy', cost: 40 })).toThrow(
-      'at most 12',
+      'at most 5',
     )
   })
 })

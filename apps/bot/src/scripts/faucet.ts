@@ -3,7 +3,7 @@ import { chain, createSignerClient, publicClient, tusdcAbi, tusdcAddress, writeG
 import { errorMessage } from '@/lib/async'
 import { getFaucetAccount, wallets, type BotWallet } from '@/wallets'
 
-const STT_AMOUNT = parseEther('2')
+const STT_AMOUNT = parseEther('1')
 const TUSDC_DECIMALS = 6
 const TUSDC_AMOUNT = parseUnits('100', TUSDC_DECIMALS)
 const GAS_RESERVE = parseEther('2')

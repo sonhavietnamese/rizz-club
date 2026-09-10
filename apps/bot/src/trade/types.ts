@@ -44,8 +44,8 @@ export type CostBounds = {
   limit: number
 }
 
-export const minTradeCost = 5
-export const maxTradeCost = 12
+export const minTradeCost = 3
+export const maxTradeCost = 5
 export const defaultCostBounds: CostBounds = {
   min: minTradeCost,
   limit: maxTradeCost,

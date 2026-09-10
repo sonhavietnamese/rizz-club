@@ -19,7 +19,7 @@ const CHAT = {
 const TRADE = {
   intervalMs: 200,
   window: '5m' satisfies IntervalOption,
-  limit: 8,
+  limit: 5,
   batch: 2,
   count: undefined as number | undefined,
 }
