@@ -52,4 +52,6 @@ export const env = createEnv({
 
     SOMNIA_PRIVATE_KEY: process.env.SOMNIA_PRIVATE_KEY,
   },
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+  emptyStringAsUndefined: true,
 })
