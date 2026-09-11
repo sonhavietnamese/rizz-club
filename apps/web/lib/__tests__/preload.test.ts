@@ -98,6 +98,7 @@ describe('preload assets', () => {
   test('warms ability art and the live firebase paths', () => {
     for (const card of ABILITY_CARDS) {
       expect(PRELOAD_IMAGE_URLS).toContain(card.image)
+      expect(PRELOAD_IMAGE_URLS).toContain(card.front)
     }
     expect(PRELOAD_REALTIME_PATHS).toEqual(['chat', TRADERS_PATH, 'market', 'trades'])
   })

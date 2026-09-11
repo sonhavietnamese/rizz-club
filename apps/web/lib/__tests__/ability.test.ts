@@ -77,6 +77,15 @@ describe('abilityCardById', () => {
     expect(abilityCardById(4)?.kind).toBe('cheers_win')
     expect(abilityCardById(9)).toBeNull()
   })
+
+  test('uses the painted front for each rack card', () => {
+    expect(ABILITY_CARDS.map((card) => card.front)).toEqual([
+      '/cards/001.png',
+      '/cards/002.png',
+      '/cards/003.png',
+      '/cards/004.png',
+    ])
+  })
 })
 
 describe('islandAbilityMarketToApply', () => {

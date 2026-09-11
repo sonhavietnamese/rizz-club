@@ -2,7 +2,7 @@
 
 import AbilityCardFace from '@/components/ability-card-face'
 import { useAbility } from '@/components/ability-provider'
-import { ABILITY_FRONT_COLOR, type AbilityCard as AbilityCardData } from '@/lib/ability'
+import { type AbilityCard as AbilityCardData } from '@/lib/ability'
 import { canApplyAbilityOnIsland } from '@/lib/trade-setup'
 import { useAbilityFlippedStore } from '@/stores/ability'
 import { useIslandStore } from '@/stores/island'
@@ -189,11 +189,19 @@ function AbilityCard({ card, index, reduceMotion }: { card: AbilityCardData; ind
             </span>
             <span
               aria-hidden={!revealed}
-              className={`absolute inset-0 rounded-[10px] transition-opacity duration-200 [transition-timing-function:var(--ease-out)] ${
+              className={`absolute inset-0 transition-opacity duration-200 [transition-timing-function:var(--ease-out)] ${
                 revealed ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ backgroundColor: ABILITY_FRONT_COLOR }}
-            />
+            >
+              <Image
+                draggable={false}
+                src={card.front}
+                alt=""
+                width={376}
+                height={536}
+                className="h-full w-full object-cover"
+              />
+            </span>
           </>
         ) : (
           <motion.span

@@ -1,4 +1,3 @@
-export const ABILITY_FRONT_COLOR = '#E8E4DC'
 export const ABILITY_ACCENT = '#7C5CFF'
 
 export const ABILITY_KINDS = ['double_win', 'protect_loss', 'calm_pulse', 'cheers_win'] as const
@@ -11,6 +10,7 @@ export const CHEERS_AMOUNT_USD = 1
 export type AbilityCard = {
   id: number
   image: string
+  front: string
   name: string
   kind: AbilityKind
 }
@@ -26,10 +26,10 @@ export type AbilityDrag = {
 }
 
 export const ABILITY_CARDS: AbilityCard[] = [
-  { id: 1, image: '/card-001.png', name: 'Double price', kind: 'double_win' },
-  { id: 2, image: '/card-002.png', name: 'Protect loss', kind: 'protect_loss' },
-  { id: 3, image: '/card-003.png', name: 'Calm pulse', kind: 'calm_pulse' },
-  { id: 4, image: '/card-004.png', name: 'Cheers', kind: 'cheers_win' },
+  { id: 1, image: '/card-001.png', front: '/cards/001.png', name: 'Double price', kind: 'double_win' },
+  { id: 2, image: '/card-002.png', front: '/cards/002.png', name: 'Protect loss', kind: 'protect_loss' },
+  { id: 3, image: '/card-003.png', front: '/cards/003.png', name: 'Calm pulse', kind: 'calm_pulse' },
+  { id: 4, image: '/card-004.png', front: '/cards/004.png', name: 'Cheers', kind: 'cheers_win' },
 ]
 
 export function isAbilityKind(value: unknown): value is AbilityKind {

@@ -9,7 +9,7 @@ export const PRELOAD_REDUCED_FADE_MS = 200
 export const PRELOAD_REALTIME_PATHS = ['chat', TRADERS_PATH, 'market', 'trades'] as const
 
 export const PRELOAD_IMAGE_URLS = [
-  ...ABILITY_CARDS.map((card) => card.image),
+  ...ABILITY_CARDS.flatMap((card) => [card.image, card.front]),
   '/background-texture.webp',
   '/icon.png',
   '/mark-orange.png',
